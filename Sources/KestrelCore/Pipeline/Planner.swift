@@ -12,11 +12,15 @@ public struct Planner {
     }
 
     public func plan(_ classified: [ClassifiedEntry], categories: Set<Category>? = nil) -> CleanupPlan {
+        var seen = Set<String>()
         let items = classified
             .filter { $0.category.isDeletableByDefault }
             .filter { $0.confidence >= minConfidence }
             .filter { !SafetyGuard.isProtected($0.entry.url) }
             .filter { passesCategoryGate($0.category, requested: categories) }
+            // Never list the same path twice (a file can be both a duplicate and
+            // large & old) — a second move would fail on a missing source.
+            .filter { seen.insert($0.entry.url.path).inserted }
             .map { CleanupItem(entry: $0.entry, category: $0.category, reason: $0.reason) }
         return CleanupPlan(items: items)
     }

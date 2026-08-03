@@ -318,6 +318,58 @@ withTempDir { tmp in
     check(DuplicateFinder().find(in: entries).isEmpty, "zero-byte files not flagged")
 }
 
+// MARK: - Scan coordinator
+
+section("ScanCoordinator: finds nested dev artifacts, caches, dupes; skips .git")
+withTempDir { tmp in
+    // A monorepo-ish project with a top-level and a nested node_modules.
+    let proj = makeDir(tmp.appendingPathComponent("project"))
+    makeFile(proj.appendingPathComponent("package.json"), #"{"name":"root"}"#)
+    makeFile(makeDir(proj.appendingPathComponent("src")).appendingPathComponent("main.js"), "code")
+    makeFile(makeDir(proj.appendingPathComponent("node_modules")).appendingPathComponent("dep.js"), "x")
+    let front = makeDir(proj.appendingPathComponent("frontend"))
+    makeFile(front.appendingPathComponent("package.json"), #"{"name":"frontend"}"#)
+    makeFile(makeDir(front.appendingPathComponent("node_modules")).appendingPathComponent("dep2.js"), "y")
+
+    // A per-app cache under Library/Caches.
+    let appCache = makeDir(tmp.appendingPathComponent("Library/Caches/com.example.app"))
+    makeFile(appCache.appendingPathComponent("blob"), "cache")
+
+    // Two identical loose files → one duplicate.
+    makeFile(tmp.appendingPathComponent("copyA.bin"), "same content here")
+    makeFile(tmp.appendingPathComponent("copyB.bin"), "same content here")
+
+    // A large & old file (mtime pushed into the past).
+    let old = makeFile(tmp.appendingPathComponent("old.bin"), "0123456789")
+    try? fm.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -400 * 86400)], ofItemAtPath: old.path)
+
+    // Protected VCS tree.
+    makeFile(makeDir(tmp.appendingPathComponent(".git")).appendingPathComponent("HEAD"), "ref")
+
+    let options = ScanOptions(largeOld: LargeOldClassifier(minSize: 1, minAge: 100 * 86400))
+    let classified = try ScanCoordinator().scan(root: tmp, options: options)
+
+    let devPaths = classified.filter { $0.category == .devArtifact }.map { $0.entry.url.path }
+    check(devPaths.count == 2, "both node_modules found (got \(devPaths.count))")
+    check(devPaths.contains { $0.contains("frontend/node_modules") }, "nested node_modules found")
+    check(classified.contains { $0.category == .safeCache && $0.entry.url.lastPathComponent == "com.example.app" }, "per-app cache is one unit")
+    check(classified.filter { $0.category == .duplicate }.count == 1, "one duplicate found")
+    check(classified.contains { $0.category == .largeOld }, "large & old file surfaced")
+    check(!classified.contains { $0.entry.url.path.contains("/.git/") }, ".git never in results")
+
+    // dev artifact sizes are real (recursive), not zero.
+    check(classified.first { $0.category == .devArtifact }.map { $0.entry.size > 0 } == true, "dev artifact has recursive size")
+}
+
+section("ScanCoordinator: default 'all' plan excludes review-only categories")
+withTempDir { tmp in
+    makeFile(tmp.appendingPathComponent("copyA.bin"), "same content here")
+    makeFile(tmp.appendingPathComponent("copyB.bin"), "same content here")
+    let classified = try ScanCoordinator().scan(root: tmp)
+    check(Planner().plan(classified).items.isEmpty, "duplicates not in default plan")
+    check(Planner().plan(classified, categories: [.duplicate]).count == 1, "duplicates when named")
+}
+
 // MARK: - Safety guard
 
 section("SafetyGuard: protects credentials, VCS, system and libraries")

@@ -524,14 +524,32 @@ withTempDir { tmp in
     makeFile(tmp.appendingPathComponent("b/big.bin"), "12345678901234567890") // 20
     makeFile(tmp.appendingPathComponent("c.txt"), "ccc")             // 3
 
-    let tree = DiskMap().measure(tmp, maxDepth: 2)
+    // physical: false → logical sizes, so the byte totals are deterministic (allocated
+    // sizes are block-rounded and filesystem-dependent).
+    let tree = DiskMap(physical: false).measure(tmp, maxDepth: 2)
     check(tree.size == 33, "root total = 33 (got \(tree.size))")
     check(tree.children.map(\.name) == ["b", "a", "c.txt"], "children sorted largest-first")
     check(tree.children.first(where: { $0.name == "a" })?.children.count == 2, "'a' expanded at depth 2")
 
-    let shallow = DiskMap().measure(tmp, maxDepth: 1)
+    let shallow = DiskMap(physical: false).measure(tmp, maxDepth: 1)
     let aShallow = shallow.children.first { $0.name == "a" }
     check(aShallow?.size == 10 && aShallow?.children.isEmpty == true, "depth 1 sums but does not expand")
+}
+
+section("DiskMap: physical sizing reports on-disk bytes for sparse files (the Docker.raw fix)")
+withTempDir { tmp in
+    // A sparse file: 500 MB logical length, but almost nothing actually allocated —
+    // exactly like Docker.raw / VM images that made the Space map show phantom 500 GB.
+    let sparse = tmp.appendingPathComponent("Docker.raw")
+    fm.createFile(atPath: sparse.path, contents: nil)
+    if let fh = try? FileHandle(forWritingTo: sparse) {
+        try? fh.truncate(atOffset: 500_000_000)
+        try? fh.close()
+    }
+    let logical = DiskMap(physical: false).measure(tmp, maxDepth: 1).size
+    let physicalSize = DiskMap(physical: true).measure(tmp, maxDepth: 1).size
+    check(logical >= 500_000_000, "logical length is the full 500 MB (got \(logical))")
+    check(physicalSize < logical / 10, "allocated size is a fraction of logical (got \(physicalSize) vs \(logical))")
 }
 
 // MARK: - Snapshots & trend

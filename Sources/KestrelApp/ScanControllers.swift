@@ -373,15 +373,37 @@ struct ChatMessage: Identifiable, Equatable {
         launchAtLogin = SMAppService.mainApp.status == .enabled
     }
 
+    @Published var lastRestoreOK = true
+
     func undo(_ id: String) {
         guard !busy else { return }
         busy = true; message = nil
         let vaultURL = paths.vault
         Task.detached { [weak self] in
-            let restored = (try? VaultService(vaultRoot: vaultURL).undo(session: id)) ?? 0
+            var text: String
+            var ok = true
+            do {
+                let outcome = try VaultService(vaultRoot: vaultURL).undo(session: id)
+                var parts = ["Restored \(outcome.restored) item(s)"]
+                if !outcome.skippedExisting.isEmpty {
+                    parts.append("\(outcome.skippedExisting.count) already in place (kept in vault)")
+                }
+                if !outcome.failed.isEmpty {
+                    ok = false
+                    let reason = outcome.failed.first?.reason ?? ""
+                    parts.append("\(outcome.failed.count) couldn't be restored — \(reason). Grant Full Disk Access if these are in Trash/Library.")
+                }
+                text = parts.joined(separator: " · ")
+                if outcome.restored == 0 && outcome.skippedExisting.isEmpty && outcome.failed.isEmpty {
+                    text = "Nothing to restore — the vault copies were already gone."
+                }
+            } catch {
+                ok = false
+                text = "Restore failed: \((error as NSError).localizedDescription)"
+            }
             let sessions = (try? VaultService(vaultRoot: vaultURL).listSessions()) ?? []
             await MainActor.run {
-                self?.message = "Restored \(restored) item(s) to their original location."
+                self?.message = text; self?.lastRestoreOK = ok
                 self?.sessions = sessions; self?.busy = false
             }
         }

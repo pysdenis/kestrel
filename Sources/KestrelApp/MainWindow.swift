@@ -736,7 +736,9 @@ struct SettingsSection: View {
                     .font(.caption).foregroundStyle(.secondary)
 
                 if let message = controller.message {
-                    Label(message, systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(Palette.good)
+                    Label(message, systemImage: controller.lastRestoreOK ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .font(.caption).foregroundStyle(controller.lastRestoreOK ? Palette.good : Palette.warn)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if controller.sessions.isEmpty {

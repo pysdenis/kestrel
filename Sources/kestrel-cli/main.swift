@@ -338,8 +338,12 @@ do {
             }
         case "undo":
             guard rest.count > 1 else { print("Usage: kestrel vault undo <session-id>"); exit(2) }
-            let restored = try vault.undo(session: rest[1])
-            print("Restored \(restored) item(s) from session \(rest[1]).")
+            let outcome = try vault.undo(session: rest[1])
+            print("Restored \(outcome.restored) item(s) from session \(rest[1]).")
+            if !outcome.skippedExisting.isEmpty {
+                print("Skipped \(outcome.skippedExisting.count) — original location is occupied (kept in vault).")
+            }
+            for failure in outcome.failed { print("Failed: \(failure.path) — \(failure.reason)") }
         case "purge":
             let days = Double(option("--days", in: rest) ?? "14") ?? 14
             let purged = try vault.purge(olderThan: days * 24 * 60 * 60)

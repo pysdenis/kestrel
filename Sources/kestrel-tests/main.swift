@@ -50,21 +50,28 @@ withTempDir { tmp in
     let file = makeFile(tmp.appendingPathComponent("restore.txt"), "important")
     let session = try vault.beginSession()
     try vault.move(url: file, session: session)
-    let restored = try vault.undo(session: session)
-    check(restored == 1, "one item restored")
+    let outcome = try vault.undo(session: session)
+    check(outcome.restored == 1, "one item restored")
+    check(outcome.isComplete, "outcome reports a clean restore")
     check(fm.fileExists(atPath: file.path), "file back at original path")
     check((try? String(contentsOf: file, encoding: .utf8)) == "important", "contents intact")
 }
 
-section("VaultService: undo never overwrites an existing file")
+section("VaultService: undo never overwrites an existing file, and keeps it in the vault")
 withTempDir { tmp in
-    let vault = VaultService(vaultRoot: tmp.appendingPathComponent("vault"))
+    let vaultRoot = tmp.appendingPathComponent("vault")
+    let vault = VaultService(vaultRoot: vaultRoot)
     let file = makeFile(tmp.appendingPathComponent("conflict.txt"), "original")
     let session = try vault.beginSession()
     try vault.move(url: file, session: session)
     makeFile(file, "new")
-    _ = try vault.undo(session: session)
+    let outcome = try vault.undo(session: session)
     check((try? String(contentsOf: file, encoding: .utf8)) == "new", "existing file not clobbered")
+    check(outcome.restored == 0 && outcome.skippedExisting.count == 1, "skipped because occupied")
+    // Data-safety: a skipped item must NOT be lost — the session and its file survive.
+    check(fm.fileExists(atPath: vaultRoot.appendingPathComponent(session).path), "session kept, not purged on partial undo")
+    let sessions = try vault.listSessions()
+    check(sessions.first?.count == 1, "manifest rewritten to the one remaining record")
 }
 
 section("VaultService: moving a missing source throws")

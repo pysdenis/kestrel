@@ -55,20 +55,21 @@ struct CleanupSection: View {
                         Image(systemName: "folder")
                         Text(root.path).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
                         Spacer()
-                        Button("Choose…") { pickFolder() }
+                        Button("Choose…") { pickFolder() }.buttonStyle(.kestrel(.subtle, size: .small))
                     }
 
                     HStack {
                         Button(action: scan) {
                             if scanning { ProgressView().controlSize(.small) } else { Label("Scan", systemImage: "magnifyingglass") }
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.kestrel)
                         .disabled(scanning || applying)
 
                         if let plan, !plan.items.isEmpty {
                             Button(action: apply) {
                                 if applying { ProgressView().controlSize(.small) } else { Label("Move \(plan.count) to Vault", systemImage: "tray.and.arrow.down") }
                             }
+                            .buttonStyle(.kestrel(.secondary))
                             .disabled(applying)
                         }
                     }
@@ -157,6 +158,11 @@ struct EnergySection: View {
                         if let h = b.healthPercent { badge(icon: "heart.text.square", title: "Health", value: "\(h)%", tint: .pink) }
                         if let cy = b.cycleCount { badge(icon: "arrow.triangle.2.circlepath", title: "Cycles", value: "\(cy)", tint: .blue) }
                         badge(icon: "bolt", title: "State", value: b.isCharging ? "Charging" : "On battery", tint: .orange)
+                        if b.isCharging, let m = b.timeToFullMinutes {
+                            badge(icon: "battery.100.bolt", title: "Full in", value: minutesString(m), tint: .teal)
+                        } else if !b.isCharging, let m = b.timeToEmptyMinutes {
+                            badge(icon: "hourglass", title: "Time left", value: minutesString(m), tint: .teal)
+                        }
                         Spacer()
                     }
                 }
@@ -259,11 +265,11 @@ struct SecuritySection: View {
                         Image(systemName: "folder")
                         Text(root.path).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
                         Spacer()
-                        Button("Choose…") { pickFolder() }
+                        Button("Choose…") { pickFolder() }.buttonStyle(.kestrel(.subtle, size: .small))
                         Button(action: scan) {
                             if scanning { ProgressView().controlSize(.small) } else { Text("Scan") }
                         }
-                        .buttonStyle(.borderedProminent).disabled(scanning)
+                        .buttonStyle(.kestrel).disabled(scanning)
                     }
                     if let report {
                         if report.isClean {
@@ -341,11 +347,11 @@ struct ToolsSection: View {
                     HStack {
                         Text(project.path).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
                         Spacer()
-                        Button("Choose…") { pickProject() }
+                        Button("Choose…") { pickProject() }.buttonStyle(.kestrel(.subtle, size: .small))
                         Button(action: scanSecrets) {
                             if scanning { ProgressView().controlSize(.small) } else { Text("Scan") }
                         }
-                        .buttonStyle(.borderedProminent).disabled(scanning)
+                        .buttonStyle(.kestrel).disabled(scanning)
                     }
                     if let secrets {
                         if secrets.isEmpty {

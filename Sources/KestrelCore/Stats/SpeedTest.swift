@@ -10,10 +10,10 @@ public struct SpeedTestResult: Sendable, Equatable {
     }
 }
 
-/// On-demand internet speed test. Uses Cloudflare's public speed endpoint (the same one
-/// their own speed test uses) to download a payload and time it, plus a few tiny requests
-/// for latency. User-initiated network I/O only — it uploads nothing, so it does not
-/// violate the zero-telemetry rule; it just measures the pipe when the user asks.
+/// On-demand internet speed test. Streams a payload from Cloudflare's public speed
+/// endpoint and reports the running download rate as bytes arrive (so the UI can climb
+/// live), then returns the final figure plus latency. User-initiated network I/O that
+/// uploads nothing — no telemetry.
 public struct SpeedTest {
     public enum SpeedTestError: Error { case badResponse }
 
@@ -23,19 +23,19 @@ public struct SpeedTest {
         self.host = host
     }
 
-    public func run(bytes: Int = 25_000_000) async throws -> SpeedTestResult {
+    public func run(bytes: Int = 30_000_000, onProgress: @escaping (Double) -> Void = { _ in }) async throws -> SpeedTestResult {
         let latency = try await measureLatency()
-        let mbps = try await measureDownload(bytes: bytes)
+        let mbps = try await liveDownload(bytes: bytes, onProgress: onProgress)
         return SpeedTestResult(downloadMbps: mbps, latencyMs: latency)
     }
 
     // MARK: - Internals
 
-    private func makeSession() -> URLSession {
-        let config = URLSessionConfiguration.ephemeral
-        config.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-        config.urlCache = nil
-        return URLSession(configuration: config)
+    private func config() -> URLSessionConfiguration {
+        let c = URLSessionConfiguration.ephemeral
+        c.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        c.urlCache = nil
+        return c
     }
 
     private func downloadURL(_ bytes: Int) throws -> URL {
@@ -43,18 +43,18 @@ public struct SpeedTest {
         return url
     }
 
-    private func measureDownload(bytes: Int) async throws -> Double {
-        let session = makeSession()
-        let start = Date()
-        let (data, response) = try await session.data(from: try downloadURL(bytes))
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw SpeedTestError.badResponse }
-        let elapsed = Date().timeIntervalSince(start)
-        guard elapsed > 0 else { return 0 }
-        return Double(data.count) * 8 / elapsed / 1_000_000
+    private func liveDownload(bytes: Int, onProgress: @escaping (Double) -> Void) async throws -> Double {
+        let url = try downloadURL(bytes)
+        return try await withCheckedThrowingContinuation { continuation in
+            let probe = SpeedProbe(onProgress: onProgress) { result in continuation.resume(with: result) }
+            let session = URLSession(configuration: config(), delegate: probe, delegateQueue: nil)
+            probe.session = session
+            session.dataTask(with: url).resume()
+        }
     }
 
     private func measureLatency(samples: Int = 4) async throws -> Double {
-        let session = makeSession()
+        let session = URLSession(configuration: config())
         var best = Double.greatestFiniteMagnitude
         for _ in 0..<samples {
             let start = Date()
@@ -62,5 +62,41 @@ public struct SpeedTest {
             best = min(best, Date().timeIntervalSince(start) * 1000)
         }
         return best == .greatestFiniteMagnitude ? 0 : best
+    }
+}
+
+/// Accumulates streamed bytes and reports the running Mbps, resuming the continuation
+/// with the final rate on completion.
+private final class SpeedProbe: NSObject, URLSessionDataDelegate {
+    var session: URLSession?
+    private var received = 0
+    private var start: Date?
+    private var finished = false
+    private let onProgress: (Double) -> Void
+    private let completion: (Result<Double, Error>) -> Void
+
+    init(onProgress: @escaping (Double) -> Void, completion: @escaping (Result<Double, Error>) -> Void) {
+        self.onProgress = onProgress
+        self.completion = completion
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        if start == nil { start = Date() }            // time from the first byte
+        received += data.count
+        guard let start else { return }
+        let elapsed = Date().timeIntervalSince(start)
+        if elapsed > 0.08 { onProgress(Double(received) * 8 / elapsed / 1_000_000) }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        guard !finished else { return }
+        finished = true
+        defer { self.session?.finishTasksAndInvalidate(); self.session = nil }
+        if let error {
+            completion(.failure(error))
+            return
+        }
+        let elapsed = start.map { Date().timeIntervalSince($0) } ?? 0
+        completion(.success(elapsed > 0 ? Double(received) * 8 / elapsed / 1_000_000 : 0))
     }
 }

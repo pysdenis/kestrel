@@ -300,16 +300,25 @@ do {
     case "stats":
         let which = rest.first(where: { !$0.hasPrefix("-") }) ?? "all"
         let s = StatsCollector()
+        // Sample CPU twice over a short interval so utilisation is real (not a baseline 0).
+        let cpuSampler = CPUUsageSampler()
+        _ = cpuSampler.sample()
+        usleep(250_000)
+        let base = s.cpu()
+        let cpuStat = CPUStats(coreCount: base.coreCount, loadAverages: base.loadAverages, usagePercent: cpuSampler.sample())
         func showDisk() {
             if let d = s.disk() {
                 print("Disk:    \(fmtBytes(d.used)) used of \(fmtBytes(d.total))  (\(Int(d.usedFraction * 100))% full), \(fmtBytes(d.available)) free" + (d.purgeable > 0 ? " + \(fmtBytes(d.purgeable)) purgeable" : ""))
             }
         }
         func showMem() { let m = s.memory(); print("Memory:  \(fmtBytes(m.used)) used of \(fmtBytes(m.total))  (\(Int(m.usedFraction * 100))%)") }
-        func showCPU() { let c = s.cpu(); print(String(format: "CPU:     load %.2f / %.2f / %.2f on %d cores", c.loadAverages[0], c.loadAverages[1], c.loadAverages[2], c.coreCount)) }
+        func showCPU() { let c = cpuStat; print(String(format: "CPU:     %d%% used  ·  load %.2f / %.2f / %.2f on %d cores", Int(c.usagePercent.rounded()), c.loadAverages[0], c.loadAverages[1], c.loadAverages[2], c.coreCount)) }
+        func hm(_ m: Int) -> String { m >= 60 ? "\(m / 60)h \(m % 60)m" : "\(m)m" }
         func showBattery() {
             if let b = s.battery() {
                 var line = "Battery: \(b.percent)%\(b.isCharging ? " (charging)" : "")"
+                if b.isCharging, let m = b.timeToFullMinutes { line += ", \(hm(m)) to full" }
+                if !b.isCharging, let m = b.timeToEmptyMinutes { line += ", \(hm(m)) left" }
                 if let h = b.healthPercent { line += ", health \(h)%" }
                 if let cy = b.cycleCount { line += ", \(cy) cycles" }
                 print(line)
@@ -318,7 +327,7 @@ do {
         func showNet() { let n = s.network(); print("Network: ↓\(fmtBytes(n.bytesIn)) ↑\(fmtBytes(n.bytesOut))\(n.ssid.map { "  Wi-Fi: \($0)" } ?? "")") }
         func showVolumes() { for v in s.volumes() { print("  \(v.name.padding(toLength: 20, withPad: " ", startingAt: 0)) \(fmtBytes(v.space.used)) / \(fmtBytes(v.space.total))") } }
         func showHealth() {
-            let score = HealthScorer().score(disk: s.disk(), memory: s.memory(), cpu: s.cpu(), battery: s.battery())
+            let score = HealthScorer().score(disk: s.disk(), memory: s.memory(), cpu: cpuStat, battery: s.battery())
             print("Mac Health: \(score.overall)/100")
             for c in score.components {
                 print("  \(c.name.padding(toLength: 10, withPad: " ", startingAt: 0)) \(String(c.score).padding(toLength: 4, withPad: " ", startingAt: 0)) \(c.detail)")

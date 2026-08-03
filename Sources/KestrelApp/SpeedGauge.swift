@@ -1,94 +1,95 @@
 import SwiftUI
 
-/// A number that eases to its target value (used for the speed read-out counting up).
+/// A number that eases to its target value (the speed read-out climbing during a test
+/// and settling on the result).
 struct AnimatedNumber: View {
     let value: Double
     var format: (Double) -> String
     var font: Font = .title2.weight(.bold)
     @State private var shown: Double = 0
+    @State private var token = 0
 
     var body: some View {
         Text(format(shown))
             .font(font)
             .monospacedDigit()
-            .onAppear { run(to: value) }
-            .onChange(of: value) { run(to: $0) }
+            .onAppear { shown = value }
+            .onChange(of: value) { new in step(to: new) }
     }
 
-    private func run(to target: Double) {
+    private func step(to target: Double) {
+        token += 1
+        let mine = token
         let start = shown
         let delta = target - start
-        guard abs(delta) > 0.01 else { shown = target; return }
-        let steps = 26
-        for i in 0...steps {
+        guard abs(delta) > 0.5 else { shown = target; return }
+        let steps = 14
+        for i in 1...steps {
             let t = Double(i) / Double(steps)
-            let eased = 1 - pow(1 - t, 3)      // ease-out cubic
-            DispatchQueue.main.asyncAfter(deadline: .now() + t * 0.7) {
-                shown = start + delta * eased
+            let eased = 1 - pow(1 - t, 2)
+            DispatchQueue.main.asyncAfter(deadline: .now() + t * 0.4) {
+                if token == mine { shown = start + delta * eased }
             }
         }
     }
 }
 
-/// A 270° speed gauge. While testing it shows a sweeping arc; when a result arrives the
-/// arc eases to the measured fraction and the number counts up.
+/// A premium speedometer gauge: tick marks, a 270° track, a glowing value arc that eases
+/// as the measured rate climbs, and a counting read-out. `mbps` nil means idle.
 struct SpeedGauge: View {
     let mbps: Double?
     let testing: Bool
     var size: CGFloat = 128
-    @State private var spin = false
-    @State private var pulse = false
 
-    private var fraction: Double { min(1, (mbps ?? 0) / 500) }
+    private var fraction: Double { min(1, max(0, (mbps ?? 0) / 500)) }
 
     private var arcGradient: AngularGradient {
         AngularGradient(
-            colors: [.teal, Color(red: 0.2, green: 0.6, blue: 0.95), .accentColor],
+            colors: [Color(red: 0.16, green: 0.74, blue: 0.72), Color(red: 0.22, green: 0.55, blue: 0.96), .accentColor],
             center: .center, startAngle: .degrees(135), endAngle: .degrees(135 + 270)
         )
     }
 
     var body: some View {
         ZStack {
+            ticks
             Circle().trim(from: 0, to: 0.75)
-                .stroke(.quaternary, style: StrokeStyle(lineWidth: size * 0.075, lineCap: .round))
+                .stroke(.quaternary, style: StrokeStyle(lineWidth: size * 0.07, lineCap: .round))
                 .rotationEffect(.degrees(135))
 
-            if testing {
-                Circle().trim(from: 0, to: 0.16)
-                    .stroke(arcGradient, style: StrokeStyle(lineWidth: size * 0.075, lineCap: .round))
-                    .rotationEffect(.degrees(spin ? 405 : 45))
-                    .animation(.linear(duration: 0.85).repeatForever(autoreverses: false), value: spin)
-            } else {
-                Circle().trim(from: 0, to: 0.75 * fraction)
-                    .stroke(arcGradient, style: StrokeStyle(lineWidth: size * 0.075, lineCap: .round))
-                    .rotationEffect(.degrees(135))
-                    .animation(.easeOut(duration: 0.7), value: fraction)
-            }
+            Circle().trim(from: 0, to: 0.75 * fraction)
+                .stroke(arcGradient, style: StrokeStyle(lineWidth: size * 0.07, lineCap: .round))
+                .rotationEffect(.degrees(135))
+                .shadow(color: Color.teal.opacity(testing ? 0.55 : 0), radius: testing ? size * 0.06 : 0)
+                .animation(.easeOut(duration: 0.5), value: fraction)
 
             center
         }
         .frame(width: size, height: size)
-        .onAppear { spin = true }
+    }
+
+    private var ticks: some View {
+        ForEach(0..<9, id: \.self) { i in
+            Capsule()
+                .fill(.quaternary)
+                .frame(width: max(1.2, size * 0.014), height: size * 0.05)
+                .offset(y: -size * 0.43)
+                .rotationEffect(.degrees(-135 + Double(i) / 8 * 270))
+        }
+        .opacity(0.7)
     }
 
     @ViewBuilder private var center: some View {
-        VStack(spacing: 1) {
-            if testing {
-                Image(systemName: "waveform.path")
-                    .font(.system(size: size * 0.2, weight: .semibold))
-                    .foregroundStyle(.teal)
-                    .opacity(pulse ? 1 : 0.35)
-                    .scaleEffect(pulse ? 1.05 : 0.92)
-                    .onAppear { withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { pulse = true } }
-                Text("testing").font(.system(size: size * 0.09, weight: .semibold)).foregroundStyle(.secondary)
-            } else if let mbps {
-                AnimatedNumber(value: mbps, format: { String(format: "%.0f", $0) },
+        if mbps == nil {
+            VStack(spacing: 2) {
+                Image(systemName: "speedometer").font(.system(size: size * 0.24)).foregroundStyle(.teal)
+                Text("tap test").font(.system(size: size * 0.085, weight: .medium)).foregroundStyle(.secondary)
+            }
+        } else {
+            VStack(spacing: 0) {
+                AnimatedNumber(value: mbps ?? 0, format: { String(format: "%.0f", $0) },
                                font: .system(size: size * 0.27, weight: .bold, design: .rounded))
                 Text("Mbps").font(.system(size: size * 0.1, weight: .semibold)).foregroundStyle(.secondary).kerning(0.5)
-            } else {
-                Image(systemName: "speedometer").font(.system(size: size * 0.26)).foregroundStyle(.teal)
-                Text("tap test").font(.system(size: size * 0.09)).foregroundStyle(.secondary)
             }
         }
     }

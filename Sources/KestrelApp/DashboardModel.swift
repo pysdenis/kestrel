@@ -16,6 +16,7 @@ final class AppModel: ObservableObject {
 
     @Published var speedTesting = false
     @Published var speed: SpeedTestResult?
+    @Published var speedLive: Double = 0
 
     @Published var energyNow: [ProcessEnergy] = []
     @Published var energy24h: [EnergyUsage] = []
@@ -23,6 +24,7 @@ final class AppModel: ObservableObject {
 
     let paths = KestrelPaths()
     private let stats = StatsCollector()
+    private let cpuSampler = CPUUsageSampler()
     private lazy var energyLog = EnergyLog(url: paths.energyLog)
     private var timer: Timer?
     private var energyTimer: Timer?
@@ -63,7 +65,8 @@ final class AppModel: ObservableObject {
     func refresh() {
         let disk = stats.disk()
         let memory = stats.memory()
-        let cpu = stats.cpu()
+        let base = stats.cpu()
+        let cpu = CPUStats(coreCount: base.coreCount, loadAverages: base.loadAverages, usagePercent: cpuSampler.sample())
         let battery = stats.battery()
         self.disk = disk
         self.memory = memory
@@ -77,13 +80,23 @@ final class AppModel: ObservableObject {
         guard !speedTesting else { return }
         speedTesting = true
         speed = nil
+        speedLive = 0
         Task {
-            let result = try? await SpeedTest().run()
+            let result = try? await SpeedTest().run(onProgress: { mbps in
+                Task { @MainActor in self.speedLive = mbps }
+            })
             await MainActor.run {
                 self.speed = result
                 self.speedTesting = false
             }
         }
+    }
+
+    /// The number the speed gauge should show — the live rate while testing, else the
+    /// final result (nil = never run).
+    var speedDisplay: Double? {
+        if speedTesting { return speedLive }
+        return speed?.downloadMbps
     }
 
     /// Bring up the full window and give the app a Dock presence while it is open.

@@ -24,6 +24,63 @@ func bytesString(_ value: Int64) -> String {
     ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
 }
 
+/// "1h 20m" / "45m" from a minute count.
+func minutesString(_ minutes: Int) -> String {
+    let h = minutes / 60, m = minutes % 60
+    return h > 0 ? "\(h)h \(m)m" : "\(m)m"
+}
+
+/// A caption that prefers a time estimate, falling back to health/state.
+func batteryCaption(_ b: BatteryStats) -> String {
+    if b.isCharging, let m = b.timeToFullMinutes { return "\(minutesString(m)) to full" }
+    if !b.isCharging, let m = b.timeToEmptyMinutes { return "\(minutesString(m)) left" }
+    return b.healthPercent.map { "health \($0)%" } ?? (b.isCharging ? "charging" : "on battery")
+}
+
+/// Modern pill buttons with a soft gradient, a spring press, and a quiet secondary
+/// variant. Used everywhere so buttons feel like one family, not stock controls.
+struct KestrelButtonStyle: ButtonStyle {
+    enum Kind { case prominent, secondary, subtle }
+    var kind: Kind = .prominent
+    var tint: Color = .accentColor
+    var size: ControlSize = .regular
+
+    func makeBody(configuration: Configuration) -> some View {
+        let vPad: CGFloat = size == .small ? 5 : 8
+        let hPad: CGFloat = size == .small ? 11 : 15
+        return configuration.label
+            .font((size == .small ? Font.caption : Font.callout).weight(.semibold))
+            .padding(.vertical, vPad)
+            .padding(.horizontal, hPad)
+            .foregroundStyle(foreground)
+            .background(background, in: Capsule(style: .continuous))
+            .overlay(kind == .secondary ? Capsule().strokeBorder(.white.opacity(0.08)) : nil)
+            .contentShape(Capsule())
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .opacity(configuration.isPressed ? 0.9 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+
+    private var foreground: some ShapeStyle {
+        kind == .prominent ? AnyShapeStyle(.white) : AnyShapeStyle(tint)
+    }
+
+    private var background: AnyShapeStyle {
+        switch kind {
+        case .prominent: return AnyShapeStyle(tint.gradient)
+        case .secondary: return AnyShapeStyle(tint.opacity(0.14))
+        case .subtle: return AnyShapeStyle(.quaternary)
+        }
+    }
+}
+
+extension ButtonStyle where Self == KestrelButtonStyle {
+    static var kestrel: KestrelButtonStyle { KestrelButtonStyle() }
+    static func kestrel(_ kind: KestrelButtonStyle.Kind, tint: Color = .accentColor, size: ControlSize = .regular) -> KestrelButtonStyle {
+        KestrelButtonStyle(kind: kind, tint: tint, size: size)
+    }
+}
+
 /// A padded, rounded material container.
 struct Card<Content: View>: View {
     var padding: CGFloat = 14
@@ -54,7 +111,7 @@ struct HealthRing: View {
                 .rotationEffect(.degrees(-90))
                 .animation(.easeOut(duration: 0.6), value: score)
             VStack(spacing: 0) {
-                Text("\(score)").font(.system(size: size * 0.34, weight: .bold, design: .rounded))
+                Text("\(score)").font(.system(size: size * 0.34, weight: .bold, design: .rounded)).monospacedDigit()
                 Text("HEALTH").font(.system(size: size * 0.11, weight: .semibold)).foregroundStyle(.secondary).kerning(1)
             }
         }

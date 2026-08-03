@@ -39,11 +39,11 @@ public struct HealthScorer {
             detail: "\(Int(memory.usedFraction * 100))% used"
         ))
 
-        // CPU pressure of 1.0 (load == cores) is the knee; above ~2.0 scores 0.
-        let cpuScore = clamp(percent(1 - min(1, max(0, cpu.pressure - 1) / 1.0)))
+        // Score from real utilisation: full marks up to ~50% busy, 0 at fully pegged.
+        let cpuScore = clamp(percent(1 - max(0, cpu.usagePercent - 50) / 50))
         components.append(HealthComponent(
             name: "CPU", score: cpuScore, weight: 0.25,
-            detail: String(format: "load %.2f on %d cores", cpu.loadAverages.first ?? 0, cpu.coreCount)
+            detail: "\(Int(cpu.usagePercent.rounded()))% used, \(cpu.coreCount) cores"
         ))
 
         if let battery, let health = battery.healthPercent {

@@ -29,12 +29,16 @@ public struct CPUStats: Sendable, Equatable {
     public let coreCount: Int
     /// 1, 5 and 15-minute load averages.
     public let loadAverages: [Double]
+    /// Actual CPU utilisation, 0…100 (sampled between refreshes). This is the intuitive
+    /// headline figure — load average is kept for the detail view.
+    public let usagePercent: Double
     /// Load average (1 min) normalised to cores, as a 0…1+ pressure figure.
     public var pressure: Double { coreCount > 0 ? (loadAverages.first ?? 0) / Double(coreCount) : 0 }
 
-    public init(coreCount: Int, loadAverages: [Double]) {
+    public init(coreCount: Int, loadAverages: [Double], usagePercent: Double = 0) {
         self.coreCount = coreCount
         self.loadAverages = loadAverages
+        self.usagePercent = usagePercent
     }
 }
 
@@ -43,12 +47,18 @@ public struct BatteryStats: Sendable, Equatable {
     public let isCharging: Bool
     public let cycleCount: Int?
     public let healthPercent: Int?
+    /// Minutes until full (while charging) / until empty (on battery), if macOS has an
+    /// estimate yet. `nil` means "still calculating".
+    public let timeToFullMinutes: Int?
+    public let timeToEmptyMinutes: Int?
 
-    public init(percent: Int, isCharging: Bool, cycleCount: Int?, healthPercent: Int?) {
+    public init(percent: Int, isCharging: Bool, cycleCount: Int?, healthPercent: Int?, timeToFullMinutes: Int? = nil, timeToEmptyMinutes: Int? = nil) {
         self.percent = percent
         self.isCharging = isCharging
         self.cycleCount = cycleCount
         self.healthPercent = healthPercent
+        self.timeToFullMinutes = timeToFullMinutes
+        self.timeToEmptyMinutes = timeToEmptyMinutes
     }
 }
 
@@ -145,7 +155,11 @@ public struct StatsCollector {
             let percent = desc[kIOPSCurrentCapacityKey as String] as? Int ?? 0
             let charging = (desc[kIOPSPowerSourceStateKey as String] as? String) == (kIOPSACPowerValue as String)
             let (cycles, health) = batteryHealth()
-            return BatteryStats(percent: percent, isCharging: charging, cycleCount: cycles, healthPercent: health)
+            // macOS reports -1 while it is still working the estimate out.
+            let toFull = (desc[kIOPSTimeToFullChargeKey as String] as? Int).flatMap { $0 >= 0 ? $0 : nil }
+            let toEmpty = (desc[kIOPSTimeToEmptyKey as String] as? Int).flatMap { $0 >= 0 ? $0 : nil }
+            return BatteryStats(percent: percent, isCharging: charging, cycleCount: cycles, healthPercent: health,
+                                timeToFullMinutes: toFull, timeToEmptyMinutes: toEmpty)
         }
         return nil
     }
@@ -193,5 +207,41 @@ public struct StatsCollector {
         #else
         return nil
         #endif
+    }
+}
+
+/// Samples real CPU utilisation (0…100) from the delta of `HOST_CPU_LOAD_INFO` tick
+/// counters between calls. Stateful, so the caller keeps one instance and calls it each
+/// refresh; the first call returns 0 (no baseline yet).
+public final class CPUUsageSampler {
+    private var previous: (used: UInt64, total: UInt64)?
+
+    public init() {}
+
+    public func sample() -> Double {
+        guard let current = Self.ticks() else { return previous == nil ? 0 : 0 }
+        defer { previous = current }
+        guard let prev = previous else { return 0 }
+        let usedDelta = Double(current.used &- prev.used)
+        let totalDelta = Double(current.total &- prev.total)
+        guard totalDelta > 0 else { return 0 }
+        return min(100, max(0, usedDelta / totalDelta * 100))
+    }
+
+    private static func ticks() -> (used: UInt64, total: UInt64)? {
+        var info = host_cpu_load_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<host_cpu_load_info_data_t>.stride / MemoryLayout<integer_t>.stride)
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                host_statistics(mach_host_self(), HOST_CPU_LOAD_INFO, $0, &count)
+            }
+        }
+        guard result == KERN_SUCCESS else { return nil }
+        let user = UInt64(info.cpu_ticks.0)
+        let system = UInt64(info.cpu_ticks.1)
+        let idle = UInt64(info.cpu_ticks.2)
+        let nice = UInt64(info.cpu_ticks.3)
+        let used = user + system + nice
+        return (used, used + idle)
     }
 }

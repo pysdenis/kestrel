@@ -67,8 +67,8 @@ struct MenuBarView: View {
                            detail: "\(bytesString(m.used)) used", fraction: m.usedFraction, tint: .purple)
             }
             if let c = model.cpu {
-                tileButton(.cpu, icon: "cpu", title: "CPU", value: String(format: "%.2f", c.loadAverages.first ?? 0),
-                           detail: "\(c.coreCount) cores", fraction: min(1, c.pressure), tint: .orange)
+                tileButton(.cpu, icon: "cpu", title: "CPU", value: "\(Int(c.usagePercent.rounded()))%",
+                           detail: "\(c.coreCount) cores", fraction: c.usagePercent / 100, tint: .orange)
             }
             if let b = model.battery {
                 tileButton(.battery, icon: b.isCharging ? "battery.100.bolt" : "battery.100", title: "Battery",
@@ -126,15 +126,17 @@ struct MenuBarView: View {
                     }
                 case .cpu:
                     if let c = model.cpu {
+                        row("Usage", "\(Int(c.usagePercent.rounded()))%")
                         row("Load 1 min", String(format: "%.2f", c.loadAverages[0]))
-                        row("Load 5 min", String(format: "%.2f", c.loadAverages[1]))
-                        row("Load 15 min", String(format: "%.2f", c.loadAverages[2]))
+                        row("Load 5 / 15", String(format: "%.2f / %.2f", c.loadAverages[1], c.loadAverages[2]))
                         row("Cores", "\(c.coreCount)")
                     }
                 case .battery:
                     if let b = model.battery {
                         row("Charge", "\(b.percent)%")
                         row("State", b.isCharging ? "Charging" : "On battery")
+                        if b.isCharging, let m = b.timeToFullMinutes { row("Full in", minutesString(m)) }
+                        if !b.isCharging, let m = b.timeToEmptyMinutes { row("Time left", minutesString(m)) }
                         if let h = b.healthPercent { row("Health", "\(h)%") }
                         if let cy = b.cycleCount { row("Cycles", "\(cy)") }
                     }
@@ -155,10 +157,10 @@ struct MenuBarView: View {
     private var speedSection: some View {
         Card(padding: 12) {
             HStack(spacing: 14) {
-                SpeedGauge(mbps: model.speed?.downloadMbps, testing: model.speedTesting, size: 74)
-                VStack(alignment: .leading, spacing: 3) {
+                SpeedGauge(mbps: model.speedDisplay, testing: model.speedTesting, size: 80)
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Internet speed").font(.subheadline.weight(.semibold))
-                    if let s = model.speed {
+                    if let s = model.speed, !model.speedTesting {
                         Text(String(format: "%.0f ms latency", s.latencyMs)).font(.caption).foregroundStyle(.secondary)
                     } else if model.speedTesting {
                         Text("Measuring…").font(.caption).foregroundStyle(.secondary)
@@ -166,11 +168,11 @@ struct MenuBarView: View {
                         Text("Download & latency").font(.caption).foregroundStyle(.secondary)
                     }
                     Button(action: model.runSpeedTest) {
-                        Text(model.speedTesting ? "Testing…" : "Run test").font(.caption.weight(.semibold))
+                        Text(model.speedTesting ? "Testing…" : "Run test")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
+                    .buttonStyle(.kestrel(.prominent, tint: .teal, size: .small))
                     .disabled(model.speedTesting)
+                    .padding(.top, 1)
                 }
                 Spacer()
             }
@@ -184,11 +186,10 @@ struct MenuBarView: View {
             } label: {
                 Label("Open Kestrel", systemImage: "macwindow")
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.kestrel)
             Spacer()
             Button("Quit") { model.quit() }
-                .buttonStyle(.borderless)
-                .foregroundStyle(.secondary)
+                .buttonStyle(.kestrel(.subtle, size: .small))
         }
     }
 }

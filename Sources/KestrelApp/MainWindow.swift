@@ -125,13 +125,13 @@ struct DashboardSection: View {
                                detail: "\(bytesString(m.used)) of \(bytesString(m.total))", fraction: m.usedFraction, tint: .purple)
                 }
                 if let c = model.cpu {
-                    MetricTile(icon: "cpu", title: "CPU load", value: String(format: "%.2f", c.loadAverages.first ?? 0),
-                               detail: "\(c.coreCount) cores", fraction: min(1, c.pressure), tint: .orange)
+                    MetricTile(icon: "cpu", title: "CPU", value: "\(Int(c.usagePercent.rounded()))%",
+                               detail: "load \(String(format: "%.2f", c.loadAverages.first ?? 0)) · \(c.coreCount) cores",
+                               fraction: c.usagePercent / 100, tint: .orange)
                 }
                 if let b = model.battery {
-                    MetricTile(icon: "battery.100", title: "Battery", value: "\(b.percent)%",
-                               detail: b.healthPercent.map { "health \($0)%" } ?? (b.isCharging ? "charging" : ""),
-                               fraction: Double(b.percent) / 100, tint: .green)
+                    MetricTile(icon: b.isCharging ? "battery.100.bolt" : "battery.75", title: "Battery", value: "\(b.percent)%",
+                               detail: batteryCaption(b), fraction: Double(b.percent) / 100, tint: .green)
                 }
                 if let n = model.network {
                     MetricTile(icon: "wifi", title: "Network", value: n.ssid ?? "Wired/—",
@@ -149,10 +149,10 @@ struct SpeedTestCard: View {
     var body: some View {
         Card {
             HStack(spacing: 18) {
-                SpeedGauge(mbps: model.speed?.downloadMbps, testing: model.speedTesting, size: 104)
+                SpeedGauge(mbps: model.speedDisplay, testing: model.speedTesting, size: 108)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Internet speed").font(.headline)
-                    if let s = model.speed {
+                    if let s = model.speed, !model.speedTesting {
                         Text(String(format: "%.0f Mbps download", s.downloadMbps)).font(.subheadline)
                         Text(String(format: "%.0f ms latency · via Cloudflare", s.latencyMs)).font(.caption).foregroundStyle(.secondary)
                     } else if model.speedTesting {
@@ -163,7 +163,7 @@ struct SpeedTestCard: View {
                     Button(action: model.runSpeedTest) {
                         Label(model.speedTesting ? "Testing…" : "Run test", systemImage: "play.fill")
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.kestrel(.prominent, tint: .teal))
                     .disabled(model.speedTesting)
                     .padding(.top, 2)
                 }
@@ -203,6 +203,7 @@ struct SpaceSection: View {
                 SectionTitle("Largest folders in Home", icon: "folder")
                 Spacer()
                 Button { load() } label: { Label("Rescan", systemImage: "arrow.clockwise") }
+                    .buttonStyle(.kestrel(.subtle, size: .small))
                     .disabled(loading)
             }
 
@@ -283,6 +284,7 @@ struct SettingsSection: View {
                     Button { NSWorkspace.shared.activateFileViewerSelecting([model.paths.root]) } label: {
                         Label("Reveal ~/.kestrel in Finder", systemImage: "folder")
                     }
+                    .buttonStyle(.kestrel(.secondary))
                 }
             }
             Card {

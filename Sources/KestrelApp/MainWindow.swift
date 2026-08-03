@@ -126,22 +126,24 @@ struct DashboardSection: View {
 
             LazyVGrid(columns: columns, spacing: 12) {
                 if let d = model.disk {
-                    MetricTile(icon: "internaldrive", title: "Disk", value: "\(Int(d.usedFraction * 100))%",
-                               detail: "\(bytesString(d.available)) free" + (d.purgeable > 0 ? " · \(bytesString(d.purgeable)) purgeable" : ""),
-                               fraction: d.usedFraction, tint: Palette.blue)
+                    RadialMetricTile(icon: "internaldrive", title: "Disk", centerValue: "\(Int(d.usedFraction * 100))%",
+                                     fraction: d.usedFraction,
+                                     detail: "\(bytesString(d.available)) free", iconTint: Palette.blue, ringColor: fractionColor(d.usedFraction))
                 }
                 if let m = model.memory {
-                    MetricTile(icon: "memorychip", title: "Memory", value: "\(Int(m.usedFraction * 100))%",
-                               detail: "\(bytesString(m.used)) of \(bytesString(m.total))", fraction: m.usedFraction, tint: Palette.violet)
+                    RadialMetricTile(icon: "memorychip", title: "Memory", centerValue: "\(Int(m.usedFraction * 100))%",
+                                     fraction: m.usedFraction,
+                                     detail: "\(bytesString(m.used)) used", iconTint: Palette.violet, ringColor: fractionColor(m.usedFraction))
                 }
                 if let c = model.cpu {
-                    MetricTile(icon: "cpu", title: "CPU", value: "\(Int(c.usagePercent.rounded()))%",
-                               detail: "load \(String(format: "%.2f", c.loadAverages.first ?? 0)) · \(c.coreCount) cores",
-                               fraction: c.usagePercent / 100, tint: Palette.orange)
+                    RadialMetricTile(icon: "cpu", title: "CPU", centerValue: "\(Int(c.usagePercent.rounded()))%",
+                                     fraction: c.usagePercent / 100,
+                                     detail: "\(c.coreCount) cores", iconTint: Palette.warn, ringColor: fractionColor(c.usagePercent / 100))
                 }
                 if let b = model.battery {
-                    MetricTile(icon: b.isCharging ? "battery.100.bolt" : "battery.75", title: "Battery", value: "\(b.percent)%",
-                               detail: model.batteryCaptionText, fraction: Double(b.percent) / 100, tint: Palette.good)
+                    RadialMetricTile(icon: b.isCharging ? "battery.100.bolt" : "battery.75", title: "Battery", centerValue: "\(b.percent)%",
+                                     fraction: Double(b.percent) / 100,
+                                     detail: model.batteryCaptionText, iconTint: Palette.good, ringColor: b.percent > 20 ? Palette.good : Palette.crit)
                 }
                 if model.network != nil {
                     NetworkTile(ssid: model.network?.ssid, downBps: model.netDownBps,

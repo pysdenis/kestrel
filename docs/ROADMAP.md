@@ -73,7 +73,7 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 - [x] **Homebrew maintenance** (advisory `HomebrewAdapter` + `AppUpdater` outdated casks).
 - [ ] Duplicitní & podobné fotky (perceptual hash) — zbývá; Screenshoty ✅ (`ClutterFinder`).
 - [x] Old installers/.dmg/.pkg finder (`ClutterFinder`, `kestrel installers`).
-- [ ] Config profile / kernel & system extensions audit.
+- [~] System extensions audit (`SystemExtensionAuditor`, `kestrel sysext`); config profiles zbývá.
 - [x] Sensitive file shredder (`Shredder`, `kestrel shred`, honest o SSD/FileVault).
 - [x] **AI asistent (Gemini, opt-in)** — „Explain this", cleanup summary, ask (metadata-only):
       `GeminiClient` + `AIAssistant`, CLI `ask`/`explain`/`advise`, GUI Assistant sekce.
@@ -101,7 +101,7 @@ Detaily viz brainstorm; AI je vždy opt-in a posílá jen metadata (invariant #7
 - [ ] **Weekly AI digest** nad snapshoty („co narostlo od minule").
 - [x] **`launchd` automatizace** pro rules (`RulesScheduler`, `kestrel rules install-agent`).
 - [ ] **Perceptuální hash** na podobné fotky + seskupení screenshotů.
-- [ ] **System extensions / config profiles audit.**
+- [x] **System extensions audit** (`SystemExtensionAuditor`, `kestrel sysext`); config profiles zbývá.
 - [ ] **Lokální notifikace** (UserNotifications) — málo místa / velký nález.
 - [ ] **Menu bar quick action** „Free up dev junk" jedním klikem.
 

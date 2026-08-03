@@ -142,6 +142,40 @@ struct HealthRing: View {
     }
 }
 
+/// A metric tile built around a radial gauge — the dashboard's instrument look.
+struct RadialMetricTile: View {
+    let icon: String
+    let title: String
+    let centerValue: String
+    let fraction: Double
+    var detail: String = ""
+    var iconTint: Color = Palette.accent
+    var ringColor: Color = Palette.accent
+
+    var body: some View {
+        Card {
+            VStack(spacing: 9) {
+                HStack(spacing: 6) {
+                    Image(systemName: icon).foregroundStyle(iconTint).imageScale(.small)
+                    Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Spacer()
+                }
+                ZStack {
+                    Circle().stroke(Color.primary.opacity(0.1), lineWidth: 8)
+                    Circle().trim(from: 0, to: min(1, max(0, fraction)))
+                        .stroke(ringColor, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.easeOut(duration: 0.5), value: fraction)
+                    Text(centerValue).font(.title3.weight(.bold)).monospacedDigit()
+                }
+                .frame(width: 86, height: 86)
+                .padding(.vertical, 2)
+                Text(detail).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            }
+        }
+    }
+}
+
 /// A metric tile with an icon, big value, optional progress bar and a caption.
 struct MetricTile: View {
     let icon: String

@@ -27,10 +27,30 @@ final class AppModel: ObservableObject {
     @Published var netHistory: [Double] = []          // recent download throughput
     private var lastNet: (inB: Int64, outB: Int64, at: Date)?
 
-    /// Smoothed battery time estimate (minutes) so the instantaneous figure doesn't
-    /// jump around as load spikes.
+    /// Smoothed battery time estimate (minutes), computed once from a smoothed current
+    /// so the same value is shown everywhere.
     @Published var batteryTimeMinutes: Int?
-    private var batteryMinutesEMA: Double?
+    private var amperageEMA: Double?
+    private var batteryWasCharging: Bool?
+
+    /// One steady estimate used everywhere: exponential moving average of the *current*
+    /// (mA), then remaining capacity ÷ current. Falls back to macOS's own estimate if the
+    /// raw components aren't available. Resets the average when charging state flips.
+    private func computeBatteryMinutes(_ b: BatteryStats?) -> Int? {
+        guard let b else { amperageEMA = nil; return nil }
+        if batteryWasCharging != b.isCharging { amperageEMA = nil; batteryWasCharging = b.isCharging }
+
+        if let charge = b.chargemAh, let cap = b.capacitymAh, let amp = b.amperagemA, amp != 0 {
+            let magnitude = Double(abs(amp))
+            amperageEMA = amperageEMA.map { $0 * 0.82 + magnitude * 0.18 } ?? magnitude
+            let rate = amperageEMA ?? magnitude
+            guard rate > 0 else { return nil }
+            let minutes = (b.isCharging ? Double(max(0, cap - charge)) : Double(charge)) / rate * 60
+            return minutes.isFinite ? Int(minutes.rounded()) : nil
+        }
+        // Fallback: macOS's own estimate.
+        return b.isCharging ? b.timeToFullMinutes : b.timeToEmptyMinutes
+    }
 
     /// Time-left / time-to-full caption for the battery card.
     var batteryCaptionText: String {
@@ -118,16 +138,7 @@ final class AppModel: ObservableObject {
         self.battery = battery
         self.health = HealthScorer().score(disk: disk, memory: memory, cpu: cpu, battery: battery)
 
-        // Smooth the battery time estimate (EMA) so it stays steady between load spikes.
-        let raw = battery.flatMap { $0.isCharging ? $0.timeToFullMinutes : $0.timeToEmptyMinutes }
-        if let raw {
-            let ema = batteryMinutesEMA.map { $0 * 0.6 + Double(raw) * 0.4 } ?? Double(raw)
-            batteryMinutesEMA = ema
-            batteryTimeMinutes = Int(ema.rounded())
-        } else {
-            batteryMinutesEMA = nil
-            batteryTimeMinutes = nil
-        }
+        batteryTimeMinutes = computeBatteryMinutes(battery)
 
         let net = stats.network()
         let now = Date()

@@ -156,8 +156,7 @@ struct MenuBarView: View {
             if let b = model.battery {
                 row("Charge", "\(b.percent)%")
                 row("State", b.isCharging ? "Charging" : "On battery")
-                if b.isCharging, let m = b.timeToFullMinutes { row("Full in", minutesString(m)) }
-                else if !b.isCharging, let m = b.timeToEmptyMinutes { row("Time left", minutesString(m)) }
+                if let m = model.batteryTimeMinutes { row(b.isCharging ? "Full in" : "Time left", minutesString(m)) }
                 else { row("Health", b.healthPercent.map { "\($0)%" } ?? "—") }
                 row("Cycles", b.cycleCount.map { "\($0)" } ?? "—")
             }

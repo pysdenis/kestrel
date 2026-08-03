@@ -51,14 +51,26 @@ public struct BatteryStats: Sendable, Equatable {
     /// estimate yet. `nil` means "still calculating".
     public let timeToFullMinutes: Int?
     public let timeToEmptyMinutes: Int?
+    /// Raw components for a smoothed, physically-correct time estimate: current charge
+    /// and full capacity (mAh) and the signed instantaneous current (mA; negative =
+    /// discharging). Averaging the *current* over time and dividing capacity by it is
+    /// far steadier than averaging the resulting minutes.
+    public let chargemAh: Int?
+    public let capacitymAh: Int?
+    public let amperagemA: Int?
 
-    public init(percent: Int, isCharging: Bool, cycleCount: Int?, healthPercent: Int?, timeToFullMinutes: Int? = nil, timeToEmptyMinutes: Int? = nil) {
+    public init(percent: Int, isCharging: Bool, cycleCount: Int?, healthPercent: Int?,
+                timeToFullMinutes: Int? = nil, timeToEmptyMinutes: Int? = nil,
+                chargemAh: Int? = nil, capacitymAh: Int? = nil, amperagemA: Int? = nil) {
         self.percent = percent
         self.isCharging = isCharging
         self.cycleCount = cycleCount
         self.healthPercent = healthPercent
         self.timeToFullMinutes = timeToFullMinutes
         self.timeToEmptyMinutes = timeToEmptyMinutes
+        self.chargemAh = chargemAh
+        self.capacitymAh = capacitymAh
+        self.amperagemA = amperagemA
     }
 }
 
@@ -155,25 +167,26 @@ public struct StatsCollector {
             let percent = desc[kIOPSCurrentCapacityKey as String] as? Int ?? 0
             let charging = (desc[kIOPSPowerSourceStateKey as String] as? String) == (kIOPSACPowerValue as String)
             let detail = batteryDetail(isCharging: charging)
-            // Prefer our own estimate from the instantaneous current draw (reacts to what
-            // the Mac is doing right now); fall back to macOS's slower IOPS estimate.
+            // Instantaneous estimate (single reading) as a fallback; the GUI smooths the
+            // raw current over time for a steadier figure.
             let iopsFull = (desc[kIOPSTimeToFullChargeKey as String] as? Int).flatMap { $0 >= 0 ? $0 : nil }
             let iopsEmpty = (desc[kIOPSTimeToEmptyKey as String] as? Int).flatMap { $0 >= 0 ? $0 : nil }
             return BatteryStats(
                 percent: percent, isCharging: charging, cycleCount: detail.cycles, healthPercent: detail.health,
                 timeToFullMinutes: detail.toFull ?? iopsFull,
-                timeToEmptyMinutes: detail.toEmpty ?? iopsEmpty
+                timeToEmptyMinutes: detail.toEmpty ?? iopsEmpty,
+                chargemAh: detail.charge, capacitymAh: detail.maxCap, amperagemA: detail.amperage
             )
         }
         return nil
     }
 
-    /// Reads AppleSmartBattery for health/cycles plus an instantaneous time estimate:
-    /// remaining charge (mAh) divided by the current draw (mA) — so it tracks the real,
-    /// current consumption rather than a lagging average.
-    private func batteryDetail(isCharging: Bool) -> (cycles: Int?, health: Int?, toEmpty: Int?, toFull: Int?) {
+    /// Reads AppleSmartBattery for health/cycles, the raw charge/capacity/current, and a
+    /// single-reading instantaneous time estimate.
+    private func batteryDetail(isCharging: Bool)
+        -> (cycles: Int?, health: Int?, toEmpty: Int?, toFull: Int?, charge: Int?, maxCap: Int?, amperage: Int?) {
         let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
-        guard service != 0 else { return (nil, nil, nil, nil) }
+        guard service != 0 else { return (nil, nil, nil, nil, nil, nil, nil) }
         defer { IOObjectRelease(service) }
         func intProp(_ key: String) -> Int? {
             IORegistryEntryCreateCFProperty(service, key as CFString, kCFAllocatorDefault, 0)?
@@ -188,14 +201,11 @@ public struct StatsCollector {
 
         var toEmpty: Int?, toFull: Int?
         if let current, let amp = amperage, amp != 0 {
-            let rate = Double(abs(amp))   // mA magnitude
-            if isCharging, let maxCap, maxCap > current {
-                toFull = Int(Double(maxCap - current) / rate * 60)
-            } else if !isCharging {
-                toEmpty = Int(Double(current) / rate * 60)
-            }
+            let rate = Double(abs(amp))
+            if isCharging, let maxCap, maxCap > current { toFull = Int(Double(maxCap - current) / rate * 60) }
+            else if !isCharging { toEmpty = Int(Double(current) / rate * 60) }
         }
-        return (cycles, health, toEmpty, toFull)
+        return (cycles, health, toEmpty, toFull, current, maxCap, amperage)
     }
 
     // MARK: - Network (getifaddrs + CoreWLAN)

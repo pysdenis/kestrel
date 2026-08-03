@@ -147,7 +147,7 @@ struct MainWindow: View {
 
     @ViewBuilder private var detail: some View {
         switch model.section ?? .dashboard {
-        case .dashboard: DashboardSection()
+        case .dashboard: DashboardSection(controller: model.dashboard)
         case .cleanup: CleanupSection(controller: model.cleanup)
         case .space: SpaceSection(controller: model.space)
         case .energy: EnergySection()
@@ -185,71 +185,184 @@ struct SectionScaffold<Content: View>: View {
 
 struct DashboardSection: View {
     @EnvironmentObject private var model: AppModel
+    @ObservedObject var controller: DashboardController
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: 12)]
 
+    private var score: Int { model.health?.overall ?? 0 }
+
     var body: some View {
-        SectionScaffold(title: "Dashboard", subtitle: "Live health and system metrics") {
-            Card {
-                HStack(spacing: 18) {
-                    HealthRing(score: model.health?.overall ?? 0, size: 110)
-                    VStack(alignment: .leading, spacing: 8) {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Mac Health").font(.title2.weight(.semibold))
-                            Text(healthVerdict(model.health?.overall ?? 0))
-                                .font(.subheadline).foregroundStyle(healthColor(model.health?.overall ?? 0))
-                        }
-                        ForEach(model.health?.components ?? [], id: \.name) { c in
-                            HStack {
-                                Text(c.name).frame(width: 70, alignment: .leading).font(.callout)
-                                KestrelProgress(value: Double(c.score) / 100, tint: healthColor(c.score))
-                                Text("\(c.score)").font(.callout.monospacedDigit()).foregroundStyle(.secondary).frame(width: 30, alignment: .trailing)
-                            }
-                        }
-                    }
-                    Spacer()
-                }
+        SectionScaffold(title: "Dashboard", subtitle: "Live health, storage forecast and protection at a glance") {
+            heroCard
+            metricGrid
+            HStack(alignment: .top, spacing: 12) {
+                ForecastCard(trend: controller.trend, series: controller.usedSeries)
+                ProtectionCard(status: controller.protection) { model.section = .security }
             }
-
-            Card {
-                HStack(spacing: 14) {
-                    Image(systemName: "sparkles").font(.title).foregroundStyle(Palette.accent)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Free up space").font(.headline)
-                        Text("Review reclaimable clutter — dev junk, caches, duplicates & more").font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button("Review") { model.section = .cleanup }.buttonStyle(.kestrel(.prominent))
-                }
-            }
-
-            LazyVGrid(columns: columns, spacing: 12) {
-                if let d = model.disk {
-                    RadialMetricTile(icon: "internaldrive", title: "Disk", centerValue: "\(Int(d.usedFraction * 100))%",
-                                     fraction: d.usedFraction,
-                                     detail: "\(bytesString(d.available)) free", iconTint: Palette.blue, ringColor: fractionColor(d.usedFraction))
-                }
-                if let m = model.memory {
-                    RadialMetricTile(icon: "memorychip", title: "Memory", centerValue: "\(Int(m.usedFraction * 100))%",
-                                     fraction: m.usedFraction,
-                                     detail: "\(bytesString(m.used)) used", iconTint: Palette.violet, ringColor: fractionColor(m.usedFraction))
-                }
-                if let c = model.cpu {
-                    RadialMetricTile(icon: "cpu", title: "CPU", centerValue: "\(Int(c.usagePercent.rounded()))%",
-                                     fraction: c.usagePercent / 100,
-                                     detail: "\(c.coreCount) cores", iconTint: Palette.warn, ringColor: fractionColor(c.usagePercent / 100))
-                }
-                if let b = model.battery {
-                    RadialMetricTile(icon: b.isCharging ? "battery.100.bolt" : "battery.75", title: "Battery", centerValue: "\(b.percent)%",
-                                     fraction: Double(b.percent) / 100,
-                                     detail: model.batteryCaptionText, iconTint: Palette.good, ringColor: b.percent > 20 ? Palette.good : Palette.crit)
-                }
-                if model.network != nil {
-                    NetworkTile(ssid: model.network?.ssid, downBps: model.netDownBps,
-                                upBps: model.netUpBps, history: model.netHistory)
-                }
-            }
-
             SpeedTestCard()
+        }
+        .onAppear { controller.load(disk: model.disk) }
+        .onChange(of: model.disk?.total) { _ in
+            if controller.usedSeries.isEmpty { controller.load(disk: model.disk) }
+        }
+    }
+
+    // MARK: hero
+
+    private var heroCard: some View {
+        Card(elevated: true, tint: healthColor(score)) {
+            HStack(spacing: 24) {
+                HeroGauge(score: score, size: 168)
+                VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Mac Health").font(.title2.weight(.bold))
+                        Text(healthVerdict(score)).font(.subheadline.weight(.medium)).foregroundStyle(healthColor(score))
+                    }
+                    FlowLayout(spacing: 8, lineSpacing: 8) {
+                        ForEach(model.health?.components ?? [], id: \.name) { c in
+                            HealthChip(name: c.name, score: c.score)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    HStack(spacing: 10) {
+                        Button { model.section = .cleanup } label: { Label("Free up space", systemImage: "sparkles") }
+                            .buttonStyle(.kestrel(.prominent))
+                        Button(action: runSmartCare) { Label("Run Smart Care", systemImage: "wand.and.stars") }
+                            .buttonStyle(.kestrel(.secondary))
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    /// "Smart Care" (lite): jump to Cleanup, select every safe category and start a real
+    /// scan — honest orchestration, no fake progress.
+    private func runSmartCare() {
+        model.section = .cleanup
+        model.cleanup.choice = .all
+        model.cleanup.scan()
+    }
+
+    // MARK: metrics
+
+    private var metricGrid: some View {
+        LazyVGrid(columns: columns, spacing: 12) {
+            if let d = model.disk {
+                RadialMetricTile(icon: "internaldrive", title: "Disk", centerValue: "\(Int(d.usedFraction * 100))%",
+                                 fraction: d.usedFraction,
+                                 detail: "\(bytesString(d.available)) free", iconTint: Palette.blue, ringColor: fractionColor(d.usedFraction))
+            }
+            if let m = model.memory {
+                RadialMetricTile(icon: "memorychip", title: "Memory", centerValue: "\(Int(m.usedFraction * 100))%",
+                                 fraction: m.usedFraction,
+                                 detail: "\(bytesString(m.used)) used", iconTint: Palette.violet, ringColor: fractionColor(m.usedFraction))
+            }
+            if let c = model.cpu {
+                RadialMetricTile(icon: "cpu", title: "CPU", centerValue: "\(Int(c.usagePercent.rounded()))%",
+                                 fraction: c.usagePercent / 100,
+                                 detail: "\(c.coreCount) cores", iconTint: Palette.warn, ringColor: fractionColor(c.usagePercent / 100))
+            }
+            if let b = model.battery {
+                RadialMetricTile(icon: b.isCharging ? "battery.100.bolt" : "battery.75", title: "Battery", centerValue: "\(b.percent)%",
+                                 fraction: Double(b.percent) / 100,
+                                 detail: model.batteryCaptionText, iconTint: Palette.good, ringColor: b.percent > 20 ? Palette.good : Palette.crit)
+            }
+            if model.network != nil {
+                NetworkTile(ssid: model.network?.ssid, downBps: model.netDownBps,
+                            upBps: model.netUpBps, history: model.netHistory)
+            }
+        }
+    }
+}
+
+/// A compact health-component pill (colored dot + name + score) for the hero card.
+struct HealthChip: View {
+    let name: String
+    let score: Int
+    var body: some View {
+        HStack(spacing: 7) {
+            Circle().fill(healthColor(score)).frame(width: 7, height: 7)
+            Text(name).font(.caption.weight(.medium))
+            Text("\(score)").font(.caption.monospacedDigit().weight(.semibold)).foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 11).padding(.vertical, 6)
+        .background(Color.primary.opacity(0.05), in: Capsule())
+        .overlay(Capsule().strokeBorder(.white.opacity(0.06)))
+    }
+}
+
+/// Storage forecast: growth per day, a naive fill date and a sparkline of recent
+/// used-bytes. Honest about needing a couple of days of history.
+struct ForecastCard: View {
+    let trend: SpaceTrend?
+    let series: [Double]
+
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("Storage forecast", icon: "chart.line.uptrend.xyaxis")
+                if let t = trend, t.dailyGrowthBytes != 0 {
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        Text("\(t.dailyGrowthBytes > 0 ? "+" : "−")\(bytesString(abs(t.dailyGrowthBytes)))")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(t.dailyGrowthBytes > 0 ? Palette.warn : Palette.good)
+                        Text("/ day").font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let days = t.daysUntilFull {
+                        Text("Full in about \(Int(days)) days at this rate").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Text("Freeing space overall — no fill date").font(.caption).foregroundStyle(Palette.good)
+                    }
+                    if series.count > 1 {
+                        Sparkline(values: series, tint: Palette.accent2).frame(height: 38).padding(.top, 2)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Building history").font(.subheadline.weight(.medium))
+                        Text("Kestrel records a daily snapshot. The forecast fills in after a couple of days.")
+                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// macOS protection status (Gatekeeper + XProtect) with an honest verdict and a jump to
+/// the Security section.
+struct ProtectionCard: View {
+    let status: GatekeeperStatus?
+    let openSecurity: () -> Void
+
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionTitle("Protection", icon: "shield.lefthalf.filled")
+                if let p = status {
+                    let ok = p.assessmentsEnabled == true
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle().fill((ok ? Palette.good : Palette.warn).opacity(0.14)).frame(width: 44, height: 44)
+                            Image(systemName: ok ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
+                                .font(.title3).foregroundStyle(ok ? Palette.good : Palette.warn)
+                        }
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(ok ? "Protected" : "Check protection").font(.subheadline.weight(.semibold))
+                            Text(ok ? "Gatekeeper on · XProtect \(p.xprotectVersion ?? "—")" : "Gatekeeper assessments are off")
+                                .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        }
+                        Spacer()
+                    }
+                    Button(action: openSecurity) { Label("Open Security", systemImage: "arrow.right") }
+                        .buttonStyle(.kestrel(.subtle, size: .small))
+                } else {
+                    HStack(spacing: 8) {
+                        KestrelSpinner(size: 14)
+                        Text("Reading protection status…").font(.caption).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 6)
+                }
+            }
         }
     }
 }

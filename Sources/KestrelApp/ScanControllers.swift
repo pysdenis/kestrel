@@ -71,6 +71,52 @@ import KestrelCore
     }
 }
 
+// MARK: - Dashboard (forecast + protection)
+
+@MainActor final class DashboardController: ObservableObject {
+    @Published var trend: SpaceTrend?
+    @Published var usedSeries: [Double] = []      // recent used-bytes, for the forecast sparkline
+    @Published var protection: GatekeeperStatus?
+
+    private let paths: KestrelPaths
+    private var loadedProtection = false
+    init(paths: KestrelPaths) { self.paths = paths }
+
+    /// Load the storage forecast and macOS protection status. Also records today's
+    /// snapshot (disk capacity only — no directory walk, so it never prompts for access
+    /// and never overwrites a richer snapshot the CLI may have written today), so the
+    /// forecast becomes real on its own over a few days.
+    func load(disk: DiskSpace?) {
+        let dir = paths.snapshots
+        Task.detached { [weak self] in
+            let store = SnapshotStore(directory: dir)
+            var snapshots = (try? store.all()) ?? []
+            if let disk, !Self.hasSnapshotToday(snapshots) {
+                try? store.save(DiskSnapshot(date: Date(), space: disk, breakdown: [:]))
+                snapshots = (try? store.all()) ?? snapshots
+            }
+            let trend = try? store.trend()
+            let series = snapshots.suffix(30).map { Double($0.space.used) }
+            await MainActor.run {
+                self?.trend = trend
+                self?.usedSeries = series
+            }
+        }
+
+        guard !loadedProtection else { return }
+        loadedProtection = true
+        Task.detached { [weak self] in
+            let status = SystemProtectionReader().status()
+            await MainActor.run { self?.protection = status }
+        }
+    }
+
+    private nonisolated static func hasSnapshotToday(_ snapshots: [DiskSnapshot]) -> Bool {
+        guard let last = snapshots.last else { return false }
+        return Calendar.current.isDateInToday(last.date)
+    }
+}
+
 // MARK: - Security
 
 @MainActor final class SecurityController: ObservableObject {

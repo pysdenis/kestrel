@@ -74,6 +74,7 @@ final class AppModel: ObservableObject {
     // Scan state lives here (not in the section views) so a scan survives navigating
     // between modules — start it in one, switch away, come back, it's still going.
     lazy var cleanup = CleanupController(paths: paths)
+    lazy var dashboard = DashboardController(paths: paths)
     lazy var security = SecurityController()
     lazy var space = SpaceController(paths: paths)
     lazy var tools = ToolsController(paths: paths)

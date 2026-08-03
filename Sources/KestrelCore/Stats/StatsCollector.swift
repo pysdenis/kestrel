@@ -154,19 +154,26 @@ public struct StatsCollector {
                   (desc[kIOPSTypeKey as String] as? String) == kIOPSInternalBatteryType else { continue }
             let percent = desc[kIOPSCurrentCapacityKey as String] as? Int ?? 0
             let charging = (desc[kIOPSPowerSourceStateKey as String] as? String) == (kIOPSACPowerValue as String)
-            let (cycles, health) = batteryHealth()
-            // macOS reports -1 while it is still working the estimate out.
-            let toFull = (desc[kIOPSTimeToFullChargeKey as String] as? Int).flatMap { $0 >= 0 ? $0 : nil }
-            let toEmpty = (desc[kIOPSTimeToEmptyKey as String] as? Int).flatMap { $0 >= 0 ? $0 : nil }
-            return BatteryStats(percent: percent, isCharging: charging, cycleCount: cycles, healthPercent: health,
-                                timeToFullMinutes: toFull, timeToEmptyMinutes: toEmpty)
+            let detail = batteryDetail(isCharging: charging)
+            // Prefer our own estimate from the instantaneous current draw (reacts to what
+            // the Mac is doing right now); fall back to macOS's slower IOPS estimate.
+            let iopsFull = (desc[kIOPSTimeToFullChargeKey as String] as? Int).flatMap { $0 >= 0 ? $0 : nil }
+            let iopsEmpty = (desc[kIOPSTimeToEmptyKey as String] as? Int).flatMap { $0 >= 0 ? $0 : nil }
+            return BatteryStats(
+                percent: percent, isCharging: charging, cycleCount: detail.cycles, healthPercent: detail.health,
+                timeToFullMinutes: detail.toFull ?? iopsFull,
+                timeToEmptyMinutes: detail.toEmpty ?? iopsEmpty
+            )
         }
         return nil
     }
 
-    private func batteryHealth() -> (cycles: Int?, healthPercent: Int?) {
+    /// Reads AppleSmartBattery for health/cycles plus an instantaneous time estimate:
+    /// remaining charge (mAh) divided by the current draw (mA) — so it tracks the real,
+    /// current consumption rather than a lagging average.
+    private func batteryDetail(isCharging: Bool) -> (cycles: Int?, health: Int?, toEmpty: Int?, toFull: Int?) {
         let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
-        guard service != 0 else { return (nil, nil) }
+        guard service != 0 else { return (nil, nil, nil, nil) }
         defer { IOObjectRelease(service) }
         func intProp(_ key: String) -> Int? {
             IORegistryEntryCreateCFProperty(service, key as CFString, kCFAllocatorDefault, 0)?
@@ -175,8 +182,20 @@ public struct StatsCollector {
         let cycles = intProp("CycleCount")
         let design = intProp("DesignCapacity")
         let maxCap = intProp("AppleRawMaxCapacity") ?? intProp("MaxCapacity")
+        let current = intProp("AppleRawCurrentCapacity") ?? intProp("CurrentCapacity")
+        let amperage = intProp("InstantAmperage") ?? intProp("Amperage")   // mA, signed
         let health = design.flatMap { d in d > 0 ? maxCap.map { Int(Double($0) / Double(d) * 100) } : nil }
-        return (cycles, health)
+
+        var toEmpty: Int?, toFull: Int?
+        if let current, let amp = amperage, amp != 0 {
+            let rate = Double(abs(amp))   // mA magnitude
+            if isCharging, let maxCap, maxCap > current {
+                toFull = Int(Double(maxCap - current) / rate * 60)
+            } else if !isCharging {
+                toEmpty = Int(Double(current) / rate * 60)
+            }
+        }
+        return (cycles, health, toEmpty, toFull)
     }
 
     // MARK: - Network (getifaddrs + CoreWLAN)

@@ -75,7 +75,7 @@ struct MenuBarView: View {
             }
             if let b = model.battery {
                 tileButton(.battery, icon: b.isCharging ? "battery.100.bolt" : "battery.100", title: "Battery",
-                           value: "\(b.percent)%", detail: b.healthPercent.map { "health \($0)%" } ?? "",
+                           value: "\(b.percent)%", detail: model.batteryCaptionText,
                            fraction: Double(b.percent) / 100, tint: Palette.good)
             }
         }

@@ -240,6 +240,21 @@ struct LabeledBar: View {
     }
 }
 
+/// A thin capsule bar (energy rows, compact meters).
+struct MiniBar: View {
+    let fraction: Double
+    var tint: Color = Palette.orange
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(.quaternary)
+                Capsule().fill(tint).frame(width: max(4, geo.size.width * min(1, max(0, fraction))))
+            }
+        }
+        .frame(height: 5)
+    }
+}
+
 /// A subtle section heading.
 struct SectionTitle: View {
     let text: String

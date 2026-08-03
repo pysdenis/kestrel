@@ -27,6 +27,18 @@ final class AppModel: ObservableObject {
     @Published var netHistory: [Double] = []          // recent download throughput
     private var lastNet: (inB: Int64, outB: Int64, at: Date)?
 
+    /// Smoothed battery time estimate (minutes) so the instantaneous figure doesn't
+    /// jump around as load spikes.
+    @Published var batteryTimeMinutes: Int?
+    private var batteryMinutesEMA: Double?
+
+    /// Time-left / time-to-full caption for the battery card.
+    var batteryCaptionText: String {
+        guard let b = battery else { return "" }
+        if let m = batteryTimeMinutes { return b.isCharging ? "\(minutesString(m)) to full" : "\(minutesString(m)) left" }
+        return b.healthPercent.map { "health \($0)%" } ?? (b.isCharging ? "charging" : "on battery")
+    }
+
     let paths = KestrelPaths()
     private let stats = StatsCollector()
     private let cpuSampler = CPUUsageSampler()
@@ -44,7 +56,7 @@ final class AppModel: ObservableObject {
         visibleSurfaces += 1
         refresh()
         if timer == nil {
-            timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            timer = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
                 Task { @MainActor in self?.refresh() }
             }
         }
@@ -63,7 +75,8 @@ final class AppModel: ObservableObject {
     func energyAppeared() {
         refreshEnergy()
         if energyTimer == nil {
-            energyTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
+            // top is heavy; sample it sparingly (only while the Energy section is open).
+            energyTimer = Timer.scheduledTimer(withTimeInterval: 45, repeats: true) { [weak self] _ in
                 Task { @MainActor in self?.refreshEnergy() }
             }
         }
@@ -104,6 +117,17 @@ final class AppModel: ObservableObject {
         self.cpu = cpu
         self.battery = battery
         self.health = HealthScorer().score(disk: disk, memory: memory, cpu: cpu, battery: battery)
+
+        // Smooth the battery time estimate (EMA) so it stays steady between load spikes.
+        let raw = battery.flatMap { $0.isCharging ? $0.timeToFullMinutes : $0.timeToEmptyMinutes }
+        if let raw {
+            let ema = batteryMinutesEMA.map { $0 * 0.6 + Double(raw) * 0.4 } ?? Double(raw)
+            batteryMinutesEMA = ema
+            batteryTimeMinutes = Int(ema.rounded())
+        } else {
+            batteryMinutesEMA = nil
+            batteryTimeMinutes = nil
+        }
 
         let net = stats.network()
         let now = Date()

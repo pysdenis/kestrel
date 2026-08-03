@@ -131,7 +131,7 @@ struct DashboardSection: View {
                 }
                 if let b = model.battery {
                     MetricTile(icon: b.isCharging ? "battery.100.bolt" : "battery.75", title: "Battery", value: "\(b.percent)%",
-                               detail: batteryCaption(b), fraction: Double(b.percent) / 100, tint: Palette.good)
+                               detail: model.batteryCaptionText, fraction: Double(b.percent) / 100, tint: Palette.good)
                 }
                 if model.network != nil {
                     NetworkTile(ssid: model.network?.ssid, downBps: model.netDownBps,

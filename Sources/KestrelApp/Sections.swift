@@ -158,10 +158,9 @@ struct EnergySection: View {
                         if let h = b.healthPercent { badge(icon: "heart.text.square", title: "Health", value: "\(h)%", tint: Palette.pink) }
                         if let cy = b.cycleCount { badge(icon: "arrow.triangle.2.circlepath", title: "Cycles", value: "\(cy)", tint: Palette.blue) }
                         badge(icon: "bolt", title: "State", value: b.isCharging ? "Charging" : "On battery", tint: Palette.orange)
-                        if b.isCharging, let m = b.timeToFullMinutes {
-                            badge(icon: "battery.100.bolt", title: "Full in", value: minutesString(m), tint: Palette.teal)
-                        } else if !b.isCharging, let m = b.timeToEmptyMinutes {
-                            badge(icon: "hourglass", title: "Time left", value: minutesString(m), tint: Palette.teal)
+                        if let m = model.batteryTimeMinutes {
+                            badge(icon: b.isCharging ? "battery.100.bolt" : "hourglass",
+                                  title: b.isCharging ? "Full in" : "Time left", value: minutesString(m), tint: Palette.teal)
                         }
                         Spacer()
                     }
@@ -175,20 +174,21 @@ struct EnergySection: View {
                         Text("Reading energy usage…").foregroundStyle(.secondary).font(.callout)
                     } else {
                         ForEach(model.energyNow) { proc in
-                            HStack(spacing: 10) {
-                                VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 6) {
                                     HStack {
-                                        Text(proc.name).lineLimit(1)
+                                        Text(proc.name).font(.callout).lineLimit(1).truncationMode(.middle)
                                         Spacer()
                                         Text(String(format: "%.0f%% CPU", proc.cpuPercent)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                                     }
-                                    ProgressView(value: proc.energyImpact / maxNow).tint(Palette.orange)
+                                    MiniBar(fraction: proc.energyImpact / maxNow)
                                 }
-                                Button(role: .destructive) { pendingQuit = proc } label: {
-                                    Image(systemName: "xmark.circle.fill")
+                                Button { pendingQuit = proc } label: {
+                                    Image(systemName: "xmark.circle.fill").font(.title3).foregroundStyle(Palette.crit)
                                 }
-                                .buttonStyle(.borderless).help("Quit \(proc.name)")
+                                .buttonStyle(.plain).help("Quit \(proc.name)")
                             }
+                            .padding(.vertical, 3)
                         }
                     }
                 }

@@ -168,15 +168,15 @@ Vše drží invarianty: dry-run default, vault + undo, audit, unknown se nemaže
 ## Fáze 11 — Design „Precision" 1:1 🎨 (dle návrhu artifactu)
 Naportovat schválený návrh (redesign v2) do nativního SwiftUI, komponentu po komponentě.
 - [x] Design tokens: paleta „Precision" (grafit + teal accent + sémantika) nasazená.
-- [ ] Grafitové grunty, hairline, sklo, prémiové stíny, hloubka napříč app.
-- [ ] **Hero** health gauge (conic gradient + glow) + verdikt + jedna CTA („Free up X") + „Run Smart Care".
-- [ ] **Radiální mini-gauge** v dlaždicích (disk/paměť) místo barů; sparkliny (CPU/síť).
-- [ ] **Seskupený sidebar** (Monitor / Maintain / Intelligence) s ikonami, accent aktivním stavem a glow lištou, badge (např. „12 GB").
-- [ ] **AI insight strip**, **Storage forecast** graf, **Security status** karta.
+- [x] Grafitové grunty, hairline (`Hairline`), sklo, prémiové stíny, hloubka (`Card` elevated + tint) napříč app.
+- [x] **Hero** health gauge (`HeroGauge`, conic gradient + glow) + verdikt + CTA („Free up space") + „Run Smart Care".
+- [~] **Radiální mini-gauge** v dlaždicích (`RadialMetricTile`); síťová sparkline hotová, CPU sparkline zbývá.
+- [x] **Seskupený sidebar** (Monitor / Maintain / Intelligence) s ikonami, accent glow lištou aktivního stavu.
+- [~] **Storage forecast** karta (`ForecastCard`) ✅ + **Security status** karta (`ProtectionCard`) ✅; AI insight strip zbývá (jen na akci uživatele — invariant #7).
 - [~] **My Tools** toolbox grid — hotové karty finderů (`PlanToolCard`); zbývá dotáhnout ostatní nástroje.
-- [ ] **Command palette (⌘K)** — spusť/najdi jakoukoli akci.
-- [ ] Redesign **menubar popoveru** do stejného jazyka.
-- [ ] Sjednocené komponenty (karty, tlačítka, metry, gauge) + light/dark 1:1 s referencí.
+- [x] **Command palette (⌘K)** — spusť/najdi jakoukoli akci (tintované ikony, highlight, hint patička).
+- [~] Redesign **menubar popoveru** — už plně custom (chip cluster, action/speed karty); drobný sjednocující pass zbývá.
+- [x] Sjednocené komponenty: **žádný defaultní Apple control** — vlastní progress (`KestrelProgress`), spinner (`KestrelSpinner`), switch (`KestrelToggle`), confirm modal (`ConfirmModal`), select (`KestrelSelect`), tlačítka, karty, gauge; light/dark přes sémantickou paletu.
 
 ## Fáze 12 — Extra funkce (co CleanMyMac NEMÁ) 🚀
 Diferenciátory — většina už hotová, tady jako přehled + zbytek.

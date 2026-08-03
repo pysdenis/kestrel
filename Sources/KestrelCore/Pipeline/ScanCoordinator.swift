@@ -53,7 +53,9 @@ public struct ScanCoordinator {
         ("/go/pkg/mod/cache/download", .high, "Go module download cache"),
     ]
 
-    public func scan(root: URL, options: ScanOptions = ScanOptions()) throws -> [ClassifiedEntry] {
+    /// Scan a tree. `onProgress` (if given) is called periodically with the number of
+    /// files seen and the current path, so a UI can show live progress.
+    public func scan(root: URL, options: ScanOptions = ScanOptions(), onProgress: ((Int, URL) -> Void)? = nil) throws -> [ClassifiedEntry] {
         let keys: [URLResourceKey] = [
             .isDirectoryKey, .isRegularFileKey, .contentModificationDateKey, .fileSizeKey,
         ]
@@ -63,10 +65,13 @@ public struct ScanCoordinator {
 
         var results: [ClassifiedEntry] = []
         var looseFiles: [FileEntry] = []
+        var seen = 0
 
         for case let url as URL in enumerator {
             let values = try? url.resourceValues(forKeys: Set(keys))
             let modified = values?.contentModificationDate ?? .distantPast
+            seen += 1
+            if let onProgress, seen % 250 == 0 { onProgress(seen, url) }
 
             if values?.isDirectory == true {
                 if SafetyGuard.isProtected(url) { enumerator.skipDescendants(); continue }

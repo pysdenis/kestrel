@@ -43,6 +43,7 @@ struct CleanupSection: View {
     @State private var message: String?
     @State private var aiReview: String?
     @State private var reviewing = false
+    @State private var scanStatus = ""
 
     var body: some View {
         SectionScaffold(title: "Cleanup", subtitle: "Preview first — nothing is deleted, items move to the vault") {
@@ -62,7 +63,7 @@ struct CleanupSection: View {
 
                     HStack {
                         Button(action: scan) {
-                            if scanning { ProgressView().controlSize(.small) } else { Label("Scan", systemImage: "magnifyingglass") }
+                            Label(scanning ? "Scanning…" : "Scan", systemImage: "magnifyingglass")
                         }
                         .buttonStyle(.kestrel)
                         .disabled(scanning || applying)
@@ -86,6 +87,11 @@ struct CleanupSection: View {
                 }
             }
 
+            if scanning {
+                ScanningBanner(title: "Scanning \(choice.title.lowercased())…",
+                               detail: scanStatus.isEmpty ? "Walking \(root.lastPathComponent)…" : scanStatus)
+            }
+
             if let aiReview {
                 Card {
                     HStack(alignment: .top, spacing: 8) {
@@ -99,9 +105,10 @@ struct CleanupSection: View {
                 Label(message, systemImage: "checkmark.circle.fill").foregroundStyle(Palette.good)
             }
 
-            if let plan {
+            if let plan, !scanning {
                 if plan.items.isEmpty {
-                    Label("Nothing to clean here.", systemImage: "checkmark.seal").foregroundStyle(.secondary)
+                    EmptyState(icon: "checkmark.seal.fill", title: "Nothing to clean here",
+                               caption: "This category is already tidy in \(root.lastPathComponent).")
                 } else {
                     Text("Reclaimable: \(bytesString(plan.totalBytes)) across \(plan.count) item(s)").font(.headline)
                     Card {
@@ -132,11 +139,14 @@ struct CleanupSection: View {
     }
 
     private func scan() {
-        scanning = true; plan = nil; message = nil; aiReview = nil
+        scanning = true; plan = nil; message = nil; aiReview = nil; scanStatus = ""
         let root = self.root
         let categories = choice.categories
         Task.detached {
-            let classified = (try? ScanCoordinator().scan(root: root)) ?? []
+            let classified = (try? ScanCoordinator().scan(root: root) { count, url in
+                let name = url.lastPathComponent
+                Task { @MainActor in scanStatus = "Scanned \(count) files · \(name)" }
+            }) ?? []
             let result = Planner().plan(classified, categories: categories)
             await MainActor.run { self.plan = result; self.scanning = false }
         }
@@ -327,7 +337,10 @@ struct EnergySection: View {
                 VStack(alignment: .leading, spacing: 10) {
                     SectionTitle("Draining right now", icon: "bolt.fill")
                     if model.energyNow.isEmpty {
-                        Text("Reading energy usage…").foregroundStyle(.secondary).font(.callout)
+                        HStack(spacing: 10) {
+                            ScanRadar(tint: Palette.orange, size: 24)
+                            Text("Reading energy usage…").foregroundStyle(.secondary).font(.callout)
+                        }
                     } else {
                         ForEach(model.energyNow) { proc in
                             HStack(spacing: 12) {
@@ -402,6 +415,8 @@ struct SecuritySection: View {
     @State private var status: GatekeeperStatus?
     @State private var orphans: [LaunchItem] = []
     @State private var extensions: [SystemExtension] = []
+    @State private var scanProgress: Double = 0
+    @State private var scanStatus = ""
 
     var body: some View {
         SectionScaffold(title: "Security", subtitle: "Honest, evidence-based checks — no scare tactics") {
@@ -425,18 +440,31 @@ struct SecuritySection: View {
                         Spacer()
                         Button("Choose…") { pickFolder() }.buttonStyle(.kestrel(.subtle, size: .small))
                         Button(action: scan) {
-                            if scanning { ProgressView().controlSize(.small) } else { Text("Scan") }
+                            Text(scanning ? "Scanning…" : "Scan")
                         }
                         .buttonStyle(.kestrel).disabled(scanning)
                     }
-                    if let report {
+                    if scanning {
+                        ScanningBanner(title: "Scanning for threats…",
+                                       detail: scanStatus.isEmpty ? "Reading files in \(root.lastPathComponent)…" : scanStatus,
+                                       progress: scanProgress)
+                    } else if let report {
                         if report.isClean {
-                            Label("Clean — scanned \(report.scanned) file(s).", systemImage: "checkmark.shield.fill").foregroundStyle(Palette.good)
+                            EmptyState(icon: "checkmark.shield.fill", title: "Clean",
+                                       caption: "Scanned \(report.scanned) file(s) — no threats. No scare tactics.")
                         } else {
+                            Label("\(report.findings.count) finding(s) with evidence", systemImage: "exclamationmark.triangle.fill")
+                                .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.orange)
                             ForEach(Array(report.findings.enumerated()), id: \.offset) { _, f in
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Label("[\(f.severity.rawValue)] \(f.rule)", systemImage: "exclamationmark.triangle.fill").foregroundStyle(Palette.orange)
-                                    Text(f.path).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                                HStack(alignment: .top, spacing: 10) {
+                                    Image(systemName: f.severity == .malicious ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
+                                        .foregroundStyle(f.severity == .malicious ? Palette.crit : Palette.orange)
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text("\(f.rule)  ·  \(f.severity.rawValue)").font(.callout.weight(.medium))
+                                        Text(f.path).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                                        Text(f.evidence).font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                                    }
+                                    Spacer()
                                 }
                             }
                         }
@@ -497,10 +525,17 @@ struct SecuritySection: View {
     }
 
     private func scan() {
-        scanning = true; report = nil
+        scanning = true; report = nil; scanProgress = 0; scanStatus = ""
         let root = self.root
         Task.detached {
-            let result = AntivirusEngine().scan(root: root)
+            let result = AntivirusEngine().scan(root: root) { done, total, url in
+                let name = url.lastPathComponent
+                let fraction = total > 0 ? Double(done) / Double(total) : 0
+                Task { @MainActor in
+                    scanProgress = fraction
+                    scanStatus = "\(done) / \(total) files · \(name)"
+                }
+            }
             await MainActor.run { self.report = result; self.scanning = false }
         }
     }
@@ -542,14 +577,20 @@ struct ToolsSection: View {
                         Spacer()
                         Button("Choose…") { pickProject() }.buttonStyle(.kestrel(.subtle, size: .small))
                         Button(action: scanSecrets) {
-                            if scanning { ProgressView().controlSize(.small) } else { Text("Scan") }
+                            Text(scanning ? "Scanning…" : "Scan")
                         }
                         .buttonStyle(.kestrel).disabled(scanning)
                     }
-                    if let secrets {
+                    if scanning {
+                        ScanningBanner(title: "Scanning for leaked secrets…",
+                                       detail: "Reading \(project.lastPathComponent)…", tint: Palette.kestrel)
+                    } else if let secrets {
                         if secrets.isEmpty {
-                            Label("No leaked credentials found.", systemImage: "checkmark.circle").foregroundStyle(Palette.good)
+                            EmptyState(icon: "checkmark.circle.fill", title: "No leaked credentials",
+                                       caption: "No API keys, tokens or private keys found in \(project.lastPathComponent).")
                         } else {
+                            Label("\(secrets.count) potential secret(s)", systemImage: "exclamationmark.triangle.fill")
+                                .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.orange)
                             ForEach(Array(secrets.prefix(40).enumerated()), id: \.offset) { _, m in
                                 Text("[\(m.rule)] \(m.path):\(m.line)").font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                             }

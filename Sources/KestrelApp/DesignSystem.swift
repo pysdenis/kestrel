@@ -12,6 +12,17 @@ func healthColor(_ score: Int) -> Color {
     }
 }
 
+/// A short, honest one-liner for the Mac Health score.
+func healthVerdict(_ score: Int) -> String {
+    switch score {
+    case 90...: return "Your Mac is in great shape"
+    case 80..<90: return "Your Mac is running well"
+    case 65..<80: return "A little upkeep would help"
+    case 50..<65: return "Some things need attention"
+    default: return "Needs attention"
+    }
+}
+
 func fractionColor(_ fraction: Double) -> Color {
     switch fraction {
     case 0.9...: return Palette.crit
@@ -386,6 +397,92 @@ struct MiniBar: View {
             }
         }
         .frame(height: 5)
+    }
+}
+
+/// An animated radar sweep shown while a scan runs, so the user sees live activity
+/// (a rotating accent arc + an expanding pulse). Honours Reduce Motion.
+struct ScanRadar: View {
+    var tint: Color = Palette.accent
+    var size: CGFloat = 34
+    @State private var spin = false
+    @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(tint.opacity(0.16), lineWidth: 2)
+            Circle()
+                .stroke(tint.opacity(pulse ? 0 : 0.45), lineWidth: 2)
+                .scaleEffect(pulse ? 1.35 : 0.72)
+            Circle()
+                .trim(from: 0, to: 0.3)
+                .stroke(
+                    AngularGradient(colors: [tint.opacity(0), tint], center: .center),
+                    style: StrokeStyle(lineWidth: 2.6, lineCap: .round)
+                )
+                .rotationEffect(.degrees(spin ? 360 : 0))
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: size * 0.32, weight: .bold))
+                .foregroundStyle(tint)
+        }
+        .frame(width: size, height: size)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) { spin = true }
+            withAnimation(.easeOut(duration: 1.5).repeatForever(autoreverses: false)) { pulse = true }
+        }
+    }
+}
+
+/// A live scanning banner: animated radar, a title, a live status line and — when a
+/// finite total is known — a determinate progress bar. Counts are honest; they come
+/// straight from the scanner's own progress callbacks.
+struct ScanningBanner: View {
+    let title: String
+    var detail: String = ""
+    var progress: Double? = nil
+    var tint: Color = Palette.accent
+
+    var body: some View {
+        Card {
+            HStack(spacing: 13) {
+                ScanRadar(tint: tint)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(title).font(.subheadline.weight(.semibold))
+                    if !detail.isEmpty {
+                        Text(detail)
+                            .font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                            .lineLimit(1).truncationMode(.middle)
+                            .animation(nil, value: detail)
+                    }
+                    if let progress {
+                        ProgressView(value: min(1, max(0, progress))).tint(tint)
+                            .animation(.easeOut(duration: 0.25), value: progress)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// A friendly empty / all-clear state: icon, headline, optional caption.
+struct EmptyState: View {
+    let icon: String
+    let title: String
+    var caption: String = ""
+    var tint: Color = Palette.good
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon).font(.system(size: 30, weight: .regular)).foregroundStyle(tint)
+            Text(title).font(.subheadline.weight(.semibold))
+            if !caption.isEmpty {
+                Text(caption).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 22)
     }
 }
 

@@ -31,7 +31,10 @@ public struct DiskMap {
     /// Measure `root`, expanding directories down to `maxDepth`. Directories beyond the
     /// depth are still summed (so totals are correct) but not broken down further.
     /// Children at each level are sorted largest-first.
-    public func measure(_ root: URL, maxDepth: Int = 2) -> DirNode {
+    /// `onProgress` (if given) is called as each top-level child finishes with
+    /// (completed, total, name), so a UI can show coarse but meaningful progress while
+    /// the expensive top-level directories are being measured in parallel.
+    public func measure(_ root: URL, maxDepth: Int = 2, onProgress: ((Int, Int, String) -> Void)? = nil) -> DirNode {
         guard isExpandableDirectory(root) else {
             return DirNode(url: root, name: root.lastPathComponent, size: fileSize(root), isDirectory: false, children: [])
         }
@@ -39,9 +42,15 @@ public struct DiskMap {
 
         // Parallel across the top-level children — the expensive part.
         var childNodes = [DirNode?](repeating: nil, count: entries.count)
+        let lock = NSLock()
+        var completed = 0
         childNodes.withUnsafeMutableBufferPointer { buffer in
             DispatchQueue.concurrentPerform(iterations: entries.count) { i in
                 buffer[i] = self.node(at: entries[i], depth: maxDepth - 1)
+                if let onProgress {
+                    lock.lock(); completed += 1; let done = completed; lock.unlock()
+                    onProgress(done, entries.count, entries[i].lastPathComponent)
+                }
             }
         }
         let sorted = childNodes.compactMap { $0 }.sorted { $0.size > $1.size }

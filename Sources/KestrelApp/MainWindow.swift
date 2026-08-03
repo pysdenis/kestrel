@@ -192,7 +192,11 @@ struct DashboardSection: View {
                 HStack(spacing: 18) {
                     HealthRing(score: model.health?.overall ?? 0, size: 110)
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Mac Health").font(.title2.weight(.semibold))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Mac Health").font(.title2.weight(.semibold))
+                            Text(healthVerdict(model.health?.overall ?? 0))
+                                .font(.subheadline).foregroundStyle(healthColor(model.health?.overall ?? 0))
+                        }
                         ForEach(model.health?.components ?? [], id: \.name) { c in
                             HStack {
                                 Text(c.name).frame(width: 70, alignment: .leading).font(.callout)
@@ -285,6 +289,9 @@ struct SpaceSection: View {
     @State private var tree: DirNode?
     @State private var path: [DirNode] = []
     @State private var loading = false
+    @State private var scanDone = 0
+    @State private var scanTotal = 0
+    @State private var scanStatus = ""
 
     var body: some View {
         SectionScaffold(title: "Space", subtitle: "Where your storage is going") {
@@ -314,7 +321,10 @@ struct SpaceSection: View {
             }
 
             if loading {
-                HStack { ProgressView().controlSize(.small); Text("Measuring…").foregroundStyle(.secondary) }
+                ScanningBanner(title: "Measuring your Home folder…",
+                               detail: scanStatus.isEmpty ? "Reading top-level folders…" : scanStatus,
+                               progress: scanTotal > 0 ? Double(scanDone) / Double(scanTotal) : nil,
+                               tint: Palette.blue)
             } else if let tree {
                 let current = path.last ?? tree
                 HStack(spacing: 5) {
@@ -341,10 +351,15 @@ struct SpaceSection: View {
     }
 
     private func load() {
-        loading = true; path = []
+        loading = true; path = []; scanStatus = ""; scanDone = 0; scanTotal = 0
         let home = model.paths.home
         Task.detached {
-            let measured = DiskMap().measure(home, maxDepth: 3)
+            let measured = DiskMap().measure(home, maxDepth: 3) { done, total, name in
+                Task { @MainActor in
+                    scanDone = done; scanTotal = total
+                    scanStatus = "Measured \(name) · \(done)/\(total)"
+                }
+            }
             await MainActor.run { self.tree = measured; self.loading = false }
         }
     }
@@ -377,8 +392,10 @@ struct ActivitySection: View {
                     }
                 }
             } else {
-                Text("Nothing reclaimed yet. Run a cleanup and it will show up here.")
-                    .foregroundStyle(.secondary)
+                Card {
+                    EmptyState(icon: "tray", title: "Nothing reclaimed yet",
+                               caption: "Run a cleanup and what you free up will show up here.", tint: Palette.accent)
+                }
             }
 
             if let d = digest, (d.dailyGrowthBytes != nil || !d.recentChanges.isEmpty) {

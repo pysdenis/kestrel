@@ -19,9 +19,15 @@ public struct AntivirusEngine {
         self.fm = fm
     }
 
-    public func scan(root: URL) -> ScanReport {
+    /// Scan a tree. `onProgress` (if given) is called with (files scanned, total, current path)
+    /// so a UI can show a live, honest progress bar.
+    public func scan(root: URL, onProgress: ((Int, Int, URL) -> Void)? = nil) -> ScanReport {
         let files = (try? Scanner().scanFiles(under: root, pruning: [], includingHidden: true)) ?? []
-        let findings = files.flatMap { scanFile($0.url) }
+        var findings: [ScanFinding] = []
+        for (i, file) in files.enumerated() {
+            findings.append(contentsOf: scanFile(file.url))
+            if let onProgress, i % 25 == 0 || i == files.count - 1 { onProgress(i + 1, files.count, file.url) }
+        }
         return ScanReport(scanned: files.count, findings: findings)
     }
 

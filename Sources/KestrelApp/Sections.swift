@@ -41,6 +41,8 @@ struct CleanupSection: View {
     @State private var applying = false
     @State private var plan: CleanupPlan?
     @State private var message: String?
+    @State private var aiReview: String?
+    @State private var reviewing = false
 
     var body: some View {
         SectionScaffold(title: "Cleanup", subtitle: "Preview first — nothing is deleted, items move to the vault") {
@@ -71,7 +73,24 @@ struct CleanupSection: View {
                             }
                             .buttonStyle(.kestrel(.secondary))
                             .disabled(applying)
+
+                            if model.aiConfigured {
+                                Button(action: review) {
+                                    if reviewing { ProgressView().controlSize(.small) } else { Label("AI review", systemImage: "sparkles") }
+                                }
+                                .buttonStyle(.kestrel(.subtle))
+                                .disabled(reviewing)
+                            }
                         }
+                    }
+                }
+            }
+
+            if let aiReview {
+                Card {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "sparkles").foregroundStyle(Palette.violet)
+                        Text(aiReview).font(.callout).textSelection(.enabled)
                     }
                 }
             }
@@ -113,13 +132,22 @@ struct CleanupSection: View {
     }
 
     private func scan() {
-        scanning = true; plan = nil; message = nil
+        scanning = true; plan = nil; message = nil; aiReview = nil
         let root = self.root
         let categories = choice.categories
         Task.detached {
             let classified = (try? ScanCoordinator().scan(root: root)) ?? []
             let result = Planner().plan(classified, categories: categories)
             await MainActor.run { self.plan = result; self.scanning = false }
+        }
+    }
+
+    private func review() {
+        guard let plan, let assistant = model.aiAssistant else { return }
+        reviewing = true; aiReview = nil
+        Task {
+            let text = (try? await assistant.review(plan: plan)) ?? "AI review failed. Check your key and connection."
+            await MainActor.run { aiReview = text; reviewing = false }
         }
     }
 

@@ -240,6 +240,7 @@ func usage() {
       kestrel localsnapshots                    (APFS/Time Machine local snapshots)
       kestrel shred <path> --apply              (secure permanent delete — no undo)
       kestrel rules list | run [name] [--apply] (declarative maintenance rules)
+      kestrel rules install-agent [--every-hours N] | uninstall-agent   (scheduled cleanup)
       kestrel stats [all|disk|mem|cpu|battery|net|health]
       kestrel energy                            (top battery/energy consumers now + 24h)
       kestrel speedtest                         (internet download speed + latency)
@@ -298,6 +299,10 @@ do {
         let classified = try classify(at: path, args: rest)
         let plan = Planner().plan(classified, categories: categoryFilter(option("--category", in: rest)))
         printPlan(plan)
+        if flag("--review", in: rest), !plan.items.isEmpty, let assistant = geminiAssistant() {
+            print("\nAI second opinion (metadata only):")
+            print(runAI { try? await assistant.review(plan: plan) } ?? "AI review unavailable.")
+        }
         guard apply else {
             print("\nDRY-RUN — nothing moved. Re-run with --apply to move these to the vault.")
             break
@@ -620,8 +625,21 @@ do {
             guard !selected.isEmpty else { print("No matching rules."); break }
             let items = selected.flatMap { RulesEngine().evaluate($0).items }
             try runPlan(CleanupPlan(items: items), apply: flag("--apply", in: rest))
+        case "install-agent":
+            let hours = Int(option("--every-hours", in: rest) ?? "24") ?? 24
+            let exe = Bundle.main.executablePath ?? CommandLine.arguments[0]
+            let scheduler = RulesScheduler()
+            let url = try scheduler.writePlist(executable: exe, everyHours: hours)
+            _ = try? ProcessRunner().run("launchctl", ["load", "-w", url.path])
+            print("Installed launchd agent: runs 'kestrel rules run --apply' every \(hours)h.\n  \(url.path)")
+            print("(Removes matched files to the vault — undoable. Uninstall with: kestrel rules uninstall-agent)")
+        case "uninstall-agent":
+            let scheduler = RulesScheduler()
+            if scheduler.isInstalled() { _ = try? ProcessRunner().run("launchctl", ["unload", scheduler.plistURL.path]) }
+            try scheduler.removePlist()
+            print("Removed the scheduled rules agent.")
         default:
-            print("Unknown rules subcommand '\(sub)'. Use: list|run"); exit(2)
+            print("Unknown rules subcommand '\(sub)'. Use: list|run|install-agent|uninstall-agent"); exit(2)
         }
 
     case "energy":

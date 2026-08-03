@@ -848,6 +848,26 @@ check(ProcessController().quit(pid: 0) == false, "pid 0 (process group) refused"
 check(ProcessController().quit(pid: 1) == false, "pid 1 (launchd) refused")
 check(ProcessController().quit(pid: -1) == false, "negative pid refused")
 
+// MARK: - Rules scheduler (launchd)
+
+section("RulesScheduler: writes a valid LaunchAgent plist, removable")
+withTempDir { tmp in
+    let scheduler = RulesScheduler(home: tmp)
+    check(!scheduler.isInstalled(), "not installed initially")
+    let plist = scheduler.plist(executable: "/usr/local/bin/kestrel", everyHours: 12)
+    check((plist["ProgramArguments"] as? [String]) == ["/usr/local/bin/kestrel", "rules", "run", "--apply"], "runs rules run --apply")
+    check((plist["StartInterval"] as? Int) == 12 * 3600, "interval in seconds")
+
+    _ = try scheduler.writePlist(executable: "/usr/local/bin/kestrel", everyHours: 12)
+    check(scheduler.isInstalled(), "plist written")
+    // Round-trips as a real plist.
+    let data = try Data(contentsOf: scheduler.plistURL)
+    let decoded = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+    check((decoded?["Label"] as? String) == RulesScheduler.label, "label persisted")
+    try scheduler.removePlist()
+    check(!scheduler.isInstalled(), "plist removed")
+}
+
 // MARK: - AI (Gemini)
 
 func awaitResult<T>(_ op: @escaping () async -> T) -> T {

@@ -45,6 +45,21 @@ public struct AIAssistant {
         return try await client.generate(prompt, system: Self.systemPrompt)
     }
 
+    /// A second opinion before applying a cleanup: flag anything that looks risky.
+    public func review(plan: CleanupPlan) async throws -> String {
+        let items = plan.items.sorted { $0.entry.size > $1.entry.size }.prefix(30)
+            .map { "  • \($0.entry.url.lastPathComponent) — \(bytes($0.entry.size)) [\($0.category.rawValue)] — \($0.reason)" }
+        let prompt = """
+        The user is about to move these items to Kestrel's reversible vault (not a \
+        permanent delete — everything can be undone). Metadata only, no file contents:
+        \(items.joined(separator: "\n"))
+
+        Briefly: does anything here look risky or like it shouldn't be removed? If it all \
+        looks safe to move to a reversible vault, say so in one line. Be honest and concise.
+        """
+        return try await client.generate(prompt, system: Self.systemPrompt)
+    }
+
     /// Explain what a single item is and whether it is safe to remove.
     public func explain(name: String, category: Category, reason: String) async throws -> String {
         let prompt = """

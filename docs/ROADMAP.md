@@ -87,7 +87,23 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 - [x] **Energy modul**: co bere baterku teď (`EnergyMonitor`, top consumers) + za 24h (`EnergyLog`), ukončení procesu (`ProcessController`, SIGTERM, guard pid>1). CLI `energy`.
 - [x] Rozklikávací dlaždice v popoveru (Disk/Memory/CPU/Battery → zkrácený detail).
 - [x] Animovaný speed gauge (sweep při měření + count-up výsledku).
-- [ ] Vyladit dál dle zpětné vazby (živé grafy throughputu, treemap ve Space).
+- [x] Živý graf síťového throughputu (sparkline) na dashboardu.
+- [x] Idle efektivita: polling jen když je UI vidět (idle 0 % CPU); adaptivní paleta 1:1 s referencí.
+- [x] Live odhad baterie z okamžitého proudu (AppleSmartBattery), time-left přímo na kartě.
+- [ ] Interaktivní treemap ve Space (klikací, jako ncdu).
+
+## Fáze 9 — AI & automatizace 🤖 (rozpracováno)
+Detaily viz brainstorm; AI je vždy opt-in a posílá jen metadata (invariant #7).
+- [x] **AI asistent (Gemini)**: `GeminiClient` + `AIAssistant`, CLI `ask`/`explain`/`advise`, GUI Assistant sekce.
+- [x] **AI „druhý názor" před `apply`** (`AIAssistant.review`, CLI `clean --review`, GUI tlačítko).
+- [ ] **AI vysvětlení bezpečnostního nálezu / launch agenta** (rozšířit `explain` na AV a `av agents`).
+- [ ] **Přirozený jazyk → rule** — „ukliď node_modules starší měsíce" → AI navrhne pravidlo (uživatel potvrdí, nemaže samo).
+- [ ] **Weekly AI digest** nad snapshoty („co narostlo od minule").
+- [x] **`launchd` automatizace** pro rules (`RulesScheduler`, `kestrel rules install-agent`).
+- [ ] **Perceptuální hash** na podobné fotky + seskupení screenshotů.
+- [ ] **System extensions / config profiles audit.**
+- [ ] **Lokální notifikace** (UserNotifications) — málo místa / velký nález.
+- [ ] **Menu bar quick action** „Free up dev junk" jedním klikem.
 
 ## Fáze 7 — Vydání 📦 (rozpracováno)
 - [ ] Vlastní branding + ikony (NE od CleanMyMac) — zatím SF Symbol `bird.fill`.

@@ -278,6 +278,46 @@ withTempDir { tmp in
     check(Planner().plan([hit], categories: [.largeOld]).count == 1, "included when named explicitly")
 }
 
+// MARK: - Duplicate finder
+
+section("Duplicates: identical files, one original kept")
+withTempDir { tmp in
+    let a = makeFile(tmp.appendingPathComponent("a.bin"), "same content here")
+    let b = makeFile(tmp.appendingPathComponent("b.bin"), "same content here")
+    let c = makeFile(tmp.appendingPathComponent("c.bin"), "same content here")
+    let entries = [a, b, c].map { Scanner().makeEntry($0) }
+    let dupes = DuplicateFinder().find(in: entries)
+    check(dupes.count == 2, "two of three flagged as duplicates (one kept)")
+    check(dupes.allSatisfy { $0.category == .duplicate && $0.confidence == .high }, "high-confidence duplicates")
+    let flaggedPaths = Set(dupes.map { $0.entry.url.path })
+    check(flaggedPaths.count == 2, "the kept original is not flagged")
+}
+
+section("Duplicates: same size but different content are not duplicates")
+withTempDir { tmp in
+    let a = makeFile(tmp.appendingPathComponent("a.bin"), "aaaa")
+    let b = makeFile(tmp.appendingPathComponent("b.bin"), "bbbb")
+    let entries = [a, b].map { Scanner().makeEntry($0) }
+    check(DuplicateFinder().find(in: entries).isEmpty, "different bytes, same size, not flagged")
+}
+
+section("Duplicates: partial-hash collision resolved by full hash")
+withTempDir { tmp in
+    // Same size, identical first 2 bytes, different tail — the full-hash stage must split them.
+    let a = makeFile(tmp.appendingPathComponent("a.bin"), "abXX")
+    let b = makeFile(tmp.appendingPathComponent("b.bin"), "abYY")
+    let entries = [a, b].map { Scanner().makeEntry($0) }
+    check(DuplicateFinder(partialBytes: 2).find(in: entries).isEmpty, "full hash separates partial collisions")
+}
+
+section("Duplicates: empty files are ignored")
+withTempDir { tmp in
+    let a = makeFile(tmp.appendingPathComponent("a.bin"), "")
+    let b = makeFile(tmp.appendingPathComponent("b.bin"), "")
+    let entries = [a, b].map { Scanner().makeEntry($0) }
+    check(DuplicateFinder().find(in: entries).isEmpty, "zero-byte files not flagged")
+}
+
 // MARK: - Safety guard
 
 section("SafetyGuard: protects credentials, VCS, system and libraries")

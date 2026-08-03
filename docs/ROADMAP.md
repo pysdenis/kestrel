@@ -77,6 +77,13 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 - [x] Sensitive file shredder (`Shredder`, `kestrel shred`, honest o SSD/FileVault).
 - [ ] Weekly digest (lokální), menu bar quick actions, „Explain this".
 
+## Fáze 8 — GUI 2.0 🎨 (rozpracováno)
+- [x] Oprava zobrazení místa (purgeable se nepočítá jako volné; sedí s `df`/Finder).
+- [x] Speed test internetu na kliknutí (`SpeedTest`, Cloudflare endpoint, `kestrel speedtest`).
+- [x] Moderní design: `DesignSystem` (material karty, health ring, metric tiles, bars), redesign menubar popoveru.
+- [x] Plné okno (`Window` scéna) se sidebarem: Dashboard · Cleanup · Space · Security · Tools · Activity · Settings — napojené na Core; Cleanup reálně přesouvá do vaultu, přepínání accessory↔regular (Dock).
+- [ ] Vyladit podle zpětné vazby (živé grafy throughputu, treemap ve Space, animace).
+
 ## Fáze 7 — Vydání 📦 (rozpracováno)
 - [ ] Vlastní branding + ikony (NE od CleanMyMac) — zatím SF Symbol `bird.fill`.
 - [ ] Developer ID podpis + notarizace + stapling — postup v `docs/RELEASE.md`.

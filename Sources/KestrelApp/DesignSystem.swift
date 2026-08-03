@@ -148,6 +148,73 @@ struct MetricTile: View {
     }
 }
 
+/// A small line+area chart of recent values (network throughput).
+struct Sparkline: View {
+    let values: [Double]
+    var tint: Color = Palette.teal
+
+    var body: some View {
+        GeometryReader { geo in
+            let pts = points(in: geo.size)
+            if pts.count > 1 {
+                ZStack {
+                    Path { p in
+                        p.move(to: CGPoint(x: pts[0].x, y: geo.size.height))
+                        pts.forEach { p.addLine(to: $0) }
+                        p.addLine(to: CGPoint(x: pts[pts.count - 1].x, y: geo.size.height))
+                        p.closeSubpath()
+                    }
+                    .fill(LinearGradient(colors: [tint.opacity(0.28), tint.opacity(0.02)], startPoint: .top, endPoint: .bottom))
+                    Path { p in
+                        p.move(to: pts[0])
+                        pts.dropFirst().forEach { p.addLine(to: $0) }
+                    }
+                    .stroke(tint, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                }
+            } else {
+                Rectangle().fill(.quaternary).frame(height: 1).frame(maxHeight: .infinity, alignment: .bottom)
+            }
+        }
+    }
+
+    private func points(in size: CGSize) -> [CGPoint] {
+        guard values.count > 1 else { return [] }
+        let maxV = max(values.max() ?? 1, 1)
+        let stepX = size.width / CGFloat(values.count - 1)
+        return values.enumerated().map { i, v in
+            CGPoint(x: CGFloat(i) * stepX, y: size.height * (1 - CGFloat(min(1, v / maxV))))
+        }
+    }
+}
+
+/// The network tile: current Wi-Fi, live throughput and a throughput sparkline.
+struct NetworkTile: View {
+    let ssid: String?
+    let downBps: Double
+    let upBps: Double
+    let history: [Double]
+
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 6) {
+                    Image(systemName: "wifi").foregroundStyle(Palette.teal).imageScale(.medium)
+                    Text("Network").font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
+                    Spacer()
+                    if let ssid { Text(ssid).font(.caption).foregroundStyle(.tertiary).lineLimit(1) }
+                }
+                Text("↓ \(rate(downBps))").font(.title3.weight(.semibold)).monospacedDigit()
+                Sparkline(values: history).frame(height: 26)
+                Text("↑ \(rate(upBps))").font(.caption2).foregroundStyle(.secondary).monospacedDigit()
+            }
+        }
+    }
+
+    private func rate(_ bps: Double) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(bps), countStyle: .file) + "/s"
+    }
+}
+
 /// A labelled horizontal bar (used in Space / breakdowns).
 struct LabeledBar: View {
     let label: String

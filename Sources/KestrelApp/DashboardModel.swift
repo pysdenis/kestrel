@@ -22,6 +22,11 @@ final class AppModel: ObservableObject {
     @Published var energy24h: [EnergyUsage] = []
     @Published var energyStart: Date?
 
+    @Published var netDownBps: Double = 0
+    @Published var netUpBps: Double = 0
+    @Published var netHistory: [Double] = []          // recent download throughput
+    private var lastNet: (inB: Int64, outB: Int64, at: Date)?
+
     let paths = KestrelPaths()
     private let stats = StatsCollector()
     private let cpuSampler = CPUUsageSampler()
@@ -98,8 +103,21 @@ final class AppModel: ObservableObject {
         self.memory = memory
         self.cpu = cpu
         self.battery = battery
-        self.network = stats.network()
         self.health = HealthScorer().score(disk: disk, memory: memory, cpu: cpu, battery: battery)
+
+        let net = stats.network()
+        let now = Date()
+        if let last = lastNet {
+            let dt = now.timeIntervalSince(last.at)
+            if dt > 0.5, dt < 10 {   // ignore long gaps (surface was closed)
+                netDownBps = max(0, Double(net.bytesIn - last.inB) / dt)
+                netUpBps = max(0, Double(net.bytesOut - last.outB) / dt)
+                netHistory.append(netDownBps)
+                if netHistory.count > 40 { netHistory.removeFirst(netHistory.count - 40) }
+            }
+        }
+        lastNet = (net.bytesIn, net.bytesOut, now)
+        self.network = net
     }
 
     func runSpeedTest() {

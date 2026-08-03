@@ -113,6 +113,79 @@ Detaily viz brainstorm; AI je vždy opt-in a posílá jen metadata (invariant #7
 - [x] LICENSE (MIT), README pro veřejnost s reálným použitím. Zbývají screenshoty.
 - [ ] Rozhodnout model: čistě OSS / OSS + placené buildy / donationware.
 
+## Fáze 10 — Plná parita s CleanMyMac 🧩🟰
+Cíl: **umět vše, co CleanMyMac**, uspořádané jako jeho sekce. `[x]` hotovo, `[~]` částečně, `[ ]` chybí.
+Vše drží invarianty: dry-run default, vault + undo, audit, unknown se nemaže, žádné strašení.
+
+### Smart Care (orchestrace jedním klikem)
+- [~] Jádro `SmartScan` (health + clutter + AV) → [ ] plný **Smart Care** flow: Cleanup + Protection + Performance + Applications updates → jeden čestný výsledek + „Run".
+
+### Cleanup
+- [x] **System Junk** (uživatelské cache/logy, dev-tool cache).
+- [x] **Dev-first úklid** (node_modules, DerivedData, Docker/brew, .venv, target…) — *navíc*.
+- [ ] **Trash Bins** — vysypat koše na všech volumes (`~/.Trash`, per-volume `.Trashes`).
+- [ ] Rozšířit „System Junk" o systémové cache, broken login items, XPC cache, apod.
+
+### Protection
+- [x] **Malware Finder** — čestný scanner (EICAR + heuristika, quarantined) → [ ] bundling **ClamAV + YARA** + freshclam definice.
+- [x] **Privacy Items** — browser cache/history/cookies → [ ] rozšířit (recent items, uložené stavy, chat/app logy).
+- [x] On-access sken (FSEvents).
+- [ ] **Application Permissions** — přehled TCC oprávnění appek (kamera/mikrofon/disk/…), read-only.
+
+### Performance
+- [x] **Maintenance Tasks** — advisory katalog (DNS flush, Spotlight/LaunchServices rebuild, purge, fontcache).
+- [ ] **Login Items** — správa (SMAppService/`launchctl`), zapnout/vypnout.
+- [ ] **Background Items** — běžící agenti/daemoni + přepnutí (rozšířit `LaunchAgentAuditor`).
+- [ ] **Free up RAM** — `purge` / uvolnění neaktivní paměti (opt-in).
+- [x] **Power & Wake auditor** — kdo brání spánku — *navíc*.
+
+### Applications
+- [x] **Uninstaller** (bundle + leftovers).
+- [x] **App Leftovers** (`OrphanFinder`).
+- [~] **App Updater** (Homebrew casks outdated) → [ ] Sparkle feedy + GUI seznam s update tlačítky.
+- [ ] **Reset App** — smazat data appky, ne appku samotnou (soft reset).
+
+### My Clutter
+- [x] **Duplicate Finder** (size→partial→full hash).
+- [x] **Large & Old Files** (konfig. prahy).
+- [x] **Screenshots / Old installers** (`ClutterFinder`) — *navíc oproti CMM granularitě*.
+- [ ] **Similar Images** — perceptuální hash (aHash/dHash), seskupení podobných fotek.
+- [ ] **Downloads** — triage Downloads (jednorázové soubory, staré .dmg/.pkg).
+- [ ] **Mail Attachments** — lokální přílohy Mailu (`~/Library/Mail/.../Attachments`).
+
+### Space Lens
+- [~] `DiskMap` + CLI `map` (treemap v terminálu) → [ ] **interaktivní treemap/sunburst v GUI** (klikací, drill-down).
+
+### Cloud Cleanup
+- [ ] **iCloud Drive / Dropbox / Google Drive** — offload lokálních kopií (evict, ne smazání).
+
+### My Tools (toolbox)
+- [ ] **Toolbox grid GUI** se všemi nástroji (karty + „Scan"), jako CleanMyMac „My Tools" — každý nástroj = existující Core funkce.
+
+### My Activity
+- [x] `ActivityReporter` (úspory z audit logu) → [ ] **GUI ledger** (co, kdy, kolik, undo historie).
+
+## Fáze 11 — Design „Precision" 1:1 🎨 (dle návrhu artifactu)
+Naportovat schválený návrh (redesign v2) do nativního SwiftUI, komponentu po komponentě.
+- [x] Design tokens: paleta „Precision" (grafit + teal accent + sémantika) nasazená.
+- [ ] Grafitové grunty, hairline, sklo, prémiové stíny, hloubka napříč app.
+- [ ] **Hero** health gauge (conic gradient + glow) + verdikt + jedna CTA („Free up X") + „Run Smart Care".
+- [ ] **Radiální mini-gauge** v dlaždicích (disk/paměť) místo barů; sparkliny (CPU/síť).
+- [ ] **Seskupený sidebar** (Monitor / Maintain / Intelligence) s ikonami, accent aktivním stavem a glow lištou, badge (např. „12 GB").
+- [ ] **AI insight strip**, **Storage forecast** graf, **Security status** karta.
+- [ ] **My Tools** toolbox grid (karty se Scan tlačítky, hover stavy).
+- [ ] **Command palette (⌘K)** — spusť/najdi jakoukoli akci.
+- [ ] Redesign **menubar popoveru** do stejného jazyka.
+- [ ] Sjednocené komponenty (karty, tlačítka, metry, gauge) + light/dark 1:1 s referencí.
+
+## Fáze 12 — Extra funkce (co CleanMyMac NEMÁ) 🚀
+Diferenciátory — většina už hotová, tady jako přehled + zbytek.
+- [x] Dev-first úklid (chápe repozitáře), [x] Vault + Undo, [x] Secrets scanner, [x] čestný AV (nestraší),
+      [x] Energy per-app + quit + live time-left, [x] Zero telemetry, [x] plné CLI (skriptovatelné, CI/cron),
+      [x] AI asistent + „druhý názor", [x] Storage forecast, [x] Rules engine + launchd, [x] Shredder.
+- [ ] Command palette (⌘K), [ ] Weekly digest, [ ] Lokální notifikace, [ ] Bandwidth monitor per-app,
+      [ ] Apple Shortcuts integrace, [ ] „Explain this" všude.
+
 ---
 
 ## Návrh prvního sprintu (co říct Claudovi)

@@ -2,7 +2,7 @@ import SwiftUI
 import KestrelCore
 
 enum AppSection: String, CaseIterable, Identifiable, Hashable {
-    case dashboard, cleanup, space, security, tools, activity, settings
+    case dashboard, cleanup, space, energy, security, tools, activity, settings
     var id: String { rawValue }
 
     var title: String {
@@ -10,6 +10,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         case .dashboard: return "Dashboard"
         case .cleanup: return "Cleanup"
         case .space: return "Space"
+        case .energy: return "Energy"
         case .security: return "Security"
         case .tools: return "Tools"
         case .activity: return "Activity"
@@ -22,6 +23,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         case .dashboard: return "gauge.with.dots.needle.67percent"
         case .cleanup: return "sparkles"
         case .space: return "chart.pie"
+        case .energy: return "bolt.fill"
         case .security: return "shield.lefthalf.filled"
         case .tools: return "wrench.and.screwdriver"
         case .activity: return "clock.arrow.circlepath"
@@ -57,6 +59,7 @@ struct MainWindow: View {
         case .dashboard: DashboardSection()
         case .cleanup: CleanupSection()
         case .space: SpaceSection()
+        case .energy: EnergySection()
         case .security: SecuritySection()
         case .tools: ToolsSection()
         case .activity: ActivitySection()
@@ -145,24 +148,26 @@ struct SpeedTestCard: View {
     @EnvironmentObject private var model: AppModel
     var body: some View {
         Card {
-            HStack(spacing: 14) {
-                Image(systemName: "speedometer").font(.title).foregroundStyle(.teal)
-                VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 18) {
+                SpeedGauge(mbps: model.speed?.downloadMbps, testing: model.speedTesting, size: 104)
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Internet speed").font(.headline)
                     if let s = model.speed {
-                        Text(String(format: "%.0f Mbps download · %.0f ms latency", s.downloadMbps, s.latencyMs))
-                            .font(.subheadline).foregroundStyle(.secondary)
+                        Text(String(format: "%.0f Mbps download", s.downloadMbps)).font(.subheadline)
+                        Text(String(format: "%.0f ms latency · via Cloudflare", s.latencyMs)).font(.caption).foregroundStyle(.secondary)
+                    } else if model.speedTesting {
+                        Text("Measuring your connection…").font(.subheadline).foregroundStyle(.secondary)
                     } else {
-                        Text("Measure your download speed and latency").font(.subheadline).foregroundStyle(.secondary)
+                        Text("Measure download speed and latency").font(.subheadline).foregroundStyle(.secondary)
                     }
+                    Button(action: model.runSpeedTest) {
+                        Label(model.speedTesting ? "Testing…" : "Run test", systemImage: "play.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(model.speedTesting)
+                    .padding(.top, 2)
                 }
                 Spacer()
-                Button(action: model.runSpeedTest) {
-                    if model.speedTesting { ProgressView().controlSize(.small) }
-                    else { Label("Run test", systemImage: "play.fill") }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(model.speedTesting)
             }
         }
     }

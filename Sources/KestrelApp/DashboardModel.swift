@@ -17,16 +17,47 @@ final class AppModel: ObservableObject {
     @Published var speedTesting = false
     @Published var speed: SpeedTestResult?
 
+    @Published var energyNow: [ProcessEnergy] = []
+    @Published var energy24h: [EnergyUsage] = []
+    @Published var energyStart: Date?
+
     let paths = KestrelPaths()
     private let stats = StatsCollector()
+    private lazy var energyLog = EnergyLog(url: paths.energyLog)
     private var timer: Timer?
+    private var energyTimer: Timer?
 
     func start() {
         guard timer == nil else { return }
         refresh()
+        refreshEnergy()
         timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
         }
+        // Sampling top is heavier, so do it less often; it also feeds the 24h history.
+        energyTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.refreshEnergy() }
+        }
+    }
+
+    func refreshEnergy() {
+        let log = energyLog
+        Task.detached {
+            let consumers = EnergyMonitor().topConsumers(limit: 8)
+            log.append(consumers)
+            let usage = log.usage()
+            let earliest = log.earliestSample()
+            await MainActor.run {
+                self.energyNow = consumers
+                self.energy24h = usage
+                self.energyStart = earliest
+            }
+        }
+    }
+
+    func quitProcess(pid: Int) {
+        _ = ProcessController().quit(pid: pid)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.refreshEnergy() }
     }
 
     func refresh() {

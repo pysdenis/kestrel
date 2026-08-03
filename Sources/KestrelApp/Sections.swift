@@ -139,6 +139,96 @@ struct CleanupSection: View {
     }
 }
 
+// MARK: - Energy
+
+struct EnergySection: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var pendingQuit: ProcessEnergy?
+
+    private var maxNow: Double { max(1, model.energyNow.map(\.energyImpact).max() ?? 1) }
+    private var max24h: Double { max(1, model.energy24h.first?.total ?? 1) }
+
+    var body: some View {
+        SectionScaffold(title: "Energy", subtitle: "What's using power — right now and over the last 24 hours") {
+            if let b = model.battery {
+                Card {
+                    HStack(spacing: 22) {
+                        badge(icon: b.isCharging ? "battery.100.bolt" : "battery.75", title: "Charge", value: "\(b.percent)%", tint: .green)
+                        if let h = b.healthPercent { badge(icon: "heart.text.square", title: "Health", value: "\(h)%", tint: .pink) }
+                        if let cy = b.cycleCount { badge(icon: "arrow.triangle.2.circlepath", title: "Cycles", value: "\(cy)", tint: .blue) }
+                        badge(icon: "bolt", title: "State", value: b.isCharging ? "Charging" : "On battery", tint: .orange)
+                        Spacer()
+                    }
+                }
+            }
+
+            Card {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionTitle("Draining right now", icon: "bolt.fill")
+                    if model.energyNow.isEmpty {
+                        Text("Reading energy usage…").foregroundStyle(.secondary).font(.callout)
+                    } else {
+                        ForEach(model.energyNow) { proc in
+                            HStack(spacing: 10) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    HStack {
+                                        Text(proc.name).lineLimit(1)
+                                        Spacer()
+                                        Text(String(format: "%.0f%% CPU", proc.cpuPercent)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                                    }
+                                    ProgressView(value: proc.energyImpact / maxNow).tint(.orange)
+                                }
+                                Button(role: .destructive) { pendingQuit = proc } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                }
+                                .buttonStyle(.borderless).help("Quit \(proc.name)")
+                            }
+                        }
+                    }
+                }
+            }
+
+            Card {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionTitle("Most draining — last 24 hours", icon: "clock.arrow.circlepath")
+                    if model.energy24h.count < 2 {
+                        Text("Building history… this fills in while Kestrel is running.").foregroundStyle(.secondary).font(.callout)
+                    } else {
+                        ForEach(Array(model.energy24h.prefix(10))) { usage in
+                            LabeledBar(label: usage.name, value: String(format: "%.0f", usage.total),
+                                       fraction: usage.total / max24h, tint: .orange)
+                        }
+                        if let start = model.energyStart {
+                            Text("Recorded since \(start.formatted(date: .abbreviated, time: .shortened)).")
+                                .font(.caption2).foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+            }
+        }
+        .onAppear { model.refreshEnergy() }
+        .confirmationDialog("Quit \(pendingQuit?.name ?? "")?", isPresented: Binding(get: { pendingQuit != nil }, set: { if !$0 { pendingQuit = nil } })) {
+            Button("Quit \(pendingQuit?.name ?? "")", role: .destructive) {
+                if let p = pendingQuit { model.quitProcess(pid: p.pid) }
+                pendingQuit = nil
+            }
+            Button("Cancel", role: .cancel) { pendingQuit = nil }
+        } message: {
+            Text("This asks the app to quit (SIGTERM). Unsaved work in that app may be lost.")
+        }
+    }
+
+    private func badge(icon: String, title: String, value: String, tint: Color) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: icon).font(.title3).foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.caption).foregroundStyle(.secondary)
+                Text(value).font(.headline)
+            }
+        }
+    }
+}
+
 // MARK: - Security
 
 struct SecuritySection: View {

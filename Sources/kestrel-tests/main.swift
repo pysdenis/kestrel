@@ -23,6 +23,7 @@ func withTempDir(_ body: (URL) throws -> Void) {
 
 @discardableResult
 func makeFile(_ url: URL, _ contents: String = "hello") -> URL {
+    try? fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
     try? contents.write(to: url, atomically: true, encoding: .utf8)
     return url
 }
@@ -397,6 +398,71 @@ withTempDir { tmp in
     let classified = ClassifiedEntry(entry: dupe, category: .duplicate, confidence: .high, reason: "dupe")
     check(Planner().plan([classified]).items.isEmpty, "duplicates excluded from 'all' plan")
     check(Planner().plan([classified], categories: [.duplicate]).count == 1, "duplicates included when named")
+}
+
+// MARK: - App uninstaller
+
+@discardableResult
+func makeApp(_ dir: URL, bundleId: String) -> URL {
+    let app = dir.appendingPathComponent("Test.app")
+    let contents = app.appendingPathComponent("Contents")
+    try? fm.createDirectory(at: contents, withIntermediateDirectories: true)
+    makeFile(contents.appendingPathComponent("MacOS/Test"), "binary") // gives the bundle a size
+    let plist = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0"><dict><key>CFBundleIdentifier</key><string>\(bundleId)</string></dict></plist>
+    """
+    makeFile(contents.appendingPathComponent("Info.plist"), plist)
+    return app
+}
+
+section("Uninstaller: reads bundle id and collects existing leftovers")
+withTempDir { tmp in
+    let apps = makeDir(tmp.appendingPathComponent("Applications"))
+    let home = makeDir(tmp.appendingPathComponent("home"))
+    let app = makeApp(apps, bundleId: "com.test.app")
+
+    // Two real leftovers, one path that does not exist (must be skipped).
+    makeFile(home.appendingPathComponent("Library/Application Support/com.test.app/db.sqlite"), "data")
+    makeFile(home.appendingPathComponent("Library/Preferences/com.test.app.plist"), "prefs")
+
+    let uninstaller = AppUninstaller(home: home)
+    check(uninstaller.bundleIdentifier(of: app) == "com.test.app", "bundle id read from Info.plist")
+    let plan = try uninstaller.plan(for: app)
+    let names = plan.items.map { $0.entry.url.lastPathComponent }
+    check(names.contains("Test.app"), "bundle included")
+    check(names.contains("com.test.app") && names.contains("com.test.app.plist"), "existing leftovers included")
+    check(!names.contains("Caches"), "non-existent leftover skipped")
+    check(plan.items.allSatisfy { $0.category == .appLeftover }, "all classified as appLeftover")
+}
+
+section("Uninstaller: apply moves everything to the vault, undo restores")
+withTempDir { tmp in
+    let apps = makeDir(tmp.appendingPathComponent("Applications"))
+    let home = makeDir(tmp.appendingPathComponent("home"))
+    let app = makeApp(apps, bundleId: "com.test.app")
+    makeFile(home.appendingPathComponent("Library/Preferences/com.test.app.plist"), "prefs")
+
+    let plan = try AppUninstaller(home: home).plan(for: app)
+    let vault = VaultService(vaultRoot: tmp.appendingPathComponent("vault"))
+    let audit = AuditLog(url: tmp.appendingPathComponent("audit.log"))
+    let result = try CleanupExecutor(vault: vault, audit: audit).execute(plan, apply: true)
+    check(result.movedCount == plan.count, "all items moved to vault")
+    check(!fm.fileExists(atPath: app.path), "app bundle removed from Applications")
+    _ = try vault.undo(session: result.sessionId!)
+    check(fm.fileExists(atPath: app.path), "undo restores the app bundle")
+}
+
+section("Uninstaller: refuses non-app and system apps")
+withTempDir { tmp in
+    let notApp = makeFile(tmp.appendingPathComponent("thing.txt"), "x")
+    do { _ = try AppUninstaller().plan(for: notApp); check(false, "expected throw") }
+    catch { check((error as? AppUninstaller.UninstallError) == .notAnApp(notApp.path), "non-app rejected") }
+
+    let sys = URL(fileURLWithPath: "/System/Applications/Fake.app")
+    do { _ = try AppUninstaller().plan(for: sys); check(false, "expected throw") }
+    catch { check((error as? AppUninstaller.UninstallError) == .systemApp(sys.path), "system app rejected") }
 }
 
 // MARK: - External tool adapters

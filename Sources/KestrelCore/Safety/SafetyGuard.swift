@@ -11,7 +11,7 @@ public enum SafetyGuard {
     /// Library are legitimate cleanup targets; only the system `/Library` is protected.
     public static let protectedPrefixes: [String] = [
         "/System", "/Library", "/usr", "/bin", "/sbin",
-        "/etc", "/private/etc", "/private/var/db", "/Applications",
+        "/etc", "/private/etc", "/private/var/db",
     ]
 
     /// Path segments that mark sensitive trees anywhere in the hierarchy. Matched as

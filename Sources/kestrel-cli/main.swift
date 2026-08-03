@@ -131,6 +131,7 @@ func usage() {
       kestrel vault list
       kestrel vault undo <session-id>
       kestrel vault purge [--days N]                                (default: 14)
+      kestrel uninstall <app> [--apply]         (app bundle + leftovers → vault)
       kestrel docker                            (reclaimable Docker space, advisory)
       kestrel brew                              (reclaimable Homebrew space, advisory)
       kestrel audit tail [N]
@@ -203,6 +204,23 @@ do {
         default:
             print("Unknown vault subcommand '\(sub)'."); exit(2)
         }
+
+    case "uninstall":
+        guard let target = rest.first(where: { !$0.hasPrefix("-") }) else {
+            print("Usage: kestrel uninstall <app name or path> [--apply]"); exit(2)
+        }
+        let uninstaller = AppUninstaller()
+        let app = try uninstaller.resolve(target)
+        let plan = try uninstaller.plan(for: app)
+        print("Uninstall \(app.lastPathComponent)\(uninstaller.bundleIdentifier(of: app).map { " (\($0))" } ?? "")\n")
+        printPlan(plan)
+        guard flag("--apply", in: rest) else {
+            print("\nDRY-RUN — nothing moved. Re-run with --apply to move these to the vault.")
+            break
+        }
+        let result = try CleanupExecutor(vault: vault, audit: audit).execute(plan, apply: true)
+        print("\nMoved \(result.movedCount) item(s), \(fmtBytes(result.movedBytes)) → vault session \(result.sessionId ?? "?")")
+        print("Undo with:  kestrel vault undo \(result.sessionId ?? "")")
 
     case "docker":
         printExternalPreview(DockerAdapter().preview())

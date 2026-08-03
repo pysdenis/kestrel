@@ -96,7 +96,7 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 Detaily viz brainstorm; AI je vždy opt-in a posílá jen metadata (invariant #7).
 - [x] **AI asistent (Gemini)**: `GeminiClient` + `AIAssistant`, CLI `ask`/`explain`/`advise`, GUI Assistant sekce.
 - [x] **AI „druhý názor" před `apply`** (`AIAssistant.review`, CLI `clean --review`, GUI tlačítko).
-- [ ] **AI vysvětlení bezpečnostního nálezu / launch agenta** (rozšířit `explain` na AV a `av agents`).
+- [x] **AI vysvětlení bezpečnostního nálezu** (`AIAssistant.explainFinding`, `kestrel av explain`).
 - [ ] **Přirozený jazyk → rule** — „ukliď node_modules starší měsíce" → AI navrhne pravidlo (uživatel potvrdí, nemaže samo).
 - [ ] **Weekly AI digest** nad snapshoty („co narostlo od minule").
 - [x] **`launchd` automatizace** pro rules (`RulesScheduler`, `kestrel rules install-agent`).
@@ -183,7 +183,7 @@ Diferenciátory — většina už hotová, tady jako přehled + zbytek.
 - [x] Dev-first úklid (chápe repozitáře), [x] Vault + Undo, [x] Secrets scanner, [x] čestný AV (nestraší),
       [x] Energy per-app + quit + live time-left, [x] Zero telemetry, [x] plné CLI (skriptovatelné, CI/cron),
       [x] AI asistent + „druhý názor", [x] Storage forecast, [x] Rules engine + launchd, [x] Shredder.
-- [ ] Command palette (⌘K), [ ] Weekly digest, [ ] Lokální notifikace, [ ] Bandwidth monitor per-app,
+- [x] Command palette (⌘K), [ ] Weekly digest, [ ] Lokální notifikace, [ ] Bandwidth monitor per-app,
       [ ] Apple Shortcuts integrace, [ ] „Explain this" všude.
 
 ---

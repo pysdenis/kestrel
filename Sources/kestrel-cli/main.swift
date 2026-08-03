@@ -560,6 +560,18 @@ do {
             watcher.start()
             dispatchMain() // blocks; FSEvents are delivered on the watcher's own queue
 
+        case "explain":
+            guard let assistant = geminiAssistant() else { print(aiDisabledHelp); exit(2) }
+            guard let path = rest.dropFirst().first(where: { !$0.hasPrefix("-") }) else { print("Usage: kestrel av explain <path>"); exit(2) }
+            let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+            let findings = AntivirusEngine().scanFile(url)
+            if findings.isEmpty { print("No findings — this file looks clean."); break }
+            for f in findings {
+                print("[\(f.severity.rawValue)] \(f.rule):")
+                print(runAI { try? await assistant.explainFinding(f) } ?? "AI unavailable.")
+                print("")
+            }
+
         case "status":
             let s = SystemProtectionReader().status()
             let gk = s.assessmentsEnabled.map { $0 ? "enabled" : "DISABLED" } ?? "unknown"

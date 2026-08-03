@@ -37,11 +37,10 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
 /// The full window: a sidebar of sections, each backed by KestrelCore.
 struct MainWindow: View {
     @EnvironmentObject private var model: AppModel
-    @State private var section: AppSection? = .dashboard
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $section) {
+            List(selection: $model.section) {
                 Section("Monitor") { row(.dashboard); row(.energy); row(.space) }
                 Section("Maintain") { row(.cleanup); row(.security); row(.tools) }
                 Section("Intelligence") { row(.assistant) }
@@ -57,6 +56,7 @@ struct MainWindow: View {
         .frame(minWidth: 820, minHeight: 600)
         .onAppear { model.surfaceAppeared() }
         .onDisappear { model.surfaceDisappeared(); model.mainWindowClosed() }
+        .sheet(isPresented: $model.showPalette) { CommandPaletteView().environmentObject(model) }
     }
 
     private func row(_ item: AppSection) -> some View {
@@ -64,7 +64,7 @@ struct MainWindow: View {
     }
 
     @ViewBuilder private var detail: some View {
-        switch section ?? .dashboard {
+        switch model.section ?? .dashboard {
         case .dashboard: DashboardSection()
         case .cleanup: CleanupSection()
         case .space: SpaceSection()
@@ -121,6 +121,18 @@ struct DashboardSection: View {
                         }
                     }
                     Spacer()
+                }
+            }
+
+            Card {
+                HStack(spacing: 14) {
+                    Image(systemName: "sparkles").font(.title).foregroundStyle(Palette.accent)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Free up space").font(.headline)
+                        Text("Review reclaimable clutter — dev junk, caches, duplicates & more").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Review") { model.section = .cleanup }.buttonStyle(.kestrel(.prominent))
                 }
             }
 

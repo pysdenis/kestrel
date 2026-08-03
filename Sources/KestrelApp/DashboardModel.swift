@@ -18,6 +18,10 @@ final class AppModel: ObservableObject {
     @Published var speed: SpeedTestResult?
     @Published var speedLive: Double = 0
 
+    /// Selected sidebar section (shared so the command palette can navigate).
+    @Published var section: AppSection? = .dashboard
+    @Published var showPalette = false
+
     @Published var energyNow: [ProcessEnergy] = []
     @Published var energy24h: [EnergyUsage] = []
     @Published var energyStart: Date?

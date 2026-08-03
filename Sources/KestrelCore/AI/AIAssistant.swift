@@ -72,6 +72,21 @@ public struct AIAssistant {
         return try await client.generate(prompt, system: Self.systemPrompt)
     }
 
+    /// Explain an antivirus finding in plain language — what it likely means and what to
+    /// do — without over-alarming. Metadata only.
+    public func explainFinding(_ finding: ScanFinding) async throws -> String {
+        let prompt = """
+        An antivirus scan flagged a file. In 2–4 sentences, explain what this likely means \
+        and what a cautious user should do. Metadata only:
+        - rule matched: \(finding.rule)
+        - severity: \(finding.severity.rawValue)
+        - evidence: \(finding.evidence)
+        - file name: \((finding.path as NSString).lastPathComponent)
+        Be calm and honest — if it is the harmless EICAR anti-malware test file, say so plainly.
+        """
+        return try await client.generate(prompt, system: Self.systemPrompt)
+    }
+
     /// Free-form question answered against a caller-provided metadata context.
     public func ask(_ question: String, context: String) async throws -> String {
         let prompt = """

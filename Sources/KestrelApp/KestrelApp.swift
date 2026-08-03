@@ -37,6 +37,12 @@ struct KestrelApp: App {
             MainWindow().environmentObject(model)
         }
         .defaultSize(width: 980, height: 700)
+        .commands {
+            CommandMenu("Actions") {
+                Button("Command Palette…") { model.showPalette = true }
+                    .keyboardShortcut("k", modifiers: .command)
+            }
+        }
 
         MenuBarExtra("Kestrel", systemImage: "bird.fill") {
             MenuBarView().environmentObject(model)

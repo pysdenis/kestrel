@@ -41,10 +41,13 @@ struct MainWindow: View {
 
     var body: some View {
         NavigationSplitView {
-            List(AppSection.allCases, selection: $section) { item in
-                Label(item.title, systemImage: item.icon).tag(item)
+            List(selection: $section) {
+                Section("Monitor") { row(.dashboard); row(.energy); row(.space) }
+                Section("Maintain") { row(.cleanup); row(.security); row(.tools) }
+                Section("Intelligence") { row(.assistant) }
+                Section { row(.activity); row(.settings) }
             }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 240)
+            .navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 240)
             .listStyle(.sidebar)
         } detail: {
             detail
@@ -54,6 +57,10 @@ struct MainWindow: View {
         .frame(minWidth: 820, minHeight: 600)
         .onAppear { model.surfaceAppeared() }
         .onDisappear { model.surfaceDisappeared(); model.mainWindowClosed() }
+    }
+
+    private func row(_ item: AppSection) -> some View {
+        Label(item.title, systemImage: item.icon).tag(item)
     }
 
     @ViewBuilder private var detail: some View {

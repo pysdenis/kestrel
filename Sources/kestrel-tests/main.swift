@@ -158,6 +158,35 @@ withTempDir { tmp in
     check(all.last?.sessionId == "s1", "session id preserved")
 }
 
+// MARK: - Safety guard
+
+section("SafetyGuard: protects credentials, VCS, system and libraries")
+check(SafetyGuard.isProtected(URL(fileURLWithPath: "/Users/x/.ssh/id_ed25519")), ".ssh key protected")
+check(SafetyGuard.isProtected(URL(fileURLWithPath: "/Users/x/proj/.git")), ".git protected")
+check(SafetyGuard.isProtected(URL(fileURLWithPath: "/System/Library/Foo")), "/System protected")
+check(SafetyGuard.isProtected(URL(fileURLWithPath: "/Library/LaunchDaemons/x")), "system /Library protected")
+check(SafetyGuard.isProtected(URL(fileURLWithPath: "/Users/x/Pictures/My.photoslibrary")), "Photos library protected")
+check(SafetyGuard.isProtected(URL(fileURLWithPath: "/Users/x/login.keychain-db")), "keychain protected")
+check(SafetyGuard.isProtected(URL(fileURLWithPath: "/Users/x/proj/package-lock.json")), "lockfile protected")
+check(!SafetyGuard.isProtected(URL(fileURLWithPath: "/Users/x/Library/Caches/com.app/blob")), "user cache not protected")
+check(!SafetyGuard.isProtected(URL(fileURLWithPath: "/Users/x/proj/node_modules")), "node_modules not protected")
+
+section("Planner: drops protected paths even if classified deletable")
+withTempDir { tmp in
+    let git = FileEntry(url: tmp.appendingPathComponent(".git"), size: 100, modified: Date(), isDirectory: true)
+    let classified = ClassifiedEntry(entry: git, category: .devArtifact, confidence: .high, reason: "misclassified")
+    let plan = Planner().plan([classified])
+    check(plan.items.isEmpty, ".git never planned even if a classifier says devArtifact")
+}
+
+section("Planner: review-only categories excluded from all, included when named")
+withTempDir { tmp in
+    let dupe = FileEntry(url: tmp.appendingPathComponent("copy.bin"), size: 100, modified: Date(), isDirectory: false)
+    let classified = ClassifiedEntry(entry: dupe, category: .duplicate, confidence: .high, reason: "dupe")
+    check(Planner().plan([classified]).items.isEmpty, "duplicates excluded from 'all' plan")
+    check(Planner().plan([classified], categories: [.duplicate]).count == 1, "duplicates included when named")
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

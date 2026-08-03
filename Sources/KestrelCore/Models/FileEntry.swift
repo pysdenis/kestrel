@@ -42,6 +42,14 @@ public enum Category: String, Codable, Sendable, CaseIterable {
     public var isDeletableByDefault: Bool {
         self != .unknown
     }
+
+    /// Categories that are surfaced for review but never swept into an "all" cleanup —
+    /// the user must name them explicitly. Duplicates (which copy is the "original"?)
+    /// and large & old files (that big video might be wanted) are inherently judgment
+    /// calls, so removing them is always an opt-in decision.
+    public var requiresExplicitSelection: Bool {
+        self == .duplicate || self == .largeOld
+    }
 }
 
 /// A `FileEntry` plus the classifier's verdict and human-readable justification.

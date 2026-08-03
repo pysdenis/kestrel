@@ -71,6 +71,8 @@ final class AppModel: ObservableObject {
     lazy var security = SecurityController()
     lazy var space = SpaceController(paths: paths)
     lazy var tools = ToolsController(paths: paths)
+    lazy var assistant = AssistantController()
+    lazy var settingsController = SettingsController(paths: paths)
 
     /// Whether the app can read Full-Disk-Access-gated locations (Trash, Mail, some
     /// caches). Refreshed when a surface appears; features that need it show a hint.

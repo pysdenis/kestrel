@@ -492,6 +492,79 @@ struct EmptyState: View {
     }
 }
 
+/// A wrapping (flow) layout: lays children left-to-right, wrapping to a new line when a
+/// row is full. Powers the custom chip selector so it adapts to any width.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+    var lineSpacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, widest: CGFloat = 0
+        for sub in subviews {
+            let size = sub.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > maxWidth {
+                widest = max(widest, x - spacing); x = 0; y += rowHeight + lineSpacing; rowHeight = 0
+            }
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+        widest = max(widest, x - spacing)
+        return CGSize(width: maxWidth.isFinite ? maxWidth : widest, height: y + rowHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0
+        for sub in subviews {
+            let size = sub.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > bounds.width {
+                x = 0; y += rowHeight + lineSpacing; rowHeight = 0
+            }
+            sub.place(at: CGPoint(x: bounds.minX + x, y: bounds.minY + y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+    }
+}
+
+/// Kestrel's own select control — a row of selectable pills instead of a stock dropdown.
+/// The active chip fills with the accent gradient; the rest are quiet. Wraps to fit.
+struct KestrelSelect<T: Hashable>: View {
+    let items: [T]
+    @Binding var selection: T
+    let label: (T) -> String
+    var icon: ((T) -> String)? = nil
+    var tint: Color = Palette.accent
+
+    var body: some View {
+        FlowLayout(spacing: 8, lineSpacing: 8) {
+            ForEach(items, id: \.self) { item in
+                chip(item, selected: item == selection)
+            }
+        }
+    }
+
+    private func chip(_ item: T, selected: Bool) -> some View {
+        Button { selection = item } label: {
+            HStack(spacing: 6) {
+                if let icon { Image(systemName: icon(item)).imageScale(.small) }
+                Text(label(item)).font(.callout.weight(.medium))
+            }
+            .padding(.horizontal, 13).padding(.vertical, 7)
+            .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(Color.secondary))
+            .background(
+                selected ? AnyShapeStyle(tint.gradient) : AnyShapeStyle(Color.primary.opacity(0.06)),
+                in: Capsule(style: .continuous)
+            )
+            .overlay(Capsule().strokeBorder(selected ? Color.clear : .white.opacity(0.08)))
+            .shadow(color: selected ? tint.opacity(0.35) : .clear, radius: 5, y: 2)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .animation(.spring(response: 0.28, dampingFraction: 0.7), value: selected)
+    }
+}
+
 /// A subtle section heading.
 struct SectionTitle: View {
     let text: String

@@ -31,6 +31,18 @@ enum CleanupChoice: String, CaseIterable, Identifiable {
         case .privacy: return [.privacy]
         }
     }
+
+    var icon: String {
+        switch self {
+        case .all: return "sparkles"
+        case .dev: return "hammer"
+        case .cache: return "shippingbox"
+        case .logs: return "doc.text"
+        case .dupes: return "doc.on.doc"
+        case .large: return "arrow.up.left.and.arrow.down.right"
+        case .privacy: return "eye.slash"
+        }
+    }
 }
 
 struct CleanupSection: View {
@@ -41,10 +53,9 @@ struct CleanupSection: View {
         SectionScaffold(title: "Cleanup", subtitle: "Preview first — nothing is deleted, items move to the vault") {
             Card {
                 VStack(alignment: .leading, spacing: 12) {
-                    Picker("Category", selection: $controller.choice) {
-                        ForEach(CleanupChoice.allCases) { Text($0.title).tag($0) }
-                    }
-                    .pickerStyle(.menu)
+                    Text("CATEGORY").font(.system(size: 10.5, weight: .bold)).kerning(0.8).foregroundStyle(.tertiary)
+                    KestrelSelect(items: CleanupChoice.allCases, selection: $controller.choice,
+                                  label: { $0.title }, icon: { $0.icon })
 
                     HStack {
                         Image(systemName: "folder")
@@ -127,39 +138,141 @@ struct CleanupSection: View {
 
 struct AssistantSection: View {
     @EnvironmentObject private var model: AppModel
-    @State private var question = ""
-    @State private var answer: String?
-    @State private var thinking = false
-    @State private var root = FileManager.default.homeDirectoryForCurrentUser
+    @ObservedObject var controller: AssistantController
 
     private let suggestions = [
         "What's using most of my disk?",
         "Is it safe to clear developer caches?",
         "How can I free space as a developer?",
+        "What are the biggest wins to reclaim space?",
     ]
 
     var body: some View {
-        SectionScaffold(title: "Assistant", subtitle: "Honest AI help — opt-in, sends metadata only") {
+        VStack(spacing: 0) {
+            header
+            Divider()
             if !model.aiConfigured {
-                setupCard
+                ScrollView { setupCard.padding(22).frame(maxWidth: 560) }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                askCard
-                analyzeCard
-                if thinking {
-                    HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Thinking…").foregroundStyle(.secondary) }
-                }
-                if let answer {
-                    Card {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Label("Assistant", systemImage: "sparkles").font(.headline).foregroundStyle(Palette.violet)
-                            Text(answer).textSelection(.enabled).font(.callout)
-                        }
-                    }
-                }
-                Text("Sends only metadata (names, sizes, categories) to Google Gemini — never file contents. Off unless you set a key.")
-                    .font(.caption2).foregroundStyle(.tertiary)
+                conversation
+                composer
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    // MARK: header
+
+    private var header: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
+                .frame(width: 32, height: 32)
+                .background(LinearGradient(colors: [Palette.violet, Palette.accent2], startPoint: .topLeading, endPoint: .bottomTrailing),
+                           in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Assistant").font(.title3.weight(.bold))
+                Text("Honest AI help · sends metadata only").font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if model.aiConfigured, !controller.messages.isEmpty {
+                Button { controller.clear() } label: { Label("New chat", systemImage: "square.and.pencil") }
+                    .buttonStyle(.kestrel(.subtle, size: .small))
+            }
+        }
+        .padding(.horizontal, 22).padding(.vertical, 14)
+    }
+
+    // MARK: conversation
+
+    private var conversation: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 14) {
+                    if controller.messages.isEmpty { welcome }
+                    ForEach(controller.messages) { ChatBubble(message: $0).id($0.id) }
+                    if controller.thinking {
+                        HStack(alignment: .top, spacing: 10) {
+                            AssistantAvatar()
+                            TypingIndicator()
+                                .padding(.horizontal, 14).padding(.vertical, 12)
+                                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            Spacer(minLength: 32)
+                        }
+                        .id("typing")
+                    }
+                    Color.clear.frame(height: 1).id("bottom")
+                }
+                .padding(22)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .onChange(of: controller.messages.count) { _ in withAnimation { proxy.scrollTo("bottom", anchor: .bottom) } }
+            .onChange(of: controller.thinking) { _ in withAnimation { proxy.scrollTo("bottom", anchor: .bottom) } }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var welcome: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Ask me about your Mac's storage, or analyze a folder.")
+                .font(.title3.weight(.semibold)).foregroundStyle(.secondary)
+            FlowLayout(spacing: 8, lineSpacing: 8) {
+                ForEach(suggestions, id: \.self) { s in
+                    Button { controller.send(s, assistant: model.aiAssistant, context: model.aiContext()) } label: {
+                        Text(s).font(.callout)
+                    }
+                    .buttonStyle(.kestrel(.secondary, tint: Palette.violet, size: .small))
+                    .disabled(controller.thinking)
+                }
+            }
+        }
+        .padding(.bottom, 8)
+    }
+
+    // MARK: composer
+
+    private var composer: some View {
+        VStack(spacing: 8) {
+            Divider()
+            HStack(spacing: 8) {
+                Button { controller.pickFolder() } label: { Image(systemName: "folder") }
+                    .buttonStyle(.kestrel(.subtle, size: .small))
+                    .help("Choose a folder to analyze: \(controller.analyzeRoot.path)")
+                Button { controller.analyze(assistant: model.aiAssistant, disk: model.disk) } label: {
+                    Label("Analyze \(controller.analyzeRoot.lastPathComponent)", systemImage: "sparkle.magnifyingglass")
+                }
+                .buttonStyle(.kestrel(.subtle, size: .small))
+                .disabled(controller.thinking)
+                Spacer()
+                Text("metadata only · never file contents").font(.caption2).foregroundStyle(.tertiary)
+            }
+            HStack(spacing: 10) {
+                TextField("Ask anything…", text: $controller.draft, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .lineLimit(1...5)
+                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .background(.regularMaterial, in: Capsule(style: .continuous))
+                    .overlay(Capsule().strokeBorder(.white.opacity(0.08)))
+                    .onSubmit(sendDraft)
+                Button(action: sendDraft) {
+                    Image(systemName: "arrow.up").font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
+                        .frame(width: 36, height: 36)
+                        .background(sendEnabled ? AnyShapeStyle(Palette.violet.gradient) : AnyShapeStyle(Color.secondary.opacity(0.3)), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!sendEnabled)
+            }
+        }
+        .padding(.horizontal, 22).padding(.bottom, 16).padding(.top, 4)
+    }
+
+    private var sendEnabled: Bool {
+        !controller.thinking && !controller.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func sendDraft() {
+        controller.send(controller.draft, assistant: model.aiAssistant, context: model.aiContext())
     }
 
     private var setupCard: some View {
@@ -178,75 +291,60 @@ struct AssistantSection: View {
             }
         }
     }
+}
 
-    private var askCard: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 10) {
-                SectionTitle("Ask anything", icon: "bubble.left.and.sparkles")
-                HStack {
-                    TextField("e.g. what can I safely clean?", text: $question)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit(ask)
-                    Button(action: ask) { Text("Ask") }
-                        .buttonStyle(.kestrel(.prominent, tint: Palette.violet))
-                        .disabled(thinking || question.isEmpty)
-                }
-                HStack {
-                    ForEach(suggestions, id: \.self) { s in
-                        Button { question = s; ask() } label: { Text(s).font(.caption) }
-                            .buttonStyle(.kestrel(.subtle, size: .small))
-                            .disabled(thinking)
-                    }
-                }
+/// The assistant's little gradient avatar, shown beside its messages.
+struct AssistantAvatar: View {
+    var body: some View {
+        Image(systemName: "sparkles")
+            .font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
+            .frame(width: 26, height: 26)
+            .background(LinearGradient(colors: [Palette.violet, Palette.accent2], startPoint: .topLeading, endPoint: .bottomTrailing),
+                       in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+    }
+}
+
+/// A single chat message: user bubbles are accent-filled and right-aligned; the
+/// assistant's are a material card with an avatar, left-aligned.
+struct ChatBubble: View {
+    let message: ChatMessage
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            if message.role == .assistant {
+                AssistantAvatar()
+                Text(message.text)
+                    .font(.callout).textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 14).padding(.vertical, 11)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.06)))
+                Spacer(minLength: 40)
+            } else {
+                Spacer(minLength: 40)
+                Text(message.text)
+                    .font(.callout).foregroundStyle(.white).textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 14).padding(.vertical, 11)
+                    .background(Palette.violet.gradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
         }
     }
+}
 
-    private var analyzeCard: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 10) {
-                SectionTitle("Analyze a folder", icon: "sparkle.magnifyingglass")
-                HStack {
-                    Text(root.path).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Choose…") { pickFolder() }.buttonStyle(.kestrel(.subtle, size: .small))
-                    Button(action: analyze) { Text("Analyze") }
-                        .buttonStyle(.kestrel(.prominent, tint: Palette.violet))
-                        .disabled(thinking)
+/// Three bouncing dots while the assistant is composing a reply. Honours Reduce Motion.
+struct TypingIndicator: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            HStack(spacing: 5) {
+                ForEach(0..<3, id: \.self) { i in
+                    Circle().fill(Palette.violet.opacity(0.75)).frame(width: 6, height: 6)
+                        .offset(y: reduceMotion ? 0 : -3 * abs(sin(t * 3 + Double(i) * 0.5)))
                 }
             }
-        }
-    }
-
-    private func pickFolder() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.directoryURL = root
-        if panel.runModal() == .OK, let url = panel.url { root = url }
-    }
-
-    private func ask() {
-        guard let assistant = model.aiAssistant, !question.isEmpty else { return }
-        let q = question
-        let context = model.aiContext()
-        thinking = true; answer = nil
-        Task {
-            let result = (try? await assistant.ask(q, context: context)) ?? "The request failed. Check your API key and connection."
-            await MainActor.run { answer = result; thinking = false }
-        }
-    }
-
-    private func analyze() {
-        guard let assistant = model.aiAssistant else { return }
-        let target = root
-        let currentDisk = model.disk
-        thinking = true; answer = nil
-        Task.detached {
-            let classified = (try? ScanCoordinator().scan(root: target)) ?? []
-            let plan = Planner().plan(classified)
-            let result = (try? await assistant.summarize(plan: plan, disk: currentDisk)) ?? "The request failed. Check your API key and connection."
-            await MainActor.run { answer = result; thinking = false }
         }
     }
 }

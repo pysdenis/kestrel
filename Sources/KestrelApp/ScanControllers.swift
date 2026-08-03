@@ -150,6 +150,106 @@ import KestrelCore
     }
 }
 
+// MARK: - Assistant (chat)
+
+struct ChatMessage: Identifiable, Equatable {
+    enum Role { case user, assistant }
+    let id = UUID()
+    let role: Role
+    var text: String
+}
+
+@MainActor final class AssistantController: ObservableObject {
+    @Published var messages: [ChatMessage] = []
+    @Published var thinking = false
+    @Published var draft = ""
+    @Published var analyzeRoot = FileManager.default.homeDirectoryForCurrentUser
+
+    func clear() { messages.removeAll() }
+
+    func send(_ text: String, assistant: AIAssistant?, context: String) {
+        let q = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let assistant, !q.isEmpty, !thinking else { return }
+        messages.append(ChatMessage(role: .user, text: q))
+        draft = ""
+        thinking = true
+        Task { [weak self] in
+            let reply = (try? await assistant.ask(q, context: context)) ?? "The request failed. Check your API key and connection."
+            await MainActor.run { self?.messages.append(ChatMessage(role: .assistant, text: reply)); self?.thinking = false }
+        }
+    }
+
+    func analyze(assistant: AIAssistant?, disk: DiskSpace?) {
+        guard let assistant, !thinking else { return }
+        let target = analyzeRoot
+        messages.append(ChatMessage(role: .user, text: "Analyze “\(target.lastPathComponent)” and tell me what I can safely reclaim."))
+        thinking = true
+        Task.detached { [weak self] in
+            let classified = (try? ScanCoordinator().scan(root: target)) ?? []
+            let plan = Planner().plan(classified)
+            let reply = (try? await assistant.summarize(plan: plan, disk: disk)) ?? "The request failed. Check your API key and connection."
+            await MainActor.run { self?.messages.append(ChatMessage(role: .assistant, text: reply)); self?.thinking = false }
+        }
+    }
+
+    func pickFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.directoryURL = analyzeRoot
+        if panel.runModal() == .OK, let url = panel.url { analyzeRoot = url }
+    }
+}
+
+// MARK: - Settings (vault management)
+
+@MainActor final class SettingsController: ObservableObject {
+    @Published var sessions: [VaultSession] = []
+    @Published var busy = false
+    @Published var message: String?
+
+    private let paths: KestrelPaths
+    init(paths: KestrelPaths) { self.paths = paths }
+
+    func load() {
+        let vaultURL = paths.vault
+        Task.detached { [weak self] in
+            let sessions = (try? VaultService(vaultRoot: vaultURL).listSessions()) ?? []
+            await MainActor.run { self?.sessions = sessions }
+        }
+    }
+
+    func undo(_ id: String) {
+        guard !busy else { return }
+        busy = true; message = nil
+        let vaultURL = paths.vault
+        Task.detached { [weak self] in
+            let restored = (try? VaultService(vaultRoot: vaultURL).undo(session: id)) ?? 0
+            let sessions = (try? VaultService(vaultRoot: vaultURL).listSessions()) ?? []
+            await MainActor.run {
+                self?.message = "Restored \(restored) item(s) to their original location."
+                self?.sessions = sessions; self?.busy = false
+            }
+        }
+    }
+
+    func purge(days: Int) {
+        guard !busy else { return }
+        busy = true; message = nil
+        let vaultURL = paths.vault
+        let interval = TimeInterval(days) * 86400
+        Task.detached { [weak self] in
+            let purged = (try? VaultService(vaultRoot: vaultURL).purge(olderThan: interval)) ?? []
+            let sessions = (try? VaultService(vaultRoot: vaultURL).listSessions()) ?? []
+            let bytes = purged.reduce(Int64(0)) { $0 + $1.totalBytes }
+            await MainActor.run {
+                self?.message = purged.isEmpty ? "Nothing old enough to purge yet." : "Permanently removed \(purged.count) session(s), \(bytesString(bytes)) freed."
+                self?.sessions = sessions; self?.busy = false
+            }
+        }
+    }
+}
+
 // MARK: - Tools
 
 /// Per-tool run state for a `PlanToolCard`. One instance per tool, kept by `ToolsController`.

@@ -152,9 +152,9 @@ struct MainWindow: View {
         case .energy: EnergySection()
         case .security: SecuritySection(controller: model.security)
         case .tools: ToolsSection(controller: model.tools)
-        case .assistant: AssistantSection()
+        case .assistant: AssistantSection(controller: model.assistant)
         case .activity: ActivitySection()
-        case .settings: SettingsSection()
+        case .settings: SettingsSection(controller: model.settingsController)
         }
     }
 }
@@ -411,9 +411,16 @@ struct ActivitySection: View {
 
 struct SettingsSection: View {
     @EnvironmentObject private var model: AppModel
+    @ObservedObject var controller: SettingsController
+
+    private var totalVaultBytes: Int64 { controller.sessions.reduce(0) { $0 + $1.totalBytes } }
 
     var body: some View {
-        SectionScaffold(title: "Settings", subtitle: "About Kestrel and where it stores things") {
+        SectionScaffold(title: "Settings", subtitle: "The vault, and where Kestrel stores things") {
+            if !model.fullDiskAccess { FullDiskAccessBanner() }
+
+            vaultCard
+
             Card {
                 VStack(alignment: .leading, spacing: 10) {
                     row("Version", Kestrel.version)
@@ -432,6 +439,54 @@ struct SettingsSection: View {
                     Label("Safety", systemImage: "checkmark.shield").font(.headline)
                     Text("Cleanups are dry-run by default. Nothing is deleted outright — items move to the vault and can be undone. Zero telemetry: nothing leaves this Mac.")
                         .font(.callout).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .onAppear { controller.load() }
+    }
+
+    private var vaultCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    SectionTitle("Vault", icon: "tray.full")
+                    Spacer()
+                    if !controller.sessions.isEmpty {
+                        Text("\(controller.sessions.count) session(s) · \(bytesString(totalVaultBytes))")
+                            .font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                    }
+                }
+                Text("Everything a cleanup removes is moved here first, so it can be restored. Purging is the only place data is really deleted.")
+                    .font(.caption).foregroundStyle(.secondary)
+
+                if let message = controller.message {
+                    Label(message, systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(Palette.good)
+                }
+
+                if controller.sessions.isEmpty {
+                    EmptyState(icon: "tray", title: "Vault is empty",
+                               caption: "Cleaned items will appear here, restorable until you purge.", tint: Palette.accent)
+                } else {
+                    ForEach(controller.sessions, id: \.id) { session in
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(session.createdAt.formatted(date: .abbreviated, time: .shortened)).font(.callout.weight(.medium))
+                                Text("\(session.count) item(s) · \(bytesString(session.totalBytes))").font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                            }
+                            Spacer()
+                            Button { controller.undo(session.id) } label: { Label("Restore", systemImage: "arrow.uturn.backward") }
+                                .buttonStyle(.kestrel(.secondary, size: .small))
+                                .disabled(controller.busy)
+                        }
+                        .padding(.vertical, 2)
+                        Divider()
+                    }
+                    HStack {
+                        Spacer()
+                        Button { controller.purge(days: 14) } label: { Label("Purge older than 14 days", systemImage: "trash") }
+                            .buttonStyle(.kestrel(.subtle, tint: Palette.crit, size: .small))
+                            .disabled(controller.busy)
+                    }
                 }
             }
         }

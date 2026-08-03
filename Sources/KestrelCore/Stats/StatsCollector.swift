@@ -218,6 +218,9 @@ public final class CPUUsageSampler {
 
     public init() {}
 
+    /// Forget the baseline so the next `sample()` returns 0 and re-establishes it.
+    public func reset() { previous = nil }
+
     public func sample() -> Double {
         guard let current = Self.ticks() else { return previous == nil ? 0 : 0 }
         defer { previous = current }

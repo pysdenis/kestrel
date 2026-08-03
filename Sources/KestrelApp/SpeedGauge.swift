@@ -45,7 +45,7 @@ struct SpeedGauge: View {
 
     private var arcGradient: AngularGradient {
         AngularGradient(
-            colors: [Color(red: 0.16, green: 0.74, blue: 0.72), Color(red: 0.22, green: 0.55, blue: 0.96), .accentColor],
+            colors: [Palette.teal, Palette.blue, Palette.accent],
             center: .center, startAngle: .degrees(135), endAngle: .degrees(135 + 270)
         )
     }
@@ -60,7 +60,7 @@ struct SpeedGauge: View {
             Circle().trim(from: 0, to: 0.75 * fraction)
                 .stroke(arcGradient, style: StrokeStyle(lineWidth: size * 0.07, lineCap: .round))
                 .rotationEffect(.degrees(135))
-                .shadow(color: Color.teal.opacity(testing ? 0.55 : 0), radius: testing ? size * 0.06 : 0)
+                .shadow(color: Palette.teal.opacity(testing ? 0.55 : 0), radius: testing ? size * 0.06 : 0)
                 .animation(.easeOut(duration: 0.5), value: fraction)
 
             center
@@ -82,7 +82,7 @@ struct SpeedGauge: View {
     @ViewBuilder private var center: some View {
         if mbps == nil {
             VStack(spacing: 2) {
-                Image(systemName: "speedometer").font(.system(size: size * 0.24)).foregroundStyle(.teal)
+                Image(systemName: "speedometer").font(.system(size: size * 0.24)).foregroundStyle(Palette.teal)
                 Text("tap test").font(.system(size: size * 0.085, weight: .medium)).foregroundStyle(.secondary)
             }
         } else {

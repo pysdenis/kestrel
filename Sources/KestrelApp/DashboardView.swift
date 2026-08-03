@@ -25,12 +25,13 @@ struct MenuBarView: View {
         .frame(width: 344)
         .background(popoverBackground)
         .animation(.spring(response: 0.32, dampingFraction: 0.82), value: expanded)
-        .onAppear { model.start() }
+        .onAppear { model.surfaceAppeared() }
+        .onDisappear { model.surfaceDisappeared() }
     }
 
     private var popoverBackground: some View {
         LinearGradient(
-            colors: [Color.accentColor.opacity(0.06), .clear],
+            colors: [Palette.accent.opacity(0.06), .clear],
             startPoint: .topTrailing, endPoint: .center
         )
         .ignoresSafeArea()
@@ -60,20 +61,20 @@ struct MenuBarView: View {
         LazyVGrid(columns: columns, spacing: 9) {
             if let d = model.disk {
                 tileButton(.disk, icon: "internaldrive", title: "Disk", value: "\(Int(d.usedFraction * 100))%",
-                           detail: "\(bytesString(d.available)) free", fraction: d.usedFraction, tint: .blue)
+                           detail: "\(bytesString(d.available)) free", fraction: d.usedFraction, tint: Palette.blue)
             }
             if let m = model.memory {
                 tileButton(.memory, icon: "memorychip", title: "Memory", value: "\(Int(m.usedFraction * 100))%",
-                           detail: "\(bytesString(m.used)) used", fraction: m.usedFraction, tint: .purple)
+                           detail: "\(bytesString(m.used)) used", fraction: m.usedFraction, tint: Palette.violet)
             }
             if let c = model.cpu {
                 tileButton(.cpu, icon: "cpu", title: "CPU", value: "\(Int(c.usagePercent.rounded()))%",
-                           detail: "\(c.coreCount) cores", fraction: c.usagePercent / 100, tint: .orange)
+                           detail: "\(c.coreCount) cores", fraction: c.usagePercent / 100, tint: Palette.orange)
             }
             if let b = model.battery {
                 tileButton(.battery, icon: b.isCharging ? "battery.100.bolt" : "battery.100", title: "Battery",
                            value: "\(b.percent)%", detail: b.healthPercent.map { "health \($0)%" } ?? "",
-                           fraction: Double(b.percent) / 100, tint: .green)
+                           fraction: Double(b.percent) / 100, tint: Palette.good)
             }
         }
     }
@@ -170,7 +171,7 @@ struct MenuBarView: View {
                     Button(action: model.runSpeedTest) {
                         Text(model.speedTesting ? "Testing…" : "Run test")
                     }
-                    .buttonStyle(.kestrel(.prominent, tint: .teal, size: .small))
+                    .buttonStyle(.kestrel(.prominent, tint: Palette.teal, size: .small))
                     .disabled(model.speedTesting)
                     .padding(.top, 1)
                 }

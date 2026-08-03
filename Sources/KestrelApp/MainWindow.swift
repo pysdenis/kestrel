@@ -50,8 +50,8 @@ struct MainWindow: View {
                 .background(Color(nsColor: .windowBackgroundColor))
         }
         .frame(minWidth: 820, minHeight: 600)
-        .onAppear { model.start() }
-        .onDisappear { model.mainWindowClosed() }
+        .onAppear { model.surfaceAppeared() }
+        .onDisappear { model.surfaceDisappeared(); model.mainWindowClosed() }
     }
 
     @ViewBuilder private var detail: some View {
@@ -118,24 +118,24 @@ struct DashboardSection: View {
                 if let d = model.disk {
                     MetricTile(icon: "internaldrive", title: "Disk", value: "\(Int(d.usedFraction * 100))%",
                                detail: "\(bytesString(d.available)) free" + (d.purgeable > 0 ? " · \(bytesString(d.purgeable)) purgeable" : ""),
-                               fraction: d.usedFraction, tint: .blue)
+                               fraction: d.usedFraction, tint: Palette.blue)
                 }
                 if let m = model.memory {
                     MetricTile(icon: "memorychip", title: "Memory", value: "\(Int(m.usedFraction * 100))%",
-                               detail: "\(bytesString(m.used)) of \(bytesString(m.total))", fraction: m.usedFraction, tint: .purple)
+                               detail: "\(bytesString(m.used)) of \(bytesString(m.total))", fraction: m.usedFraction, tint: Palette.violet)
                 }
                 if let c = model.cpu {
                     MetricTile(icon: "cpu", title: "CPU", value: "\(Int(c.usagePercent.rounded()))%",
                                detail: "load \(String(format: "%.2f", c.loadAverages.first ?? 0)) · \(c.coreCount) cores",
-                               fraction: c.usagePercent / 100, tint: .orange)
+                               fraction: c.usagePercent / 100, tint: Palette.orange)
                 }
                 if let b = model.battery {
                     MetricTile(icon: b.isCharging ? "battery.100.bolt" : "battery.75", title: "Battery", value: "\(b.percent)%",
-                               detail: batteryCaption(b), fraction: Double(b.percent) / 100, tint: .green)
+                               detail: batteryCaption(b), fraction: Double(b.percent) / 100, tint: Palette.good)
                 }
                 if let n = model.network {
                     MetricTile(icon: "wifi", title: "Network", value: n.ssid ?? "Wired/—",
-                               detail: "↓\(bytesString(n.bytesIn)) ↑\(bytesString(n.bytesOut))", tint: .teal)
+                               detail: "↓\(bytesString(n.bytesIn)) ↑\(bytesString(n.bytesOut))", tint: Palette.teal)
                 }
             }
 
@@ -163,7 +163,7 @@ struct SpeedTestCard: View {
                     Button(action: model.runSpeedTest) {
                         Label(model.speedTesting ? "Testing…" : "Run test", systemImage: "play.fill")
                     }
-                    .buttonStyle(.kestrel(.prominent, tint: .teal))
+                    .buttonStyle(.kestrel(.prominent, tint: Palette.teal))
                     .disabled(model.speedTesting)
                     .padding(.top, 2)
                 }
@@ -214,7 +214,7 @@ struct SpaceSection: View {
                     VStack(spacing: 10) {
                         ForEach(Array(tree.children.prefix(12)), id: \.url) { child in
                             LabeledBar(label: child.name, value: bytesString(child.size),
-                                       fraction: tree.size > 0 ? Double(child.size) / Double(tree.size) : 0, tint: .blue)
+                                       fraction: tree.size > 0 ? Double(child.size) / Double(tree.size) : 0, tint: Palette.blue)
                         }
                     }
                 }
@@ -254,7 +254,7 @@ struct ActivitySection: View {
                     VStack(spacing: 10) {
                         let total = max(1, byCat.values.reduce(0, +))
                         ForEach(byCat.sorted { $0.value > $1.value }, id: \.key) { key, bytes in
-                            LabeledBar(label: key, value: bytesString(bytes), fraction: Double(bytes) / Double(total), tint: .green)
+                            LabeledBar(label: key, value: bytesString(bytes), fraction: Double(bytes) / Double(total), tint: Palette.good)
                         }
                     }
                 }

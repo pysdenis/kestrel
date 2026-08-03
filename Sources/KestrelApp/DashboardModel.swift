@@ -28,18 +28,44 @@ final class AppModel: ObservableObject {
     private lazy var energyLog = EnergyLog(url: paths.energyLog)
     private var timer: Timer?
     private var energyTimer: Timer?
+    /// How many UI surfaces (popover, main window) are on screen. When this drops to
+    /// zero the app stops polling entirely, so an idle menu-bar app costs ~nothing.
+    private var visibleSurfaces = 0
 
-    func start() {
-        guard timer == nil else { return }
+    // MARK: - Lifecycle (drives all polling — nothing runs while nothing is shown)
+
+    /// Call from a surface's `.onAppear`.
+    func surfaceAppeared() {
+        visibleSurfaces += 1
         refresh()
+        if timer == nil {
+            timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+                Task { @MainActor in self?.refresh() }
+            }
+        }
+    }
+
+    /// Call from a surface's `.onDisappear`.
+    func surfaceDisappeared() {
+        visibleSurfaces = max(0, visibleSurfaces - 1)
+        if visibleSurfaces == 0 {
+            timer?.invalidate(); timer = nil
+            cpuSampler.reset()   // next visible session starts from a fresh baseline
+        }
+    }
+
+    /// The Energy section is the only place `top` runs; sample only while it is visible.
+    func energyAppeared() {
         refreshEnergy()
-        timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
+        if energyTimer == nil {
+            energyTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
+                Task { @MainActor in self?.refreshEnergy() }
+            }
         }
-        // Sampling top is heavier, so do it less often; it also feeds the 24h history.
-        energyTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refreshEnergy() }
-        }
+    }
+
+    func energyDisappeared() {
+        energyTimer?.invalidate(); energyTimer = nil
     }
 
     func refreshEnergy() {

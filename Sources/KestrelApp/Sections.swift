@@ -77,7 +77,7 @@ struct CleanupSection: View {
             }
 
             if let message {
-                Label(message, systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                Label(message, systemImage: "checkmark.circle.fill").foregroundStyle(Palette.good)
             }
 
             if let plan {
@@ -154,14 +154,14 @@ struct EnergySection: View {
             if let b = model.battery {
                 Card {
                     HStack(spacing: 22) {
-                        badge(icon: b.isCharging ? "battery.100.bolt" : "battery.75", title: "Charge", value: "\(b.percent)%", tint: .green)
-                        if let h = b.healthPercent { badge(icon: "heart.text.square", title: "Health", value: "\(h)%", tint: .pink) }
-                        if let cy = b.cycleCount { badge(icon: "arrow.triangle.2.circlepath", title: "Cycles", value: "\(cy)", tint: .blue) }
-                        badge(icon: "bolt", title: "State", value: b.isCharging ? "Charging" : "On battery", tint: .orange)
+                        badge(icon: b.isCharging ? "battery.100.bolt" : "battery.75", title: "Charge", value: "\(b.percent)%", tint: Palette.good)
+                        if let h = b.healthPercent { badge(icon: "heart.text.square", title: "Health", value: "\(h)%", tint: Palette.pink) }
+                        if let cy = b.cycleCount { badge(icon: "arrow.triangle.2.circlepath", title: "Cycles", value: "\(cy)", tint: Palette.blue) }
+                        badge(icon: "bolt", title: "State", value: b.isCharging ? "Charging" : "On battery", tint: Palette.orange)
                         if b.isCharging, let m = b.timeToFullMinutes {
-                            badge(icon: "battery.100.bolt", title: "Full in", value: minutesString(m), tint: .teal)
+                            badge(icon: "battery.100.bolt", title: "Full in", value: minutesString(m), tint: Palette.teal)
                         } else if !b.isCharging, let m = b.timeToEmptyMinutes {
-                            badge(icon: "hourglass", title: "Time left", value: minutesString(m), tint: .teal)
+                            badge(icon: "hourglass", title: "Time left", value: minutesString(m), tint: Palette.teal)
                         }
                         Spacer()
                     }
@@ -182,7 +182,7 @@ struct EnergySection: View {
                                         Spacer()
                                         Text(String(format: "%.0f%% CPU", proc.cpuPercent)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                                     }
-                                    ProgressView(value: proc.energyImpact / maxNow).tint(.orange)
+                                    ProgressView(value: proc.energyImpact / maxNow).tint(Palette.orange)
                                 }
                                 Button(role: .destructive) { pendingQuit = proc } label: {
                                     Image(systemName: "xmark.circle.fill")
@@ -202,7 +202,7 @@ struct EnergySection: View {
                     } else {
                         ForEach(Array(model.energy24h.prefix(10))) { usage in
                             LabeledBar(label: usage.name, value: String(format: "%.0f", usage.total),
-                                       fraction: usage.total / max24h, tint: .orange)
+                                       fraction: usage.total / max24h, tint: Palette.orange)
                         }
                         if let start = model.energyStart {
                             Text("Recorded since \(start.formatted(date: .abbreviated, time: .shortened)).")
@@ -212,7 +212,8 @@ struct EnergySection: View {
                 }
             }
         }
-        .onAppear { model.refreshEnergy() }
+        .onAppear { model.energyAppeared() }
+        .onDisappear { model.energyDisappeared() }
         .confirmationDialog("Quit \(pendingQuit?.name ?? "")?", isPresented: Binding(get: { pendingQuit != nil }, set: { if !$0 { pendingQuit = nil } })) {
             Button("Quit \(pendingQuit?.name ?? "")", role: .destructive) {
                 if let p = pendingQuit { model.quitProcess(pid: p.pid) }
@@ -273,11 +274,11 @@ struct SecuritySection: View {
                     }
                     if let report {
                         if report.isClean {
-                            Label("Clean — scanned \(report.scanned) file(s).", systemImage: "checkmark.shield.fill").foregroundStyle(.green)
+                            Label("Clean — scanned \(report.scanned) file(s).", systemImage: "checkmark.shield.fill").foregroundStyle(Palette.good)
                         } else {
                             ForEach(Array(report.findings.enumerated()), id: \.offset) { _, f in
                                 VStack(alignment: .leading, spacing: 1) {
-                                    Label("[\(f.severity.rawValue)] \(f.rule)", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                                    Label("[\(f.severity.rawValue)] \(f.rule)", systemImage: "exclamationmark.triangle.fill").foregroundStyle(Palette.orange)
                                     Text(f.path).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                                 }
                             }
@@ -307,7 +308,7 @@ struct SecuritySection: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).font(.caption).foregroundStyle(.secondary)
             Label(value, systemImage: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundStyle(ok ? .green : .red).font(.headline)
+                .foregroundStyle(ok ? Palette.good : Palette.crit).font(.headline)
         }
     }
 
@@ -355,7 +356,7 @@ struct ToolsSection: View {
                     }
                     if let secrets {
                         if secrets.isEmpty {
-                            Label("No leaked credentials found.", systemImage: "checkmark.circle").foregroundStyle(.green)
+                            Label("No leaked credentials found.", systemImage: "checkmark.circle").foregroundStyle(Palette.good)
                         } else {
                             ForEach(Array(secrets.prefix(40).enumerated()), id: \.offset) { _, m in
                                 Text("[\(m.rule)] \(m.path):\(m.line)").font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
@@ -369,7 +370,7 @@ struct ToolsSection: View {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionTitle("Keeping the Mac awake", icon: "moon.zzz")
                     if sleepers.isEmpty {
-                        Label("Nothing is preventing sleep.", systemImage: "checkmark.circle").foregroundStyle(.green)
+                        Label("Nothing is preventing sleep.", systemImage: "checkmark.circle").foregroundStyle(Palette.good)
                     } else {
                         ForEach(Array(sleepers.enumerated()), id: \.offset) { _, a in
                             Text("\(a.process) — \(a.type)").font(.callout).foregroundStyle(.secondary)

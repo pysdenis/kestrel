@@ -6,17 +6,17 @@ import KestrelCore
 
 func healthColor(_ score: Int) -> Color {
     switch score {
-    case 80...: return .green
-    case 50..<80: return .yellow
-    default: return .red
+    case 80...: return Palette.good
+    case 50..<80: return Palette.warn
+    default: return Palette.crit
     }
 }
 
 func fractionColor(_ fraction: Double) -> Color {
     switch fraction {
-    case 0.9...: return .red
-    case 0.75..<0.9: return .orange
-    default: return .accentColor
+    case 0.9...: return Palette.crit
+    case 0.75..<0.9: return Palette.orange
+    default: return Palette.accent
     }
 }
 
@@ -42,7 +42,7 @@ func batteryCaption(_ b: BatteryStats) -> String {
 struct KestrelButtonStyle: ButtonStyle {
     enum Kind { case prominent, secondary, subtle }
     var kind: Kind = .prominent
-    var tint: Color = .accentColor
+    var tint: Color = Palette.accent
     var size: ControlSize = .regular
 
     func makeBody(configuration: Configuration) -> some View {
@@ -76,7 +76,7 @@ struct KestrelButtonStyle: ButtonStyle {
 
 extension ButtonStyle where Self == KestrelButtonStyle {
     static var kestrel: KestrelButtonStyle { KestrelButtonStyle() }
-    static func kestrel(_ kind: KestrelButtonStyle.Kind, tint: Color = .accentColor, size: ControlSize = .regular) -> KestrelButtonStyle {
+    static func kestrel(_ kind: KestrelButtonStyle.Kind, tint: Color = Palette.accent, size: ControlSize = .regular) -> KestrelButtonStyle {
         KestrelButtonStyle(kind: kind, tint: tint, size: size)
     }
 }
@@ -126,7 +126,7 @@ struct MetricTile: View {
     let value: String
     var detail: String = ""
     var fraction: Double? = nil
-    var tint: Color = .accentColor
+    var tint: Color = Palette.accent
 
     var body: some View {
         Card {

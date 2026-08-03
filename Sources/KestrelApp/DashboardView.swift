@@ -23,6 +23,7 @@ struct MenuBarView: View {
         .padding(14)
         .frame(width: 366)
         .background(LinearGradient(colors: [Palette.accent.opacity(0.06), .clear], startPoint: .topTrailing, endPoint: .center).ignoresSafeArea())
+        .confirmHost()
         .onAppear { model.surfaceAppeared() }
         .onDisappear { model.surfaceDisappeared() }
     }
@@ -35,7 +36,7 @@ struct MenuBarView: View {
             cluster
             actionCard
             speedRow
-            Divider().opacity(0.5)
+            Hairline().opacity(0.7)
             footer
         }
     }
@@ -301,7 +302,7 @@ struct CPUDetailView: View {
             }
             Text("Top Consumers").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
             if model.energyNow.isEmpty {
-                HStack { ProgressView().controlSize(.small); Text("Reading…").foregroundStyle(.secondary).font(.caption) }
+                HStack(spacing: 8) { KestrelSpinner(tint: Palette.warn, size: 14); Text("Reading…").foregroundStyle(.secondary).font(.caption) }
             } else {
                 ForEach(model.energyNow.prefix(6)) { proc in
                     HStack {

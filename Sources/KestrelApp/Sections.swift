@@ -73,14 +73,14 @@ struct CleanupSection: View {
 
                         if let plan = controller.plan, !plan.items.isEmpty {
                             Button { controller.apply() } label: {
-                                if controller.applying { ProgressView().controlSize(.small) } else { Label("Move \(plan.count) to Vault", systemImage: "tray.and.arrow.down") }
+                                if controller.applying { KestrelSpinner(size: 14) } else { Label("Move \(plan.count) to Vault", systemImage: "tray.and.arrow.down") }
                             }
                             .buttonStyle(.kestrel(.secondary))
                             .disabled(controller.applying)
 
                             if model.aiConfigured {
                                 Button { controller.review(assistant: model.aiAssistant) } label: {
-                                    if controller.reviewing { ProgressView().controlSize(.small) } else { Label("AI review", systemImage: "sparkles") }
+                                    if controller.reviewing { KestrelSpinner(tint: Palette.violet, size: 14) } else { Label("AI review", systemImage: "sparkles") }
                                 }
                                 .buttonStyle(.kestrel(.subtle))
                                 .disabled(controller.reviewing)
@@ -150,7 +150,7 @@ struct AssistantSection: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider()
+            Hairline()
             if !model.aiConfigured {
                 ScrollView { setupCard.padding(22).frame(maxWidth: 560) }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -234,7 +234,7 @@ struct AssistantSection: View {
 
     private var composer: some View {
         VStack(spacing: 8) {
-            Divider()
+            Hairline()
             HStack(spacing: 8) {
                 Button { controller.pickFolder() } label: { Image(systemName: "folder") }
                     .buttonStyle(.kestrel(.subtle, size: .small))
@@ -353,7 +353,6 @@ struct TypingIndicator: View {
 
 struct EnergySection: View {
     @EnvironmentObject private var model: AppModel
-    @State private var pendingQuit: ProcessEnergy?
 
     private var maxNow: Double { max(1, model.energyNow.map(\.energyImpact).max() ?? 1) }
     private var max24h: Double { max(1, model.energy24h.first?.total ?? 1) }
@@ -395,7 +394,7 @@ struct EnergySection: View {
                                     }
                                     MiniBar(fraction: proc.energyImpact / maxNow)
                                 }
-                                Button { pendingQuit = proc } label: {
+                                Button { confirmQuit(proc) } label: {
                                     Image(systemName: "xmark.circle.fill").font(.title3).foregroundStyle(Palette.crit)
                                 }
                                 .buttonStyle(.plain).help("Quit \(proc.name)")
@@ -426,15 +425,16 @@ struct EnergySection: View {
         }
         .onAppear { model.energyAppeared() }
         .onDisappear { model.energyDisappeared() }
-        .confirmationDialog("Quit \(pendingQuit?.name ?? "")?", isPresented: Binding(get: { pendingQuit != nil }, set: { if !$0 { pendingQuit = nil } })) {
-            Button("Quit \(pendingQuit?.name ?? "")", role: .destructive) {
-                if let p = pendingQuit { model.quitProcess(pid: p.pid) }
-                pendingQuit = nil
-            }
-            Button("Cancel", role: .cancel) { pendingQuit = nil }
-        } message: {
-            Text("This asks the app to quit (SIGTERM). Unsaved work in that app may be lost.")
-        }
+    }
+
+    private func confirmQuit(_ proc: ProcessEnergy) {
+        model.requestConfirm(ConfirmRequest(
+            icon: "xmark.octagon", tint: Palette.crit,
+            title: "Quit \(proc.name)?",
+            message: "This asks the app to quit (SIGTERM). Unsaved work in that app may be lost.",
+            confirmLabel: "Quit \(proc.name)", destructive: true,
+            onConfirm: { model.quitProcess(pid: proc.pid) }
+        ))
     }
 
     private func badge(icon: String, title: String, value: String, tint: Color) -> some View {

@@ -133,12 +133,13 @@ struct MainWindow: View {
     var body: some View {
         HStack(spacing: 0) {
             SidebarView()
-            Divider()
+            Rectangle().fill(Color.primary.opacity(0.07)).frame(width: 1).ignoresSafeArea()
             detail
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(Color(nsColor: .windowBackgroundColor))
         }
         .frame(minWidth: 900, minHeight: 640)
+        .confirmHost()
         .onAppear { model.surfaceAppeared() }
         .onDisappear { model.surfaceDisappeared(); model.mainWindowClosed() }
         .sheet(isPresented: $model.showPalette) { CommandPaletteView().environmentObject(model) }
@@ -200,7 +201,7 @@ struct DashboardSection: View {
                         ForEach(model.health?.components ?? [], id: \.name) { c in
                             HStack {
                                 Text(c.name).frame(width: 70, alignment: .leading).font(.callout)
-                                ProgressView(value: Double(c.score) / 100).tint(healthColor(c.score))
+                                KestrelProgress(value: Double(c.score) / 100, tint: healthColor(c.score))
                                 Text("\(c.score)").font(.callout.monospacedDigit()).foregroundStyle(.secondary).frame(width: 30, alignment: .trailing)
                             }
                         }
@@ -298,7 +299,7 @@ struct SpaceSection: View {
                             Spacer()
                             Text("\(bytesString(d.available)) free").foregroundStyle(.secondary)
                         }
-                        ProgressView(value: d.usedFraction).tint(fractionColor(d.usedFraction))
+                        KestrelProgress(value: d.usedFraction, tint: fractionColor(d.usedFraction))
                         if d.purgeable > 0 {
                             Text("\(bytesString(d.purgeable)) purgeable (reclaimable on demand)")
                                 .font(.caption).foregroundStyle(.secondary)
@@ -424,10 +425,10 @@ struct SettingsSection: View {
             Card {
                 VStack(alignment: .leading, spacing: 10) {
                     row("Version", Kestrel.version)
-                    Divider()
+                    Hairline()
                     row("Vault", model.paths.vault.path)
                     row("Audit log", model.paths.auditLog.path)
-                    Divider()
+                    Hairline()
                     Button { NSWorkspace.shared.activateFileViewerSelecting([model.paths.root]) } label: {
                         Label("Reveal ~/.kestrel in Finder", systemImage: "folder")
                     }
@@ -443,6 +444,16 @@ struct SettingsSection: View {
             }
         }
         .onAppear { controller.load() }
+    }
+
+    private func confirmPurge() {
+        model.requestConfirm(ConfirmRequest(
+            icon: "trash", tint: Palette.crit,
+            title: "Purge old vault sessions?",
+            message: "Permanently deletes everything in the vault older than 14 days. This can't be undone — restored items are unaffected.",
+            confirmLabel: "Purge", destructive: true,
+            onConfirm: { controller.purge(days: 14) }
+        ))
     }
 
     private var vaultCard: some View {
@@ -479,11 +490,11 @@ struct SettingsSection: View {
                                 .disabled(controller.busy)
                         }
                         .padding(.vertical, 2)
-                        Divider()
+                        Hairline()
                     }
                     HStack {
                         Spacer()
-                        Button { controller.purge(days: 14) } label: { Label("Purge older than 14 days", systemImage: "trash") }
+                        Button { confirmPurge() } label: { Label("Purge older than 14 days", systemImage: "trash") }
                             .buttonStyle(.kestrel(.subtle, tint: Palette.crit, size: .small))
                             .disabled(controller.busy)
                     }

@@ -50,7 +50,7 @@ struct CommandPaletteView: View {
                     .background(.quaternary, in: RoundedRectangle(cornerRadius: 5))
             }
             .padding(14)
-            Divider()
+            Hairline()
             ScrollView {
                 VStack(spacing: 0) {
                     ForEach(filtered) { command in

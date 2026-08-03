@@ -22,6 +22,12 @@ final class AppModel: ObservableObject {
     @Published var section: AppSection? = .dashboard
     @Published var showPalette = false
 
+    /// Drives Kestrel's own confirmation modal (see `ConfirmHost`). Nil = nothing shown.
+    @Published var confirmRequest: ConfirmRequest?
+
+    /// Present the custom confirm modal for a destructive/irreversible action.
+    func requestConfirm(_ request: ConfirmRequest) { confirmRequest = request }
+
     @Published var energyNow: [ProcessEnergy] = []
     @Published var energy24h: [EnergyUsage] = []
     @Published var energyStart: Date?

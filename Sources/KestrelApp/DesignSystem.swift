@@ -93,16 +93,35 @@ extension ButtonStyle where Self == KestrelButtonStyle {
     }
 }
 
-/// A padded, rounded material container.
+/// A padded, rounded material container. A hairline top-light stroke and a soft drop
+/// shadow give it the graphite depth of the Precision language; `elevated` deepens the
+/// shadow and warms the stroke for hero surfaces.
 struct Card<Content: View>: View {
     var padding: CGFloat = 14
+    var elevated: Bool = false
+    var tint: Color? = nil
     @ViewBuilder var content: Content
+
     var body: some View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.06)))
+            .background {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.regularMaterial)
+                    .overlay {
+                        if let tint {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(LinearGradient(colors: [tint.opacity(0.10), .clear], startPoint: .topLeading, endPoint: .center))
+                        }
+                    }
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(LinearGradient(colors: [.white.opacity(elevated ? 0.14 : 0.08), .white.opacity(0.02)],
+                                                 startPoint: .top, endPoint: .bottom), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(elevated ? 0.16 : 0.06), radius: elevated ? 22 : 10, y: elevated ? 10 : 4)
     }
 }
 
@@ -207,7 +226,7 @@ struct MetricTile: View {
                 }
                 Text(value).font(.title3.weight(.semibold)).monospacedDigit()
                 if let fraction {
-                    ProgressView(value: min(1, max(0, fraction))).tint(fraction.isNaN ? tint : fractionColor(fraction))
+                    KestrelProgress(value: fraction, tint: fraction.isNaN ? tint : fractionColor(fraction))
                 }
                 if !detail.isEmpty {
                     Text(detail).font(.caption).foregroundStyle(.secondary)
@@ -354,7 +373,7 @@ struct PlanToolCard: View {
 
                     if let plan = state.plan, !plan.items.isEmpty {
                         Button { model.tools.applyTool(id) } label: {
-                            if state.applying { ProgressView().controlSize(.small) } else { Text("Clean") }
+                            if state.applying { KestrelSpinner(tint: .white, size: 14) } else { Text("Clean") }
                         }
                         .buttonStyle(.kestrel(.prominent, size: .small))
                         .disabled(state.applying)
@@ -437,8 +456,7 @@ struct ScanningBanner: View {
                             .animation(nil, value: detail)
                     }
                     if let progress {
-                        ProgressView(value: min(1, max(0, progress))).tint(tint)
-                            .animation(.easeOut(duration: 0.25), value: progress)
+                        KestrelProgress(value: progress, tint: tint)
                     }
                 }
             }
@@ -582,4 +600,185 @@ struct SectionTitle: View {
             Spacer()
         }
     }
+}
+
+// MARK: - Custom controls (no stock AppKit chrome)
+
+/// Kestrel's determinate progress bar — a soft track with a glowing gradient fill.
+/// Replaces the stock `ProgressView(value:)` everywhere so meters feel like one family.
+struct KestrelProgress: View {
+    let value: Double
+    var tint: Color = Palette.accent
+    var height: CGFloat = 7
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.primary.opacity(0.08))
+                Capsule()
+                    .fill(LinearGradient(colors: [tint.opacity(0.75), tint], startPoint: .leading, endPoint: .trailing))
+                    .frame(width: max(height, geo.size.width * min(1, max(0, value))))
+                    .shadow(color: tint.opacity(0.45), radius: 3)
+                    .animation(.easeOut(duration: 0.5), value: value)
+            }
+        }
+        .frame(height: height)
+    }
+}
+
+/// Kestrel's indeterminate spinner — a rotating accent arc. Replaces the stock
+/// `ProgressView()` circular spinner inside buttons and inline "loading" states.
+struct KestrelSpinner: View {
+    var tint: Color = Palette.accent
+    var size: CGFloat = 16
+    var lineWidth: CGFloat = 2.2
+    @State private var spin = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Circle()
+            .trim(from: 0, to: 0.7)
+            .stroke(AngularGradient(colors: [tint.opacity(0), tint], center: .center),
+                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+            .frame(width: size, height: size)
+            .rotationEffect(.degrees(spin ? 360 : 0))
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.linear(duration: 0.85).repeatForever(autoreverses: false)) { spin = true }
+            }
+    }
+}
+
+/// Kestrel's switch — a spring-animated capsule with a floating knob. Used for genuine
+/// on/off settings instead of the stock `Toggle`.
+struct KestrelToggle: View {
+    @Binding var isOn: Bool
+    var tint: Color = Palette.accent
+
+    var body: some View {
+        Button { isOn.toggle() } label: {
+            ZStack(alignment: isOn ? .trailing : .leading) {
+                Capsule()
+                    .fill(isOn ? AnyShapeStyle(tint.gradient) : AnyShapeStyle(Color.primary.opacity(0.14)))
+                    .frame(width: 42, height: 25)
+                    .shadow(color: isOn ? tint.opacity(0.4) : .clear, radius: 5)
+                Circle().fill(.white).frame(width: 19, height: 19).padding(3)
+                    .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .animation(.spring(response: 0.3, dampingFraction: 0.68), value: isOn)
+    }
+}
+
+/// A one-pixel graphite rule — Kestrel's own divider (the stock `Divider` reads too
+/// heavy against material cards).
+struct Hairline: View {
+    var body: some View {
+        Rectangle().fill(Color.primary.opacity(0.07)).frame(height: 1)
+    }
+}
+
+/// The dashboard's flagship health gauge: an ambient glow disc, a graphite track and a
+/// conic value arc that sweeps to the score, plus a soft accent halo.
+struct HeroGauge: View {
+    let score: Int
+    var size: CGFloat = 176
+
+    private var frac: CGFloat { max(0.001, CGFloat(score) / 100) }
+    private var color: Color { healthColor(score) }
+
+    var body: some View {
+        ZStack {
+            Circle().fill(color.opacity(0.16)).blur(radius: size * 0.13)
+                .frame(width: size * 0.72, height: size * 0.72)
+            Circle().stroke(Color.primary.opacity(0.07), lineWidth: size * 0.085)
+            Circle()
+                .trim(from: 0, to: frac)
+                .stroke(
+                    AngularGradient(colors: [color.opacity(0.45), color, color.opacity(0.85)],
+                                    center: .center, startAngle: .degrees(-90), endAngle: .degrees(270)),
+                    style: StrokeStyle(lineWidth: size * 0.085, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .shadow(color: color.opacity(0.55), radius: size * 0.045)
+                .animation(.easeOut(duration: 0.75), value: score)
+            VStack(spacing: size * 0.01) {
+                Text("\(score)").font(.system(size: size * 0.3, weight: .bold, design: .rounded)).monospacedDigit()
+                Text("HEALTH").font(.system(size: size * 0.072, weight: .bold)).kerning(1.6).foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+/// A request to show the app's custom confirm modal. Held on `AppModel` and rendered as
+/// an overlay by any surface, so destructive actions never fall back to a stock alert.
+struct ConfirmRequest: Identifiable {
+    let id = UUID()
+    var icon: String = "questionmark.circle"
+    var tint: Color = Palette.accent
+    var title: String
+    var message: String
+    var confirmLabel: String = "Confirm"
+    var destructive: Bool = false
+    var onConfirm: () -> Void
+}
+
+/// Kestrel's own confirmation dialog — a dimmed backdrop and a floating material card,
+/// fully in the Precision language (no stock `confirmationDialog`/`alert`).
+struct ConfirmModal: View {
+    let request: ConfirmRequest
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.4).ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onDismiss)
+            VStack(spacing: 15) {
+                Image(systemName: request.icon)
+                    .font(.system(size: 27, weight: .semibold)).foregroundStyle(request.tint)
+                    .frame(width: 60, height: 60)
+                    .background(request.tint.opacity(0.14), in: Circle())
+                    .overlay(Circle().strokeBorder(request.tint.opacity(0.25)))
+                Text(request.title).font(.title3.weight(.bold)).multilineTextAlignment(.center)
+                Text(request.message).font(.callout).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 10) {
+                    Button("Cancel", action: onDismiss).buttonStyle(.kestrel(.subtle))
+                    Button(request.confirmLabel) { request.onConfirm(); onDismiss() }
+                        .buttonStyle(.kestrel(.prominent, tint: request.destructive ? Palette.crit : request.tint))
+                }
+                .padding(.top, 2)
+            }
+            .padding(26)
+            .frame(width: 344)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(.white.opacity(0.12)))
+            .shadow(color: .black.opacity(0.35), radius: 34, y: 14)
+            .transition(.scale(scale: 0.92).combined(with: .opacity))
+        }
+    }
+}
+
+/// Presents `AppModel.confirmRequest` as a custom overlay on any surface.
+struct ConfirmHost: ViewModifier {
+    @EnvironmentObject private var model: AppModel
+    func body(content: Content) -> some View {
+        content.overlay {
+            if let request = model.confirmRequest {
+                ConfirmModal(request: request) {
+                    withAnimation(.easeOut(duration: 0.18)) { model.confirmRequest = nil }
+                }
+                .zIndex(10)
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: model.confirmRequest?.id)
+    }
+}
+
+extension View {
+    /// Hosts Kestrel's custom confirmation modal (driven by `AppModel.confirmRequest`).
+    func confirmHost() -> some View { modifier(ConfirmHost()) }
 }

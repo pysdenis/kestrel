@@ -264,14 +264,15 @@ struct SpaceSection: View {
 struct ActivitySection: View {
     @EnvironmentObject private var model: AppModel
     @State private var summary: ActivitySummary?
+    @State private var digest: Digest?
 
     var body: some View {
-        SectionScaffold(title: "Activity", subtitle: "What Kestrel has actually reclaimed") {
+        SectionScaffold(title: "Activity", subtitle: "What Kestrel has actually reclaimed — from the audit log") {
             let s = summary
             Card {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(bytesString(s?.reclaimedBytes ?? 0)).font(.system(size: 34, weight: .bold, design: .rounded))
-                    Text("reclaimed across \(s?.totalActions ?? 0) action(s), from the audit log")
+                    Text("reclaimed across \(s?.totalActions ?? 0) action(s)")
                         .font(.subheadline).foregroundStyle(.secondary)
                 }
             }
@@ -288,8 +289,31 @@ struct ActivitySection: View {
                 Text("Nothing reclaimed yet. Run a cleanup and it will show up here.")
                     .foregroundStyle(.secondary)
             }
+
+            if let d = digest, (d.dailyGrowthBytes != nil || !d.recentChanges.isEmpty) {
+                SectionTitle("Storage trend", icon: "chart.line.uptrend.xyaxis")
+                Card {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if let g = d.dailyGrowthBytes {
+                            Text("\(g >= 0 ? "+" : "-")\(bytesString(abs(g)))/day" + (d.daysUntilFull.map { " · full in ~\(Int($0)) days" } ?? ""))
+                                .font(.subheadline.weight(.medium))
+                        }
+                        ForEach(Array(d.recentChanges.enumerated()), id: \.offset) { _, c in
+                            HStack {
+                                Text(c.path).font(.caption).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
+                                Spacer()
+                                Text("\(c.delta >= 0 ? "+" : "-")\(bytesString(abs(c.delta)))").font(.caption.monospacedDigit())
+                                    .foregroundStyle(c.delta >= 0 ? Palette.warn : Palette.good)
+                            }
+                        }
+                    }
+                }
+            }
         }
-        .onAppear { summary = ActivityReporter(audit: AuditLog(url: model.paths.auditLog)).summary() }
+        .onAppear {
+            summary = ActivityReporter(audit: AuditLog(url: model.paths.auditLog)).summary()
+            digest = DigestReporter(audit: AuditLog(url: model.paths.auditLog), snapshots: SnapshotStore(directory: model.paths.snapshots)).generate()
+        }
     }
 }
 

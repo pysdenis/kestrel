@@ -27,40 +27,40 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 - [x] Docker cleanup adapter (`docker system df` náhled, advisory — mimo vault).
 - [x] Homebrew adapter (`brew cleanup --dry-run` náhled, advisory — mimo vault).
 - [x] `kestrel clean --category cache|logs|dev|dupes|large [--apply]` + breakdown.
-- [ ] App uninstaller (bundle + leftovers).
+- [x] App uninstaller (bundle + leftovers) — `AppUninstaller`, `kestrel uninstall`.
 - [ ] Skutečné provedení Docker/brew prune (mimo vault → vyžaduje explicitní opt-in UX).
-**DoD:** reálně uvolní místo na mém Macu, defaultně dry-run, nic důležitého nesmaže (testy).
-Stav: 90 testů zelených (`swift run kestrel-tests`). Zbývá app uninstaller.
+**DoD:** ✅ reálně uvolní místo, defaultně dry-run, nic důležitého nesmaže (testy).
 
-## Fáze 2 — Přehled místa 📊
-- [ ] `DiskMap` rekurzivní velikosti (paralelně).
-- [ ] Denní snapshots + trend + předpověď zaplnění.
-- [ ] „Co narostlo od minule" diff.
-- [ ] CLI `map` (treemap v terminálu).
-**DoD:** vidím, co bere místo, a jak to roste v čase.
+## Fáze 2 — Přehled místa 📊 ✅ HOTOVO
+- [x] `DiskMap` rekurzivní velikosti (top-level paralelně, symlinky jako listy, depth-limit).
+- [x] `DiskUsageReader` (kapacita volume) + `SnapshotStore` denní snapshots + trend + předpověď zaplnění.
+- [x] „Co narostlo od minule" diff (`recentChanges`).
+- [x] CLI `map` (treemap v terminálu), `snapshot`, `trend`, `diff`.
+**DoD:** ✅ vidím, co bere místo, a jak to roste v čase.
 
-## Fáze 3 — Menubar GUI 🖥️
-- [ ] `NSStatusItem` + `NSPopover` + SwiftUI dashboard.
-- [ ] Živé dlaždice: disk, memory pressure, battery+health, CPU, Wi-Fi throughput, volumes.
-- [ ] Mac Health skóre (rozklikací, transparentní).
-- [ ] Napojení „Free Up" na Fázi 1, „Přehled" na Fázi 2.
-**DoD:** funkční menubar app s živými daty, žádné placebo tlačítko.
+## Fáze 3 — Menubar GUI 🖥️ (data ✅, packaging → Fáze 7)
+- [x] `StatsCollector`: disk, memory (Mach), CPU load, battery+health/cycles (IOKit),
+      Wi-Fi SSID + net counters (getifaddrs/CoreWLAN), volumes — jen veřejná API.
+- [x] Mac Health skóre (transparentní vážený průměr, `HealthScorer`) + CLI `stats`.
+- [x] SwiftUI `MenuBarExtra` dashboard (`KestrelApp`) s živými dlaždicemi + „Scan" napojený na Fázi 1.
+- [ ] Zabalit jako accessory app (LSUIElement bundle, podpis) — Fáze 7. On-access throughput graf.
+**DoD:** GUI kompiluje proti živému Core, žádné placebo tlačítko. Běh jako menubar app → po zabalení.
 
-## Fáze 4 — Antivirus 🛡️
-- [ ] Bundling ClamAV + `freshclam` auto-update.
-- [ ] YARA scanner + startovní sada pravidel.
-- [ ] Heuristika (nepodepsané, Downloads-origin, LaunchAgents audit).
-- [ ] XProtect/Gatekeeper status reader, quarantine viewer.
+## Fáze 4 — Antivirus 🛡️ (jádro ✅, bundling ClamAV → později)
+- [ ] Bundling ClamAV + `freshclam` auto-update — zatím advisory `ClamAVAdapter` (deleguje na lokální clamscan).
+- [x] `RuleScanner` (EICAR test + string/SHA-256 pravidla) — čestný, jen reálné nálezy.
+- [x] Heuristika (quarantined executables, `LaunchAgentAuditor` osiřelí agenti).
+- [x] XProtect/Gatekeeper status reader (`SystemProtectionReader`), quarantine viewer (`QuarantineReader`).
 - [ ] On-access watcher (FSEvents na Downloads/Desktop).
-**DoD:** on-demand i on-access sken, čestný report, žádné strašení.
+**DoD:** ✅ on-demand čestný report („čisto" když čisto, nález s důkazem). On-access zbývá.
 
-## Fáze 5 — Zbytek CleanMyMac sekcí 🧩
-- [ ] SmartScan (jednotlačítková orchestrace clean+stats+AV+updates).
-- [ ] MaintenanceService (periodic skripty, DNS flush, Spotlight/LaunchServices rebuild, purgeable).
-- [ ] App Updater (Homebrew casks + Sparkle feedy) + Reset app + orphaned data.
+## Fáze 5 — Zbytek CleanMyMac sekcí 🧩 (většina ✅)
+- [x] SmartScan (orchestrace health + clutter + review + AV) — `SmartScan`, `kestrel smartscan`.
+- [x] MaintenanceService (advisory katalog: DNS flush, Spotlight/LaunchServices rebuild, purge, fontcache).
+- [x] App Updater (Homebrew casks outdated + Sparkle feed reader) + orphaned data (`OrphanFinder`, `kestrel orphans`).
 - [ ] Cloud Cleanup (iCloud Drive/Dropbox/GDrive, offload místo mazání).
-- [ ] Privacy cleaner (browser history/cookies/trackery, recent items).
-- [ ] My Activity view nad AuditLog + statistiky úspor.
+- [x] Privacy cleaner (browser cache/history/cookies, review-only) — `PrivacyClassifier`.
+- [x] My Activity view nad AuditLog + statistiky úspor (`ActivityReporter`, `kestrel activity`).
 
 ## Fáze 6 — Extra & killer funkce 🚀
 - [ ] Power & Wake auditor (pmset assertions, wake reasons).

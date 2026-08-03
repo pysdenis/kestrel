@@ -14,12 +14,19 @@ Vize a filozofie v `README.md`, plný katalog funkcí v `docs/FEATURES.md`.
 - `.vscode/` má připravené build/test/debug konfigurace.
 - Příkazy: `swift build`, `swift run kestrel-tests`, `swift run kestrel scan <cesta>`.
 
-## Stav: Fáze 0 HOTOVÁ ✅ (2026-08-03)
-Bezpečnostní základ postaven a ověřen end-to-end (22/22 testů zelených):
-- `KestrelCore`: modely, `VaultService` (karanténa místo mazání + undo/purge),
-  `AuditLog` (append-only JSON-lines), pipeline `Scanner → Classifier → Planner → CleanupExecutor`.
-- `kestrel-cli`: `scan`, `clean [--apply]` (default dry-run), `vault list/undo/purge`, `audit`.
-- Ověřeno: apply → vault → undo vrátí soubor i s obsahem; `unknown` se nikdy nemaže.
+## Stav: Fáze 0–5 z podstatné části HOTOVÉ ✅ (141/141 testů zelených)
+Základ (Fáze 0) + čisticí jádro, přehled místa, stats+health+GUI, antivirus a většina
+CleanMyMac sekcí stojí. `swift run kestrel-tests` = 141 zelených; `swift build` zelený
+(vč. SwiftUI `KestrelApp` targetu). Detailní rozpis hotového/zbývajícího v `docs/ROADMAP.md`.
+
+CLI dnes: `scan`, `clean [--apply] [--category ...]`, `uninstall`, `orphans`, `map`,
+`snapshot`/`trend`/`diff`, `stats`, `av scan|status|quarantine|agents`, `smartscan`,
+`maintenance`, `updates`, `activity`, `docker`, `brew`, `vault list/undo/purge`, `audit`.
+
+Co ještě chybí (poctivě): reálné provedení Docker/brew prune (mimo vault → opt-in UX),
+bundling ClamAV+freshclam (teď jen advisory adapter na lokální clamscan), on-access
+FSEvents watcher, Cloud Cleanup (offload), a zabalení `KestrelApp` jako accessory app
+(LSUIElement bundle + podpis + notarizace) — to je Fáze 7. Pak Fáze 6 (extra funkce).
 
 ## Nepřekročitelné invarianty (detail v CLAUDE.md)
 1. Dry-run default; skutečná akce jen s `--apply`.

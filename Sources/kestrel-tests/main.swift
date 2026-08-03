@@ -574,6 +574,74 @@ do {
     check(score.overall == 75, "weighted overall = 75 (got \(score.overall))")
 }
 
+// MARK: - Antivirus
+
+section("RuleScanner: detects the EICAR test file, clean files stay clean")
+withTempDir { tmp in
+    let infected = makeFile(tmp.appendingPathComponent("eicar.com"), RuleScanner.eicarSignature)
+    let clean = makeFile(tmp.appendingPathComponent("readme.txt"), "hello world")
+    let hits = RuleScanner().scanFile(infected)
+    check(hits.count == 1 && hits.first?.severity == .malicious, "EICAR flagged malicious")
+    check(RuleScanner().scanFile(clean).isEmpty, "clean file yields no findings")
+}
+
+section("AntivirusEngine: honest report over a tree")
+withTempDir { tmp in
+    makeFile(tmp.appendingPathComponent("docs/notes.txt"), "safe")
+    makeFile(tmp.appendingPathComponent("bin/eicar"), RuleScanner.eicarSignature)
+    let report = AntivirusEngine().scan(root: tmp)
+    check(report.scanned >= 2, "scanned the files")
+    check(!report.isClean && report.findings.contains { $0.rule.contains("EICAR") }, "EICAR surfaced")
+
+    let cleanReport = AntivirusEngine().scan(root: makeDir(tmp.appendingPathComponent("cleanonly")))
+    check(cleanReport.isClean, "empty tree is clean")
+}
+
+section("QuarantineReader: reads the download agent from the xattr")
+withTempDir { tmp in
+    let f = makeFile(tmp.appendingPathComponent("dl.dmg"), "x")
+    let value = "0081;00000000;Safari;ABCD-UUID"
+    _ = value.withCString { setxattr(f.path, "com.apple.quarantine", $0, strlen($0), 0, 0) }
+    let info = QuarantineReader().read(f)
+    check(info?.agent == "Safari", "quarantine agent parsed (got \(info?.agent ?? "nil"))")
+    check(QuarantineReader().read(makeFile(tmp.appendingPathComponent("local.txt"), "x")) == nil, "no xattr → nil")
+}
+
+section("LaunchAgentAuditor: flags orphaned jobs, keeps valid ones")
+withTempDir { tmp in
+    let agents = makeDir(tmp.appendingPathComponent("LaunchAgents"))
+    let realProgram = makeFile(tmp.appendingPathComponent("bin/tool"), "#!/bin/sh")
+    func plist(_ label: String, _ program: String) -> String {
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0"><dict><key>Label</key><string>\(label)</string>
+        <key>Program</key><string>\(program)</string></dict></plist>
+        """
+    }
+    makeFile(agents.appendingPathComponent("valid.plist"), plist("com.valid", realProgram.path))
+    makeFile(agents.appendingPathComponent("orphan.plist"), plist("com.orphan", "/opt/gone/ghost"))
+
+    let orphans = LaunchAgentAuditor(directories: [agents]).orphans()
+    check(orphans.count == 1 && orphans.first?.label == "com.orphan", "only the orphan flagged")
+}
+
+section("ClamAV & Gatekeeper adapters parse tool output")
+do {
+    struct Stub: CommandRunner {
+        let map: [String: String]
+        func run(_ tool: String, _ args: [String]) throws -> String { map[([tool] + args).joined(separator: " ")] ?? "" }
+    }
+    let clam = ClamAVAdapter(runner: Stub(map: [
+        "clamscan --version": "ClamAV 1.0.0",
+        "clamscan -r --infected --no-summary /x": "/x/bad: Eicar-Test-Signature FOUND\n",
+    ])).scan(path: "/x")
+    check(clam.available && clam.infected == 1, "clamscan FOUND line parsed")
+
+    let gk = SystemProtectionReader(runner: Stub(map: ["spctl --status": "assessments enabled"])).status()
+    check(gk.assessmentsEnabled == true, "Gatekeeper status parsed")
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

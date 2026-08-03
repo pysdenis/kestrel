@@ -174,6 +174,10 @@ func usage() {
       kestrel snapshot [path]                   (record disk usage; default: home)
       kestrel trend                             (growth rate + fill forecast)
       kestrel diff                              (what changed since last snapshot)
+      kestrel av scan <path>                    (honest on-demand malware scan)
+      kestrel av status                         (Gatekeeper + XProtect status)
+      kestrel av quarantine [path]              (files downloaded from the internet)
+      kestrel av agents                         (orphaned launch agents)
       kestrel docker                            (reclaimable Docker space, advisory)
       kestrel brew                              (reclaimable Homebrew space, advisory)
       kestrel audit tail [N]
@@ -334,6 +338,46 @@ do {
         for c in changes.prefix(20) {
             let sign = c.delta >= 0 ? "+" : "-"
             print("  \(sign)\(fmtBytes(abs(c.delta)).padding(toLength: 10, withPad: " ", startingAt: 0))  \(c.path)")
+        }
+
+    case "av":
+        let sub = rest.first ?? "scan"
+        switch sub {
+        case "scan":
+            guard let path = rest.dropFirst().first(where: { !$0.hasPrefix("-") }) else {
+                print("Usage: kestrel av scan <path>"); exit(2)
+            }
+            let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+            let report = AntivirusEngine().scan(root: root)
+            if report.isClean {
+                print("Scanned \(report.scanned) file(s). Clean. ✅")
+            } else {
+                print("Scanned \(report.scanned) file(s). \(report.findings.count) finding(s):\n")
+                for f in report.findings {
+                    print("  [\(f.severity.rawValue)] \(f.rule)\n     ↳ \(f.path)\n       \(f.evidence)")
+                }
+            }
+        case "status":
+            let s = SystemProtectionReader().status()
+            let gk = s.assessmentsEnabled.map { $0 ? "enabled" : "DISABLED" } ?? "unknown"
+            print("Gatekeeper assessments: \(gk)")
+            print("XProtect version: \(s.xprotectVersion ?? "unknown")")
+        case "quarantine":
+            let path = rest.dropFirst().first(where: { !$0.hasPrefix("-") }) ?? paths.home.appendingPathComponent("Downloads").path
+            let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+            let files = (try? Scanner().scanFiles(under: root, pruning: [], includingHidden: true)) ?? []
+            let reader = QuarantineReader()
+            let quarantined = files.compactMap { reader.read($0.url) }
+            if quarantined.isEmpty { print("No quarantined files under \(root.path)."); break }
+            print("\(quarantined.count) quarantined file(s):")
+            for q in quarantined.prefix(40) { print("  \(q.agent.map { "[\($0)] " } ?? "")\(q.path)") }
+        case "agents":
+            let orphans = LaunchAgentAuditor().orphans()
+            if orphans.isEmpty { print("No orphaned launch agents. ✅"); break }
+            print("\(orphans.count) orphaned launch agent(s) (program missing):")
+            for o in orphans { print("  \(o.label ?? "?")  →  \(o.program ?? "?")\n     ↳ \(o.path)") }
+        default:
+            print("Unknown av subcommand '\(sub)'. Use: scan|status|quarantine|agents"); exit(2)
         }
 
     case "docker":

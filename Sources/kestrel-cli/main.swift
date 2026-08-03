@@ -169,6 +169,7 @@ func usage() {
       kestrel vault undo <session-id>
       kestrel vault purge [--days N]                                (default: 14)
       kestrel uninstall <app> [--apply]         (app bundle + leftovers → vault)
+      kestrel stats [all|disk|mem|cpu|battery|net|health]
       kestrel map <path> [--depth N]            (directory size tree)
       kestrel snapshot [path]                   (record disk usage; default: home)
       kestrel trend                             (growth rate + fill forecast)
@@ -262,6 +263,40 @@ do {
         let result = try CleanupExecutor(vault: vault, audit: audit).execute(plan, apply: true)
         print("\nMoved \(result.movedCount) item(s), \(fmtBytes(result.movedBytes)) → vault session \(result.sessionId ?? "?")")
         print("Undo with:  kestrel vault undo \(result.sessionId ?? "")")
+
+    case "stats":
+        let which = rest.first(where: { !$0.hasPrefix("-") }) ?? "all"
+        let s = StatsCollector()
+        func showDisk() { if let d = s.disk() { print("Disk:    \(fmtBytes(d.used)) used of \(fmtBytes(d.total))  (\(Int(d.usedFraction * 100))% full)") } }
+        func showMem() { let m = s.memory(); print("Memory:  \(fmtBytes(m.used)) used of \(fmtBytes(m.total))  (\(Int(m.usedFraction * 100))%)") }
+        func showCPU() { let c = s.cpu(); print(String(format: "CPU:     load %.2f / %.2f / %.2f on %d cores", c.loadAverages[0], c.loadAverages[1], c.loadAverages[2], c.coreCount)) }
+        func showBattery() {
+            if let b = s.battery() {
+                var line = "Battery: \(b.percent)%\(b.isCharging ? " (charging)" : "")"
+                if let h = b.healthPercent { line += ", health \(h)%" }
+                if let cy = b.cycleCount { line += ", \(cy) cycles" }
+                print(line)
+            } else { print("Battery: none (desktop or unavailable)") }
+        }
+        func showNet() { let n = s.network(); print("Network: ↓\(fmtBytes(n.bytesIn)) ↑\(fmtBytes(n.bytesOut))\(n.ssid.map { "  Wi-Fi: \($0)" } ?? "")") }
+        func showVolumes() { for v in s.volumes() { print("  \(v.name.padding(toLength: 20, withPad: " ", startingAt: 0)) \(fmtBytes(v.space.used)) / \(fmtBytes(v.space.total))") } }
+        func showHealth() {
+            let score = HealthScorer().score(disk: s.disk(), memory: s.memory(), cpu: s.cpu(), battery: s.battery())
+            print("Mac Health: \(score.overall)/100")
+            for c in score.components {
+                print("  \(c.name.padding(toLength: 10, withPad: " ", startingAt: 0)) \(String(c.score).padding(toLength: 4, withPad: " ", startingAt: 0)) \(c.detail)")
+            }
+        }
+        switch which {
+        case "disk": showDisk(); showVolumes()
+        case "mem", "memory": showMem()
+        case "cpu": showCPU()
+        case "battery": showBattery()
+        case "net", "network": showNet()
+        case "health": showHealth()
+        case "all": showHealth(); print(""); showDisk(); showMem(); showCPU(); showBattery(); showNet()
+        default: print("Unknown stats view '\(which)'. Use: all|disk|mem|cpu|battery|net|health"); exit(2)
+        }
 
     case "map":
         guard let path = rest.first(where: { !$0.hasPrefix("-") }) else { print("Usage: kestrel map <path> [--depth N]"); exit(2) }

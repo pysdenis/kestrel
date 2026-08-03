@@ -9,7 +9,13 @@ let package = Package(
         .executable(name: "kestrel", targets: ["kestrel-cli"]),
     ],
     targets: [
-        .target(name: "KestrelCore"),
+        .target(
+            name: "KestrelCore",
+            linkerSettings: [
+                .linkedFramework("IOKit"),
+                .linkedFramework("CoreWLAN"),
+            ]
+        ),
         .executableTarget(
             name: "kestrel-cli",
             dependencies: ["KestrelCore"]

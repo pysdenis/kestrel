@@ -552,6 +552,28 @@ withTempDir { tmp in
     check(changes == [SpaceDelta(path: "/y", delta: 40)], "only /y grew, by 40")
 }
 
+// MARK: - Stats & health
+
+section("StatsCollector: live metrics are sane on this machine")
+do {
+    let s = StatsCollector()
+    check(s.memory().total > 0, "physical memory reported")
+    check(s.cpu().coreCount > 0, "core count reported")
+    check((s.disk()?.total ?? 0) > 0, "home volume capacity reported")
+    check(!s.volumes().isEmpty, "at least one mounted volume")
+}
+
+section("HealthScorer: transparent weighted average")
+do {
+    let disk = DiskSpace(total: 1000, available: 100)          // 90% used
+    let mem = MemoryStats(total: 100, used: 50, free: 50)      // 50% used
+    let cpu = CPUStats(coreCount: 8, loadAverages: [0.5, 0.4, 0.3])
+    let score = HealthScorer().score(disk: disk, memory: mem, cpu: cpu, battery: nil)
+    check(score.components.count == 3, "no battery → three components")
+    check(score.components.first { $0.name == "Disk" }?.score == 40, "disk score reflects 90% full")
+    check(score.overall == 75, "weighted overall = 75 (got \(score.overall))")
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

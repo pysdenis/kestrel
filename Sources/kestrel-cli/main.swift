@@ -235,6 +235,7 @@ func usage() {
       kestrel orphans [--apply]                 (leftover data from removed apps)
       kestrel installers [path] [--apply]       (old .dmg/.pkg/.iso; default: Downloads)
       kestrel screenshots [path] [--apply]      (screenshots; default: Desktop)
+      kestrel login-items                       (background / login launch items)
       kestrel trash [--apply]                   (contents of all Trash bins → vault)
       kestrel downloads [path] [--apply]        (old files in Downloads)
       kestrel mail [--apply]                    (locally cached Mail attachments)
@@ -594,6 +595,16 @@ do {
         let path = rest.first(where: { !$0.hasPrefix("-") }) ?? paths.home.appendingPathComponent("Desktop").path
         let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
         try runPlan(ClutterFinder().screenshots(under: root), apply: flag("--apply", in: rest))
+
+    case "login-items", "background-items":
+        let items = LaunchAgentAuditor().audit()
+        if items.isEmpty { print("No launch agents or daemons found."); break }
+        print("\(items.count) launch item(s) (background / login):")
+        for i in items.sorted(by: { ($0.label ?? "") < ($1.label ?? "") }) {
+            let mark = i.programExists ? "•" : "⚠︎ orphan"
+            print("  \(mark)  \(i.label ?? "?")\n       \(i.program ?? "—")")
+        }
+        print("\nDisable one with:  launchctl bootout gui/$(id -u) <path>")
 
     case "trash":
         try runPlan(TrashFinder().find(), apply: flag("--apply", in: rest))

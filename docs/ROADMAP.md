@@ -123,7 +123,7 @@ Vše drží invarianty: dry-run default, vault + undo, audit, unknown se nemaže
 ### Cleanup
 - [x] **System Junk** (uživatelské cache/logy, dev-tool cache).
 - [x] **Dev-first úklid** (node_modules, DerivedData, Docker/brew, .venv, target…) — *navíc*.
-- [ ] **Trash Bins** — vysypat koše na všech volumes (`~/.Trash`, per-volume `.Trashes`).
+- [x] **Trash Bins** — `TrashFinder`, `kestrel trash` (přes vault, undoable).
 - [ ] Rozšířit „System Junk" o systémové cache, broken login items, XPC cache, apod.
 
 ### Protection
@@ -134,8 +134,8 @@ Vše drží invarianty: dry-run default, vault + undo, audit, unknown se nemaže
 
 ### Performance
 - [x] **Maintenance Tasks** — advisory katalog (DNS flush, Spotlight/LaunchServices rebuild, purge, fontcache).
-- [ ] **Login Items** — správa (SMAppService/`launchctl`), zapnout/vypnout.
-- [ ] **Background Items** — běžící agenti/daemoni + přepnutí (rozšířit `LaunchAgentAuditor`).
+- [~] **Login Items** — výpis `LaunchAgentAuditor` + `kestrel login-items`; toggle přes launchctl (advisory).
+- [x] **Background Items** — výpis všech agentů/daemonů (`kestrel login-items` / `background-items`).
 - [ ] **Free up RAM** — `purge` / uvolnění neaktivní paměti (opt-in).
 - [x] **Power & Wake auditor** — kdo brání spánku — *navíc*.
 
@@ -149,9 +149,9 @@ Vše drží invarianty: dry-run default, vault + undo, audit, unknown se nemaže
 - [x] **Duplicate Finder** (size→partial→full hash).
 - [x] **Large & Old Files** (konfig. prahy).
 - [x] **Screenshots / Old installers** (`ClutterFinder`) — *navíc oproti CMM granularitě*.
-- [ ] **Similar Images** — perceptuální hash (aHash/dHash), seskupení podobných fotek.
-- [ ] **Downloads** — triage Downloads (jednorázové soubory, staré .dmg/.pkg).
-- [ ] **Mail Attachments** — lokální přílohy Mailu (`~/Library/Mail/.../Attachments`).
+- [x] **Similar Images** — `SimilarImageFinder` (perceptuální aHash), `kestrel photos`.
+- [x] **Downloads** — `ClutterFinder.oldDownloads`, `kestrel downloads`.
+- [x] **Mail Attachments** — `ClutterFinder.mailAttachments`, `kestrel mail`.
 
 ### Space Lens
 - [~] `DiskMap` + CLI `map` (treemap v terminálu) → [ ] **interaktivní treemap/sunburst v GUI** (klikací, drill-down).
@@ -173,7 +173,7 @@ Naportovat schválený návrh (redesign v2) do nativního SwiftUI, komponentu po
 - [ ] **Radiální mini-gauge** v dlaždicích (disk/paměť) místo barů; sparkliny (CPU/síť).
 - [ ] **Seskupený sidebar** (Monitor / Maintain / Intelligence) s ikonami, accent aktivním stavem a glow lištou, badge (např. „12 GB").
 - [ ] **AI insight strip**, **Storage forecast** graf, **Security status** karta.
-- [ ] **My Tools** toolbox grid (karty se Scan tlačítky, hover stavy).
+- [~] **My Tools** toolbox grid — hotové karty finderů (`PlanToolCard`); zbývá dotáhnout ostatní nástroje.
 - [ ] **Command palette (⌘K)** — spusť/najdi jakoukoli akci.
 - [ ] Redesign **menubar popoveru** do stejného jazyka.
 - [ ] Sjednocené komponenty (karty, tlačítka, metry, gauge) + light/dark 1:1 s referencí.

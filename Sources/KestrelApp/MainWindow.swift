@@ -2,7 +2,7 @@ import SwiftUI
 import KestrelCore
 
 enum AppSection: String, CaseIterable, Identifiable, Hashable {
-    case smartcare, dashboard, cleanup, space, energy, security, applications, tools, assistant, activity, settings
+    case smartcare, dashboard, cleanup, space, energy, security, applications, permissions, tools, assistant, activity, settings
     var id: String { rawValue }
 
     var title: String {
@@ -14,6 +14,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         case .energy: return "Energy"
         case .security: return "Security"
         case .applications: return "Applications"
+        case .permissions: return "Permissions"
         case .tools: return "Tools"
         case .assistant: return "Assistant"
         case .activity: return "Activity"
@@ -30,6 +31,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         case .energy: return "bolt.fill"
         case .security: return "shield.lefthalf.filled"
         case .applications: return "square.grid.2x2"
+        case .permissions: return "hand.raised"
         case .tools: return "wrench.and.screwdriver"
         case .assistant: return "bubble.left.and.sparkles"
         case .activity: return "clock.arrow.circlepath"
@@ -48,7 +50,7 @@ struct SidebarView: View {
             brand
             group(nil, [.smartcare])
             group("Monitor", [.dashboard, .energy, .space])
-            group("Maintain", [.cleanup, .security, .applications, .tools])
+            group("Maintain", [.cleanup, .security, .applications, .permissions, .tools])
             group("Intelligence", [.assistant])
             Spacer(minLength: 8)
             group(nil, [.activity, .settings])
@@ -159,6 +161,7 @@ struct MainWindow: View {
         case .energy: EnergySection()
         case .security: SecuritySection(controller: model.security)
         case .applications: ApplicationsSection(controller: model.apps)
+        case .permissions: PermissionsSection(controller: model.permissions)
         case .tools: ToolsSection(controller: model.tools)
         case .assistant: AssistantSection(controller: model.assistant)
         case .activity: ActivitySection()

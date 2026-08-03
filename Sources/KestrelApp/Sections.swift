@@ -503,6 +503,7 @@ struct EnergySection: View {
     var body: some View {
         SectionScaffold(title: "Energy", subtitle: "What's using power — right now and over the last 24 hours") {
             if let b = model.battery { batteryCard(b) }
+            if let m = model.memory { memoryCard(m) }
             drainingCard
             historyCard
         }
@@ -537,6 +538,46 @@ struct EnergySection: View {
                     if let t = b.temperatureC { EnergyStat(icon: "thermometer.medium", label: "Temp", value: "\(Int(t.rounded()))°", tint: Palette.orange) }
                 }
             }
+        }
+    }
+
+    // MARK: memory / performance
+
+    private func memoryCard(_ m: MemoryStats) -> some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    SectionTitle("Memory", icon: "memorychip")
+                    Spacer()
+                    Button { model.freeMemory() } label: {
+                        if model.freeingMemory { HStack(spacing: 6) { KestrelSpinner(size: 13); Text("Freeing…") } }
+                        else { Label("Free up memory", systemImage: "arrow.down.circle") }
+                    }
+                    .buttonStyle(.kestrel(.secondary, size: .small))
+                    .disabled(model.freeingMemory)
+                    .help("Runs macOS purge to free inactive memory — non-destructive")
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(Int(m.usedFraction * 100))%").font(.title3.weight(.bold)).monospacedDigit()
+                    Text("\(bytesString(m.used)) of \(bytesString(m.total)) used").font(.caption).foregroundStyle(.secondary)
+                }
+                KestrelProgress(value: m.usedFraction, tint: fractionColor(m.usedFraction), height: 9)
+                HStack(spacing: 16) {
+                    memLegend(Palette.violet, "App", m.active)
+                    memLegend(Palette.accent, "Wired", m.wired)
+                    memLegend(Palette.warn, "Compressed", m.compressed)
+                    memLegend(.primary.opacity(0.2), "Free", m.free)
+                    Spacer()
+                }
+            }
+        }
+    }
+
+    private func memLegend(_ color: Color, _ label: String, _ bytes: Int64) -> some View {
+        HStack(spacing: 6) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+            Text(bytesString(bytes)).font(.caption2.monospacedDigit())
         }
     }
 

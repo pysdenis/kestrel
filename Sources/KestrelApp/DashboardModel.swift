@@ -79,6 +79,7 @@ final class AppModel: ObservableObject {
     lazy var dashboard = DashboardController(paths: paths)
     lazy var security = SecurityController()
     lazy var apps = AppsController(paths: paths)
+    lazy var permissions = PermissionsController()
     lazy var space = SpaceController(paths: paths)
     lazy var tools = ToolsController(paths: paths)
     lazy var assistant = AssistantController()
@@ -159,6 +160,19 @@ final class AppModel: ObservableObject {
     func quitProcess(pid: Int) {
         _ = ProcessController().quit(pid: pid)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.refreshEnergy() }
+    }
+
+    @Published var freeingMemory = false
+
+    /// Run macOS `purge` to free inactive memory (non-destructive), then refresh so the
+    /// user sees the change. Opt-in — only when they press the button.
+    func freeMemory() {
+        guard !freeingMemory else { return }
+        freeingMemory = true
+        Task.detached { [weak self] in
+            _ = MemoryReliever().freeInactiveMemory()
+            await MainActor.run { self?.freeingMemory = false; self?.refresh() }
+        }
     }
 
     func refresh() {

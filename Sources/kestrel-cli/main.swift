@@ -192,6 +192,7 @@ func usage() {
       kestrel shred <path> --apply              (secure permanent delete — no undo)
       kestrel rules list | run [name] [--apply] (declarative maintenance rules)
       kestrel stats [all|disk|mem|cpu|battery|net|health]
+      kestrel energy                            (top battery/energy consumers now + 24h)
       kestrel speedtest                         (internet download speed + latency)
       kestrel map <path> [--depth N]            (directory size tree)
       kestrel snapshot [path]                   (record disk usage; default: home)
@@ -532,6 +533,21 @@ do {
             try runPlan(CleanupPlan(items: items), apply: flag("--apply", in: rest))
         default:
             print("Unknown rules subcommand '\(sub)'. Use: list|run"); exit(2)
+        }
+
+    case "energy":
+        let consumers = EnergyMonitor().topConsumers(limit: 12)
+        let log = EnergyLog(url: paths.energyLog)
+        log.append(consumers)
+        if consumers.isEmpty { print("Could not read energy usage."); break }
+        print("Top energy consumers right now:")
+        for c in consumers {
+            print("  \(String(format: "%6.1f", c.energyImpact))  \(String(format: "%5.1f", c.cpuPercent))% CPU  \(c.name) (pid \(c.pid))")
+        }
+        let usage = log.usage()
+        if usage.count > 1 {
+            print("\nMost draining over the recorded window (up to 24h, while Kestrel ran):")
+            for u in usage.prefix(8) { print("  \(String(format: "%8.1f", u.total))  \(u.name)") }
         }
 
     case "power":

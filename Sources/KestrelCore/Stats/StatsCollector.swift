@@ -9,12 +9,19 @@ public struct MemoryStats: Sendable, Equatable {
     public let total: Int64
     public let used: Int64
     public let free: Int64
+    /// Breakdown of the "used" figure (matches Activity Monitor's App/Wired/Compressed).
+    public let active: Int64
+    public let wired: Int64
+    public let compressed: Int64
     public var usedFraction: Double { total > 0 ? Double(used) / Double(total) : 0 }
 
-    public init(total: Int64, used: Int64, free: Int64) {
+    public init(total: Int64, used: Int64, free: Int64, active: Int64 = 0, wired: Int64 = 0, compressed: Int64 = 0) {
         self.total = total
         self.used = used
         self.free = free
+        self.active = active
+        self.wired = wired
+        self.compressed = compressed
     }
 }
 
@@ -114,7 +121,7 @@ public struct StatsCollector {
         let free = Int64(stats.free_count) * page
         // "App memory + wired + compressed" is the figure Activity Monitor calls used.
         let used = active + wired + compressed
-        return MemoryStats(total: total, used: used, free: free)
+        return MemoryStats(total: total, used: used, free: free, active: active, wired: wired, compressed: compressed)
     }
 
     // MARK: - CPU (load averages)

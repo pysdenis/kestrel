@@ -23,4 +23,7 @@ public struct KestrelPaths: Sendable {
 
     /// User-defined maintenance rules (declarative, JSON).
     public var rules: URL { root.appendingPathComponent("rules.json") }
+
+    /// Rolling per-process energy samples (for the "last 24h" battery view).
+    public var energyLog: URL { root.appendingPathComponent("energy.json") }
 }

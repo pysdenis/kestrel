@@ -810,6 +810,44 @@ withTempDir { tmp in
     check(RulesEngine.load(from: store) == [ageRule], "rules JSON round-trips")
 }
 
+// MARK: - Energy
+
+section("EnergyMonitor: parses top's power column, handles spaced names")
+do {
+    let sample = """
+    Processes: 400 total, 2 running
+    PID    COMMAND          %CPU POWER
+    701    Google Chrome    12.5 45.2
+    88     WindowServer     8.0  30.1
+    1234   kernel_task      3.2  5.0
+    """
+    let parsed = EnergyMonitor.parse(sample, limit: 8)
+    check(parsed.count == 3, "three processes parsed")
+    check(parsed.first?.name == "Google Chrome" && parsed.first?.energyImpact == 45.2, "highest-energy first, spaced name intact")
+    check(parsed.last?.name == "kernel_task", "sorted by energy descending")
+}
+
+section("EnergyLog: aggregates per-process over a window, prunes old")
+withTempDir { tmp in
+    let log = EnergyLog(url: tmp.appendingPathComponent("energy.json"))
+    let now = Date()
+    log.append([ProcessEnergy(pid: 1, name: "Chrome", cpuPercent: 10, energyImpact: 20)], now: now.addingTimeInterval(-3600))
+    log.append([ProcessEnergy(pid: 1, name: "Chrome", cpuPercent: 10, energyImpact: 30),
+                ProcessEnergy(pid: 2, name: "Xcode", cpuPercent: 40, energyImpact: 40)], now: now)
+    let usage = log.usage(within: 24 * 3600, now: now)
+    check(usage.first?.name == "Chrome" && usage.first?.total == 50, "Chrome summed across samples (20+30)")
+    check(usage.contains { $0.name == "Xcode" && $0.total == 40 }, "Xcode aggregated")
+
+    // A sample outside the window is dropped on next append.
+    log.append([ProcessEnergy(pid: 3, name: "Old", cpuPercent: 1, energyImpact: 1)], now: now.addingTimeInterval(2 * 24 * 3600))
+    check(!log.usage(within: 3600, now: now.addingTimeInterval(2 * 24 * 3600)).contains { $0.name == "Chrome" }, "stale samples pruned")
+}
+
+section("ProcessController: refuses process-group and init pids")
+check(ProcessController().quit(pid: 0) == false, "pid 0 (process group) refused")
+check(ProcessController().quit(pid: 1) == false, "pid 1 (launchd) refused")
+check(ProcessController().quit(pid: -1) == false, "negative pid refused")
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

@@ -153,9 +153,24 @@ import KestrelCore
     @Published var usedSeries: [Double] = []      // recent used-bytes, for the forecast sparkline
     @Published var protection: GatekeeperStatus?
 
+    @Published var insight: String?
+    @Published var insightLoading = false
+
     private let paths: KestrelPaths
     private var loadedProtection = false
     init(paths: KestrelPaths) { self.paths = paths }
+
+    /// On-demand only (invariant #7): asks the opt-in assistant for one honest insight,
+    /// sending just the metadata summary — never file contents.
+    func getInsight(assistant: AIAssistant?, context: String) {
+        guard let assistant, !insightLoading else { return }
+        insightLoading = true
+        Task { [weak self] in
+            let prompt = "In one or two sentences, give the single most useful, honest, practical insight about this Mac's storage and health right now. Be specific."
+            let text = (try? await assistant.ask(prompt, context: context)) ?? "Couldn't reach the assistant — check your key and connection."
+            await MainActor.run { self?.insight = text; self?.insightLoading = false }
+        }
+    }
 
     /// Load the storage forecast and macOS protection status. Also records today's
     /// snapshot (disk capacity only — no directory walk, so it never prompts for access

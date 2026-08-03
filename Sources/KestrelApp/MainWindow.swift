@@ -197,6 +197,7 @@ struct DashboardSection: View {
     var body: some View {
         SectionScaffold(title: "Dashboard", subtitle: "Live health, storage forecast and protection at a glance") {
             heroCard
+            if model.aiConfigured { aiInsightCard }
             metricGrid
             HStack(alignment: .top, spacing: 12) {
                 ForecastCard(trend: controller.trend, series: controller.usedSeries)
@@ -235,6 +236,37 @@ struct DashboardSection: View {
                     }
                 }
                 Spacer(minLength: 0)
+            }
+        }
+    }
+
+    // MARK: AI insight (on-demand, metadata-only — invariant #7)
+
+    private var aiInsightCard: some View {
+        Card(tint: Palette.violet) {
+            HStack(alignment: .top, spacing: 12) {
+                AssistantAvatar()
+                VStack(alignment: .leading, spacing: 8) {
+                    if let insight = controller.insight {
+                        Text(insight).font(.callout).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                    } else {
+                        Text("Get one quick, honest AI insight about your storage and health.")
+                            .font(.callout).foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 10) {
+                        Button { controller.getInsight(assistant: model.aiAssistant, context: model.aiContext()) } label: {
+                            if controller.insightLoading {
+                                HStack(spacing: 6) { KestrelSpinner(tint: Palette.violet, size: 13); Text("Thinking…") }
+                            } else {
+                                Label(controller.insight == nil ? "Get insight" : "Refresh", systemImage: "sparkles")
+                            }
+                        }
+                        .buttonStyle(.kestrel(.secondary, tint: Palette.violet, size: .small))
+                        .disabled(controller.insightLoading)
+                        Spacer()
+                        Text("metadata only · never file contents").font(.caption2).foregroundStyle(.tertiary)
+                    }
+                }
             }
         }
     }

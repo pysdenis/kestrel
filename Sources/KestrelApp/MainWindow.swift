@@ -212,8 +212,8 @@ struct SpaceSection: View {
             HStack {
                 SectionTitle("Largest folders in Home", icon: "folder")
                 Spacer()
-                Button { load() } label: { Label("Rescan", systemImage: "arrow.clockwise") }
-                    .buttonStyle(.kestrel(.subtle, size: .small))
+                Button { load() } label: { Label(tree == nil ? "Scan" : "Rescan", systemImage: "arrow.clockwise") }
+                    .buttonStyle(.kestrel(tree == nil ? .prominent : .subtle, size: .small))
                     .disabled(loading)
             }
 
@@ -228,9 +228,11 @@ struct SpaceSection: View {
                         }
                     }
                 }
+            } else {
+                Text("Scanning your Home folder reads Desktop, Documents, Downloads and Pictures, so macOS may ask for permission. Click Scan when you're ready.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
-        .task { if tree == nil { load() } }
     }
 
     private func load() {

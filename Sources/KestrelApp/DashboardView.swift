@@ -369,7 +369,6 @@ struct NetworkDetailView: View {
 
 struct StorageDetailView: View {
     @EnvironmentObject private var model: AppModel
-    @State private var tree: DirNode?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -394,20 +393,19 @@ struct StorageDetailView: View {
                     Spacer()
                 }
             }
-            Text("Largest folders in Home").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-            if let tree {
-                ForEach(Array(tree.children.prefix(5)), id: \.url) { child in
-                    LabeledBar(label: child.name, value: bytesString(child.size),
-                               fraction: tree.size > 0 ? Double(child.size) / Double(tree.size) : 0, tint: Palette.accent)
+
+            // Volume capacity only — no directory walk, so this never triggers a Photos /
+            // Documents / Downloads permission prompt. The full folder breakdown lives in
+            // the Space section, where you navigate to it deliberately.
+            let volumes = model.volumes()
+            if !volumes.isEmpty {
+                Text("Volumes").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                ForEach(volumes, id: \.name) { v in
+                    LabeledBar(label: v.name, value: "\(bytesString(v.space.used)) / \(bytesString(v.space.total))",
+                               fraction: v.space.usedFraction, tint: Palette.accent)
                 }
-            } else {
-                HStack { ProgressView().controlSize(.small); Text("Measuring…").foregroundStyle(.secondary).font(.caption) }
             }
         }
-        .task { if tree == nil {
-            let home = model.paths.home
-            tree = await Task.detached { DiskMap().measure(home, maxDepth: 1) }.value
-        } }
     }
 
     private func legend(color: Color, label: String, value: String) -> some View {

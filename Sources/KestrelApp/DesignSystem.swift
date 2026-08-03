@@ -240,6 +240,83 @@ struct LabeledBar: View {
     }
 }
 
+/// A "My Tools" card: scan a fixed target with a Core finder, then move the result to
+/// the vault. Runs off the main thread; everything it removes is undoable.
+struct PlanToolCard: View {
+    let title: String
+    let subtitle: String
+    let icon: String
+    var tint: Color = Palette.accent
+    let scan: () -> CleanupPlan
+
+    @EnvironmentObject private var model: AppModel
+    @State private var plan: CleanupPlan?
+    @State private var scanning = false
+    @State private var applying = false
+    @State private var message: String?
+
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: icon).foregroundStyle(tint).imageScale(.medium)
+                    Text(title).font(.subheadline.weight(.semibold))
+                    Spacer()
+                }
+                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 30, alignment: .topLeading)
+
+                if let message {
+                    Text(message).font(.caption).foregroundStyle(Palette.good)
+                } else if let plan {
+                    Text(plan.items.isEmpty ? "Nothing to clean ✓" : "\(bytesString(plan.totalBytes)) · \(plan.count) items")
+                        .font(.caption.weight(.medium)).foregroundStyle(plan.items.isEmpty ? .secondary : .primary)
+                }
+
+                HStack(spacing: 8) {
+                    Button(action: runScan) {
+                        if scanning { ProgressView().controlSize(.small) } else { Text(plan == nil ? "Scan" : "Rescan") }
+                    }
+                    .buttonStyle(.kestrel(.secondary, size: .small))
+                    .disabled(scanning || applying)
+
+                    if let plan, !plan.items.isEmpty {
+                        Button(action: apply) {
+                            if applying { ProgressView().controlSize(.small) } else { Text("Clean") }
+                        }
+                        .buttonStyle(.kestrel(.prominent, size: .small))
+                        .disabled(applying)
+                    }
+                }
+            }
+        }
+    }
+
+    private func runScan() {
+        scanning = true; message = nil
+        let scan = self.scan
+        Task.detached {
+            let result = scan()
+            await MainActor.run { self.plan = result; self.scanning = false }
+        }
+    }
+
+    private func apply() {
+        guard let plan else { return }
+        applying = true
+        let vaultURL = model.paths.vault
+        let auditURL = model.paths.auditLog
+        Task.detached {
+            let result = try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
+            await MainActor.run {
+                self.message = result.map { "Cleaned \($0.movedCount), \(bytesString($0.movedBytes)) → vault" } ?? "Failed"
+                self.plan = nil
+                self.applying = false
+            }
+        }
+    }
+}
+
 /// A thin capsule bar (energy rows, compact meters).
 struct MiniBar: View {
     let fraction: Double

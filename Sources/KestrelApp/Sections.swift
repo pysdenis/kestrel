@@ -496,8 +496,24 @@ struct ToolsSection: View {
     @State private var sleepers: [SleepAssertion] = []
     @State private var maintenance: [MaintenanceTask] = []
 
+    private var home: URL { model.paths.home }
+
     var body: some View {
-        SectionScaffold(title: "Tools", subtitle: "Developer and maintenance utilities") {
+        SectionScaffold(title: "Tools", subtitle: "One-click cleanup tools and developer utilities") {
+            SectionTitle("My Tools", icon: "wrench.and.screwdriver")
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
+                PlanToolCard(title: "Trash Bins", subtitle: "Empty every Trash — undoable via the vault", icon: "trash", tint: Palette.good) { TrashFinder().find() }
+                PlanToolCard(title: "App Leftovers", subtitle: "Data left behind by removed apps", icon: "app.badge.checkmark", tint: Palette.accent) { OrphanFinder().find() }
+                PlanToolCard(title: "Old Installers", subtitle: ".dmg / .pkg / .iso in Downloads", icon: "shippingbox", tint: Palette.accent2) { ClutterFinder().oldInstallers(under: home.appendingPathComponent("Downloads")) }
+                PlanToolCard(title: "Screenshots", subtitle: "Screenshots on the Desktop", icon: "camera.viewfinder", tint: Palette.accent) { ClutterFinder().screenshots(under: home.appendingPathComponent("Desktop")) }
+                PlanToolCard(title: "Downloads", subtitle: "Files older than 30 days", icon: "arrow.down.circle", tint: Palette.accent2) { ClutterFinder().oldDownloads(under: home.appendingPathComponent("Downloads")) }
+                PlanToolCard(title: "Mail Attachments", subtitle: "Locally cached, re-downloadable", icon: "paperclip", tint: Palette.accent) { ClutterFinder().mailAttachments(under: home.appendingPathComponent("Library/Mail")) }
+                PlanToolCard(title: "Similar Images", subtitle: "Keep the best of each group", icon: "photo.on.rectangle.angled", tint: Palette.accent2) {
+                    let files = (try? Scanner().scanFiles(under: home.appendingPathComponent("Pictures"), pruning: [], includingHidden: false)) ?? []
+                    return SimilarImageFinder().plan(in: files)
+                }
+            }
+
             Card {
                 VStack(alignment: .leading, spacing: 12) {
                     SectionTitle("Secrets scanner", icon: "key.horizontal")

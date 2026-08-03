@@ -34,33 +34,114 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
+/// Kestrel's own sidebar (not a stock List) — a branded header, grouped navigation and
+/// an accent bar + glow on the active item, matching the Precision design.
+struct SidebarView: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            brand
+            group("Monitor", [.dashboard, .energy, .space])
+            group("Maintain", [.cleanup, .security, .tools])
+            group("Intelligence", [.assistant])
+            Spacer(minLength: 8)
+            group(nil, [.activity, .settings])
+            paletteHint
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 12)
+        .frame(width: 214)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(sidebarBackground)
+    }
+
+    private var sidebarBackground: some View {
+        ZStack {
+            Color(nsColor: .windowBackgroundColor).opacity(0.6)
+            LinearGradient(colors: [Palette.accent.opacity(0.05), .clear], startPoint: .top, endPoint: .center)
+        }
+        .ignoresSafeArea()
+    }
+
+    private var brand: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "bird.fill").font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
+                .frame(width: 30, height: 30)
+                .background(LinearGradient(colors: [Palette.kestrel, Palette.kestrel.opacity(0.65)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                           in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            Text("Kestrel").font(.title3.weight(.bold))
+            Spacer()
+        }
+        .padding(.horizontal, 6).padding(.bottom, 10)
+    }
+
+    private func group(_ title: String?, _ items: [AppSection]) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if let title {
+                Text(title.uppercased()).font(.system(size: 10.5, weight: .bold)).kerning(0.8)
+                    .foregroundStyle(.tertiary).padding(.horizontal, 10).padding(.top, 12).padding(.bottom, 3)
+            }
+            ForEach(items) { navRow($0) }
+        }
+    }
+
+    private func navRow(_ item: AppSection) -> some View {
+        let selected = model.section == item
+        return Button { model.section = item } label: {
+            HStack(spacing: 11) {
+                Image(systemName: item.icon).font(.system(size: 14))
+                    .foregroundStyle(selected ? Palette.accent : Color.secondary).frame(width: 18)
+                Text(item.title).font(.system(size: 13.5, weight: .medium))
+                    .foregroundStyle(selected ? Color.primary : Color.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, 10).padding(.vertical, 7)
+            .background(selected ? Palette.accent.opacity(0.14) : Color.clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(alignment: .leading) {
+                if selected {
+                    Capsule().fill(Palette.accent).frame(width: 3, height: 16)
+                        .shadow(color: Palette.accent.opacity(0.6), radius: 4).offset(x: -10)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var paletteHint: some View {
+        Button { model.showPalette = true } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(.secondary)
+                Text("Commands").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Text("⌘K").font(.caption2.monospaced()).foregroundStyle(.tertiary)
+                    .padding(.horizontal, 5).padding(.vertical, 1)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
+            }
+            .padding(.horizontal, 10).padding(.vertical, 7)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 /// The full window: a sidebar of sections, each backed by KestrelCore.
 struct MainWindow: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: $model.section) {
-                Section("Monitor") { row(.dashboard); row(.energy); row(.space) }
-                Section("Maintain") { row(.cleanup); row(.security); row(.tools) }
-                Section("Intelligence") { row(.assistant) }
-                Section { row(.activity); row(.settings) }
-            }
-            .navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 240)
-            .listStyle(.sidebar)
-        } detail: {
+        HStack(spacing: 0) {
+            SidebarView()
+            Divider()
             detail
-                .frame(minWidth: 560, minHeight: 520)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(Color(nsColor: .windowBackgroundColor))
         }
-        .frame(minWidth: 820, minHeight: 600)
+        .frame(minWidth: 900, minHeight: 640)
         .onAppear { model.surfaceAppeared() }
         .onDisappear { model.surfaceDisappeared(); model.mainWindowClosed() }
         .sheet(isPresented: $model.showPalette) { CommandPaletteView().environmentObject(model) }
-    }
-
-    private func row(_ item: AppSection) -> some View {
-        Label(item.title, systemImage: item.icon).tag(item)
     }
 
     @ViewBuilder private var detail: some View {

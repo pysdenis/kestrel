@@ -81,8 +81,11 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 - [x] Oprava zobrazení místa (purgeable se nepočítá jako volné; sedí s `df`/Finder).
 - [x] Speed test internetu na kliknutí (`SpeedTest`, Cloudflare endpoint, `kestrel speedtest`).
 - [x] Moderní design: `DesignSystem` (material karty, health ring, metric tiles, bars), redesign menubar popoveru.
-- [x] Plné okno (`Window` scéna) se sidebarem: Dashboard · Cleanup · Space · Security · Tools · Activity · Settings — napojené na Core; Cleanup reálně přesouvá do vaultu, přepínání accessory↔regular (Dock).
-- [ ] Vyladit podle zpětné vazby (živé grafy throughputu, treemap ve Space, animace).
+- [x] Plné okno (`Window` scéna) se sidebarem: Dashboard · Cleanup · Space · Energy · Security · Tools · Activity · Settings — napojené na Core; Cleanup reálně přesouvá do vaultu, přepínání accessory↔regular (Dock).
+- [x] **Energy modul**: co bere baterku teď (`EnergyMonitor`, top consumers) + za 24h (`EnergyLog`), ukončení procesu (`ProcessController`, SIGTERM, guard pid>1). CLI `energy`.
+- [x] Rozklikávací dlaždice v popoveru (Disk/Memory/CPU/Battery → zkrácený detail).
+- [x] Animovaný speed gauge (sweep při měření + count-up výsledku).
+- [ ] Vyladit dál dle zpětné vazby (živé grafy throughputu, treemap ve Space).
 
 ## Fáze 7 — Vydání 📦 (rozpracováno)
 - [ ] Vlastní branding + ikony (NE od CleanMyMac) — zatím SF Symbol `bird.fill`.

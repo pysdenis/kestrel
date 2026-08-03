@@ -1,174 +1,172 @@
 import SwiftUI
 import KestrelCore
 
-enum DetailKind: String, Identifiable { case storage, battery, cpu, network; var id: String { rawValue } }
+enum DetailKind: String, Identifiable { case storage, memory, battery, cpu, network; var id: String { rawValue } }
 
-/// The menu-bar popover, modelled on CleanMyMac's two-panel layout in Kestrel's Precision
-/// style: a compact "Mac Health" panel of tiles on the right, and a rich detail panel
-/// that slides in on the left when a tile is tapped.
+/// The menu-bar popover — Kestrel's own layout (not a CleanMyMac clone): a compact
+/// header with the health ring, a single "instrument cluster" row of mini-gauges, a
+/// dev-first free-up action, and a speed check. Tapping a gauge navigates to a rich
+/// full-width detail (back to return) rather than a side panel.
 struct MenuBarView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.openWindow) private var openWindow
     @State private var detail: DetailKind?
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        Group {
             if let detail {
-                DetailPanel(kind: detail) { self.detail = nil }
-                    .frame(width: 338)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
+                DetailPanel(kind: detail) { withAnimation(.easeOut(duration: 0.18)) { self.detail = nil } }
+            } else {
+                overview
             }
-            tiles.frame(width: 340)
         }
-        .padding(13)
-        .frame(width: detail == nil ? 366 : 716)
-        .background(background)
-        .animation(.easeOut(duration: 0.22), value: detail)
+        .padding(14)
+        .frame(width: 366)
+        .background(LinearGradient(colors: [Palette.accent.opacity(0.06), .clear], startPoint: .topTrailing, endPoint: .center).ignoresSafeArea())
         .onAppear { model.surfaceAppeared() }
         .onDisappear { model.surfaceDisappeared() }
     }
 
-    private var background: some View {
-        LinearGradient(colors: [Palette.accent.opacity(0.06), .clear], startPoint: .topTrailing, endPoint: .center).ignoresSafeArea()
-    }
+    private func open(_ kind: DetailKind) { withAnimation(.easeOut(duration: 0.18)) { detail = kind } }
 
-    // MARK: - Mac Health tiles
-
-    private var verdict: (text: String, color: Color) {
-        switch model.health?.overall ?? 0 {
-        case 80...: return ("Good", Palette.accent)
-        case 50..<80: return ("Fair", Palette.warn)
-        default: return ("Needs attention", Palette.crit)
-        }
-    }
-
-    private var tiles: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 6) {
-                        Text("Mac Health:").font(.title3.weight(.bold))
-                        Text(verdict.text).font(.title3.weight(.bold)).foregroundStyle(verdict.color)
-                    }
-                    Text("Your Mac").font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "laptopcomputer").font(.title2).foregroundStyle(Palette.accent)
-            }
-
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 9), GridItem(.flexible(), spacing: 9)], spacing: 9) {
-                if let d = model.disk {
-                    HealthTile(icon: "internaldrive", title: "Macintosh HD", subtitle: "Available: \(bytesString(d.available))",
-                               warnSubtitle: true, action: ("Free Up", openMain), selected: detail == .storage) { detail = .storage }
-                }
-                if let m = model.memory {
-                    HealthTile(icon: "memorychip", title: "Memory", subtitle: "Pressure: \(Int(m.usedFraction * 100))%",
-                               warnSubtitle: true, action: ("Optimize", openMain))
-                }
-                if let b = model.battery {
-                    HealthTile(icon: b.isCharging ? "battery.100.bolt" : "battery.100", title: "Battery", value: "\(b.percent)%",
-                               subtitle: model.batteryTimeMinutes.map { "\(minutesString($0)) remaining" } ?? "", selected: detail == .battery) { detail = .battery }
-                }
-                if let c = model.cpu {
-                    HealthTile(icon: "cpu", title: "CPU", subtitle: "Load: \(Int(c.usagePercent.rounded()))%", selected: detail == .cpu) { detail = .cpu }
-                }
-                if let n = model.network {
-                    HealthTile(icon: "wifi", title: n.ssid ?? "Network",
-                               subtitle: "↑ \(rate(model.netUpBps))   ↓ \(rate(model.netDownBps))",
-                               action: ("Test Speed", { model.runSpeedTest(); detail = .network }), selected: detail == .network) { detail = .network }
-                }
-                HealthTile(icon: "externaldrive", title: "External Drives", subtitle: externalText)
-            }
-
-            recommendation
-            Spacer(minLength: 0)
+    private var overview: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            header
+            cluster
+            actionCard
+            speedRow
+            Divider().opacity(0.5)
             footer
         }
     }
 
-    private var externalText: String {
-        let externals = model.volumes().filter { !$0.name.contains("Macintosh") }.count
-        return externals > 0 ? "\(externals) connected" : "No devices connected"
+    private var header: some View {
+        HStack(spacing: 11) {
+            Image(systemName: "bird.fill")
+                .font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
+                .frame(width: 30, height: 30)
+                .background(LinearGradient(colors: [Palette.kestrel, Palette.kestrel.opacity(0.65)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                           in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Kestrel").font(.title3.weight(.bold))
+                Text(caption).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            HealthRing(score: model.health?.overall ?? 0, size: 46)
+        }
     }
 
-    private var recommendation: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Today's Recommendation").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-            Card(padding: 12) {
-                HStack(alignment: .top, spacing: 11) {
-                    Image(systemName: recommendationIcon).font(.title2).foregroundStyle(Palette.accent)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(recommendationTitle).font(.subheadline.weight(.semibold))
-                        Text(recommendationBody).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                        Button("Open Kestrel", action: openMain).buttonStyle(.kestrel(.secondary, size: .small)).padding(.top, 4)
-                    }
+    private var caption: String {
+        switch model.health?.overall ?? 0 {
+        case 80...: return "Everything looks healthy"
+        case 50..<80: return "A little attention needed"
+        default: return "Needs attention"
+        }
+    }
+
+    private var cluster: some View {
+        HStack(spacing: 6) {
+            if let d = model.disk {
+                MetricChip(icon: "internaldrive", label: "Disk", value: "\(Int(d.usedFraction * 100))%", fraction: d.usedFraction, tint: Palette.blue, selected: false) { open(.storage) }
+            }
+            if let m = model.memory {
+                MetricChip(icon: "memorychip", label: "Memory", value: "\(Int(m.usedFraction * 100))%", fraction: m.usedFraction, tint: Palette.violet, selected: false) { open(.memory) }
+            }
+            if let c = model.cpu {
+                MetricChip(icon: "cpu", label: "CPU", value: "\(Int(c.usagePercent.rounded()))%", fraction: c.usagePercent / 100, tint: Palette.warn, selected: false) { open(.cpu) }
+            }
+            if let b = model.battery {
+                MetricChip(icon: "bolt.fill", label: "Battery", value: "\(b.percent)%", fraction: Double(b.percent) / 100, tint: Palette.good, selected: false) { open(.battery) }
+            }
+            MetricChip(icon: "wifi", label: "Network", value: netRate, fraction: 0, tint: Palette.accent, selected: false) { open(.network) }
+        }
+    }
+
+    private var netRate: String {
+        let bps = model.netDownBps
+        if bps <= 0 { return "—" }
+        return ByteCountFormatter.string(fromByteCount: Int64(bps), countStyle: .memory).replacingOccurrences(of: " bytes", with: " B")
+    }
+
+    private var actionCard: some View {
+        Card(padding: 12) {
+            HStack(spacing: 11) {
+                Image(systemName: "sparkles").font(.title2).foregroundStyle(Palette.accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Free up space").font(.subheadline.weight(.semibold))
+                    Text("Dev junk, caches, duplicates & more").font(.caption).foregroundStyle(.secondary)
                 }
+                Spacer()
+                Button("Review") { model.openMainWindow(openWindow) }
+                    .buttonStyle(.kestrel(.prominent, size: .small))
             }
         }
     }
 
-    private var recommendationIcon: String { (model.disk?.usedFraction ?? 0) > 0.85 ? "sparkles" : "checkmark.seal" }
-    private var recommendationTitle: String { (model.disk?.usedFraction ?? 0) > 0.85 ? "Free up disk space" : "Your Mac looks healthy" }
-    private var recommendationBody: String {
-        (model.disk?.usedFraction ?? 0) > 0.85
-            ? "Your disk is nearly full. Review reclaimable clutter to keep things fast."
-            : "Nothing urgent right now. Open Kestrel to review clutter, security and more."
+    private var speedRow: some View {
+        Card(padding: 12) {
+            HStack(spacing: 13) {
+                SpeedGauge(mbps: model.speedDisplay, testing: model.speedTesting, size: 62)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Internet speed").font(.subheadline.weight(.semibold))
+                    if let s = model.speed, !model.speedTesting {
+                        Text(String(format: "%.0f ms latency", s.latencyMs)).font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Text(model.speedTesting ? "Measuring…" : "Download & latency").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Button(model.speedTesting ? "Testing…" : "Run test", action: model.runSpeedTest)
+                        .buttonStyle(.kestrel(.prominent, tint: Palette.accent, size: .small)).disabled(model.speedTesting).padding(.top, 1)
+                }
+                Spacer()
+            }
+        }
     }
 
     private var footer: some View {
         HStack {
-            Button { openMain() } label: { Image(systemName: "desktopcomputer") }.buttonStyle(.plain).foregroundStyle(.secondary)
+            Button { model.openMainWindow(openWindow) } label: { Label("Open Kestrel", systemImage: "macwindow") }
+                .buttonStyle(.kestrel)
             Spacer()
-            Button("Open Kestrel", action: openMain).buttonStyle(.kestrel(.prominent, size: .small))
-            Spacer()
-            Button { model.quit() } label: { Image(systemName: "power") }.buttonStyle(.plain).foregroundStyle(.secondary)
+            Button("Quit") { model.quit() }.buttonStyle(.kestrel(.subtle, size: .small))
         }
     }
-
-    private func openMain() { model.openMainWindow(openWindow) }
-    private func rate(_ bps: Double) -> String { ByteCountFormatter.string(fromByteCount: Int64(bps), countStyle: .file) + "/s" }
 }
 
-// MARK: - Health tile
+// MARK: - Instrument cluster chip
 
-struct HealthTile: View {
+struct MetricChip: View {
     let icon: String
-    let title: String
-    var value: String? = nil
-    var subtitle: String = ""
-    var warnSubtitle: Bool = false
-    var action: (label: String, run: () -> Void)? = nil
-    var selected: Bool = false
-    var onTap: (() -> Void)? = nil
+    let label: String
+    let value: String
+    let fraction: Double
+    let tint: Color
+    let selected: Bool
+    let onTap: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 7) {
-                Image(systemName: icon).foregroundStyle(.secondary).imageScale(.medium)
-                Text(title).font(.subheadline.weight(.semibold)).lineLimit(1)
-                Spacer()
-                if let value { Text(value).font(.subheadline.weight(.semibold)).monospacedDigit() }
+        Button(action: onTap) {
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle().stroke(Color.primary.opacity(0.1), lineWidth: 3.5)
+                    if fraction > 0 {
+                        Circle().trim(from: 0, to: min(1, fraction))
+                            .stroke(tint, style: StrokeStyle(lineWidth: 3.5, lineCap: .round)).rotationEffect(.degrees(-90))
+                    }
+                    Image(systemName: icon).font(.system(size: 12, weight: .medium)).foregroundStyle(tint)
+                }
+                .frame(width: 40, height: 40)
+                Text(value).font(.caption.weight(.semibold)).monospacedDigit().lineLimit(1)
+                Text(label).font(.system(size: 9, weight: .medium)).foregroundStyle(.secondary)
             }
-            if !subtitle.isEmpty {
-                Text(subtitle).font(.caption).foregroundStyle(warnSubtitle ? Palette.warn : .secondary).lineLimit(1)
-            }
-            if let action {
-                Button(action.label) { action.run() }
-                    .buttonStyle(.plain).font(.caption.weight(.semibold)).foregroundStyle(Palette.accent)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 9)
+            .background(selected ? Palette.accent.opacity(0.12) : Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 78, alignment: .topLeading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .strokeBorder(selected ? Palette.accent : .white.opacity(0.06), lineWidth: selected ? 1.5 : 1))
-        .contentShape(Rectangle())
-        .onTapGesture { onTap?() }
+        .buttonStyle(.plain)
     }
 }
 
-// MARK: - Detail panel
+// MARK: - Detail panel (full-width, back to return)
 
 struct DetailPanel: View {
     let kind: DetailKind
@@ -178,7 +176,8 @@ struct DetailPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Button(action: onBack) { Image(systemName: "chevron.left") }.buttonStyle(.plain).foregroundStyle(.secondary)
+                Button(action: onBack) { Image(systemName: "chevron.left").font(.body.weight(.semibold)) }
+                    .buttonStyle(.plain).foregroundStyle(.secondary)
                 Text(title).font(.title3.weight(.bold))
                 Spacer()
             }
@@ -189,7 +188,8 @@ struct DetailPanel: View {
 
     private var title: String {
         switch kind {
-        case .storage: return "Macintosh HD"
+        case .storage: return "Storage"
+        case .memory: return "Memory"
         case .battery: return "Battery"
         case .cpu: return model.cpuBrand
         case .network: return "Network"
@@ -199,10 +199,39 @@ struct DetailPanel: View {
     @ViewBuilder private var content: some View {
         switch kind {
         case .storage: StorageDetailView()
+        case .memory: MemoryDetailView()
         case .battery: BatteryDetailView()
         case .cpu: CPUDetailView()
         case .network: NetworkDetailView()
         }
+    }
+}
+
+// MARK: - Memory detail
+
+struct MemoryDetailView: View {
+    @EnvironmentObject private var model: AppModel
+    var body: some View {
+        if let m = model.memory {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(Int(m.usedFraction * 100))%").font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                        Text("\(bytesString(m.used)) used of \(bytesString(m.total))").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+                Card {
+                    VStack(spacing: 10) {
+                        let total = max(1, m.total)
+                        LabeledBar(label: "App", value: bytesString(m.active), fraction: Double(m.active) / Double(total), tint: Palette.violet)
+                        LabeledBar(label: "Wired", value: bytesString(m.wired), fraction: Double(m.wired) / Double(total), tint: Palette.accent)
+                        LabeledBar(label: "Compressed", value: bytesString(m.compressed), fraction: Double(m.compressed) / Double(total), tint: Palette.warn)
+                        LabeledBar(label: "Free", value: bytesString(m.free), fraction: Double(m.free) / Double(total), tint: Palette.good)
+                    }
+                }
+            }
+        } else { Text("Memory unavailable.").foregroundStyle(.secondary) }
     }
 }
 
@@ -377,8 +406,7 @@ struct StorageDetailView: View {
         }
         .task { if tree == nil {
             let home = model.paths.home
-            let measured = await Task.detached { DiskMap().measure(home, maxDepth: 1) }.value
-            tree = measured
+            tree = await Task.detached { DiskMap().measure(home, maxDepth: 1) }.value
         } }
     }
 

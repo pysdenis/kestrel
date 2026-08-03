@@ -2,6 +2,24 @@ import SwiftUI
 import AppKit
 import KestrelCore
 
+/// Display metadata for a cleanup category — a friendly name, an icon and a tint — so the
+/// Cleanup module can render a per-category breakdown in the Precision language.
+extension KestrelCore.Category {
+    var display: (title: String, icon: String, color: Color) {
+        switch self {
+        case .safeCache:   return ("Caches", "shippingbox", Palette.accent)
+        case .logs:        return ("Logs", "doc.text", Palette.accent2)
+        case .devArtifact: return ("Dev artifacts", "hammer", Palette.kestrel)
+        case .duplicate:   return ("Duplicates", "doc.on.doc", Palette.violet)
+        case .largeOld:    return ("Large & old", "arrow.up.left.and.arrow.down.right", Palette.warn)
+        case .appLeftover: return ("App leftovers", "app.badge.checkmark", Palette.accent)
+        case .privacy:     return ("Privacy", "eye.slash", Palette.pink)
+        case .trash:       return ("Trash", "trash", Palette.good)
+        case .unknown:     return ("Unknown", "questionmark.circle", Palette.orange)
+        }
+    }
+}
+
 // MARK: - Cleanup
 
 enum CleanupChoice: String, CaseIterable, Identifiable {
@@ -51,61 +69,24 @@ struct CleanupSection: View {
 
     var body: some View {
         SectionScaffold(title: "Cleanup", subtitle: "Preview first — nothing is deleted, items move to the vault") {
-            Card {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("CATEGORY").font(.system(size: 10.5, weight: .bold)).kerning(0.8).foregroundStyle(.tertiary)
-                    KestrelSelect(items: CleanupChoice.allCases, selection: $controller.choice,
-                                  label: { $0.title }, icon: { $0.icon })
-
-                    HStack {
-                        Image(systemName: "folder")
-                        Text(controller.root.path).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
-                        Spacer()
-                        Button("Choose…") { controller.pickFolder() }.buttonStyle(.kestrel(.subtle, size: .small))
-                    }
-
-                    HStack {
-                        Button { controller.scan() } label: {
-                            Label(controller.scanning ? "Scanning…" : "Scan", systemImage: "magnifyingglass")
-                        }
-                        .buttonStyle(.kestrel)
-                        .disabled(controller.scanning || controller.applying)
-
-                        if let plan = controller.plan, !plan.items.isEmpty {
-                            Button { controller.apply() } label: {
-                                if controller.applying { KestrelSpinner(size: 14) } else { Label("Move \(plan.count) to Vault", systemImage: "tray.and.arrow.down") }
-                            }
-                            .buttonStyle(.kestrel(.secondary))
-                            .disabled(controller.applying)
-
-                            if model.aiConfigured {
-                                Button { controller.review(assistant: model.aiAssistant) } label: {
-                                    if controller.reviewing { KestrelSpinner(tint: Palette.violet, size: 14) } else { Label("AI review", systemImage: "sparkles") }
-                                }
-                                .buttonStyle(.kestrel(.subtle))
-                                .disabled(controller.reviewing)
-                            }
-                        }
-                    }
-                }
-            }
+            configCard
 
             if controller.scanning {
                 ScanningBanner(title: "Scanning \(controller.choice.title.lowercased())…",
                                detail: controller.scanStatus.isEmpty ? "Walking \(controller.root.lastPathComponent)…" : controller.scanStatus)
             }
 
-            if let aiReview = controller.aiReview {
-                Card {
-                    HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: "sparkles").foregroundStyle(Palette.violet)
-                        Text(aiReview).font(.callout).textSelection(.enabled)
-                    }
-                }
+            if let message = controller.message {
+                Label(message, systemImage: "checkmark.circle.fill").foregroundStyle(Palette.good).font(.callout)
             }
 
-            if let message = controller.message {
-                Label(message, systemImage: "checkmark.circle.fill").foregroundStyle(Palette.good)
+            if let aiReview = controller.aiReview {
+                Card(tint: Palette.violet) {
+                    HStack(alignment: .top, spacing: 10) {
+                        AssistantAvatar()
+                        Text(aiReview).font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
             }
 
             if let plan = controller.plan, !controller.scanning {
@@ -113,21 +94,183 @@ struct CleanupSection: View {
                     EmptyState(icon: "checkmark.seal.fill", title: "Nothing to clean here",
                                caption: "This category is already tidy in \(controller.root.lastPathComponent).")
                 } else {
-                    Text("Reclaimable: \(bytesString(plan.totalBytes)) across \(plan.count) item(s)").font(.headline)
-                    Card {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(Array(plan.items.sorted { $0.entry.size > $1.entry.size }.prefix(60).enumerated()), id: \.offset) { _, item in
-                                HStack {
-                                    Text(bytesString(item.entry.size)).font(.callout.monospacedDigit().weight(.medium)).frame(width: 80, alignment: .leading)
-                                    VStack(alignment: .leading, spacing: 1) {
-                                        Text(item.entry.url.lastPathComponent).lineLimit(1)
-                                        Text(item.reason).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                                    }
-                                    Spacer()
-                                }
+                    summaryHero(plan)
+                    ForEach(groups(plan), id: \.category) { group in
+                        CleanupGroup(category: group.category, items: group.items)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: config
+
+    private var configCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 13) {
+                Text("CATEGORY").font(.system(size: 10.5, weight: .bold)).kerning(0.8).foregroundStyle(.tertiary)
+                KestrelSelect(items: CleanupChoice.allCases, selection: $controller.choice,
+                              label: { $0.title }, icon: { $0.icon })
+
+                FolderChip(url: controller.root) { controller.pickFolder() }
+
+                Button { controller.scan() } label: {
+                    Label(controller.scanning ? "Scanning…" : "Scan for reclaimable space", systemImage: "magnifyingglass")
+                }
+                .buttonStyle(.kestrel)
+                .disabled(controller.scanning || controller.applying)
+            }
+        }
+    }
+
+    // MARK: summary
+
+    private func summaryHero(_ plan: CleanupPlan) -> some View {
+        Card(elevated: true, tint: Palette.accent) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(bytesString(plan.totalBytes)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                        Text("reclaimable · \(plan.count) item(s)").font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 8) {
+                        Button { controller.apply() } label: {
+                            if controller.applying { KestrelSpinner(tint: .white, size: 15) }
+                            else { Label("Move \(plan.count) to Vault", systemImage: "tray.and.arrow.down") }
+                        }
+                        .buttonStyle(.kestrel(.prominent))
+                        .disabled(controller.applying)
+
+                        if model.aiConfigured {
+                            Button { controller.review(assistant: model.aiAssistant) } label: {
+                                if controller.reviewing { KestrelSpinner(tint: Palette.violet, size: 14) }
+                                else { Label("AI second opinion", systemImage: "sparkles") }
                             }
+                            .buttonStyle(.kestrel(.subtle, tint: Palette.violet, size: .small))
+                            .disabled(controller.reviewing)
                         }
                     }
+                }
+                let byCat = plan.bytesByCategory
+                if byCat.count > 1 {
+                    SegmentBar(segments: byCat.sorted { $0.value > $1.value }.map {
+                        SegmentBar.Segment(color: $0.key.display.color, value: Double($0.value), label: $0.key.display.title)
+                    })
+                }
+            }
+        }
+    }
+
+    private struct Group { let category: KestrelCore.Category; let items: [CleanupItem] }
+
+    private func groups(_ plan: CleanupPlan) -> [Group] {
+        let byCat = Dictionary(grouping: plan.items, by: { $0.category })
+        return byCat
+            .map { Group(category: $0.key, items: $0.value.sorted { $0.entry.size > $1.entry.size }) }
+            .sorted { $0.items.reduce(0) { $0 + $1.entry.size } > $1.items.reduce(0) { $0 + $1.entry.size } }
+    }
+}
+
+/// A folder-picker row rendered as a chip (no stock control): a folder glyph, the path,
+/// and a "Choose…" affordance.
+struct FolderChip: View {
+    let url: URL
+    let onChoose: () -> Void
+    var body: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "folder.fill").foregroundStyle(Palette.accent2).imageScale(.small)
+            Text(url.path).lineLimit(1).truncationMode(.middle).font(.callout).foregroundStyle(.secondary)
+            Spacer()
+            Button("Choose…", action: onChoose).buttonStyle(.kestrel(.subtle, size: .small))
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(.white.opacity(0.06)))
+    }
+}
+
+/// A single stacked proportion bar — one colored segment per category — for the reclaim
+/// breakdown. Segments narrower than a hair are dropped so the bar reads cleanly.
+struct SegmentBar: View {
+    struct Segment: Identifiable { let id = UUID(); let color: Color; let value: Double; let label: String }
+    let segments: [Segment]
+    private var total: Double { max(1, segments.reduce(0) { $0 + $1.value }) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            GeometryReader { geo in
+                HStack(spacing: 2) {
+                    ForEach(segments) { s in
+                        Capsule().fill(s.color.gradient)
+                            .frame(width: max(0, geo.size.width * s.value / total - 2))
+                    }
+                }
+            }
+            .frame(height: 9)
+            FlowLayout(spacing: 12, lineSpacing: 6) {
+                ForEach(segments) { s in
+                    HStack(spacing: 6) {
+                        Circle().fill(s.color).frame(width: 8, height: 8)
+                        Text(s.label).font(.caption).foregroundStyle(.secondary)
+                        Text(bytesString(Int64(s.value))).font(.caption.monospacedDigit().weight(.medium))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// A collapsible per-category group of cleanup items — a custom disclosure (no stock
+/// `DisclosureGroup`): tap the header to reveal the largest items with their reasons.
+struct CleanupGroup: View {
+    let category: KestrelCore.Category
+    let items: [CleanupItem]
+    @State private var expanded = false
+
+    private var subtotal: Int64 { items.reduce(0) { $0 + $1.entry.size } }
+
+    var body: some View {
+        let d = category.display
+        Card(padding: 0) {
+            VStack(spacing: 0) {
+                Button { withAnimation(.easeOut(duration: 0.2)) { expanded.toggle() } } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: d.icon).foregroundStyle(d.color).frame(width: 24)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(d.title).font(.subheadline.weight(.semibold))
+                            Text("\(items.count) item(s)").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(bytesString(subtotal)).font(.callout.weight(.semibold).monospacedDigit())
+                        Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                            .rotationEffect(.degrees(expanded ? 90 : 0))
+                    }
+                    .padding(14).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if expanded {
+                    Hairline().padding(.horizontal, 14)
+                    VStack(spacing: 0) {
+                        ForEach(Array(items.prefix(50).enumerated()), id: \.offset) { _, item in
+                            HStack(spacing: 12) {
+                                Text(bytesString(item.entry.size)).font(.caption.monospacedDigit().weight(.medium))
+                                    .frame(width: 72, alignment: .leading).foregroundStyle(.secondary)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(item.entry.url.lastPathComponent).font(.callout).lineLimit(1).truncationMode(.middle)
+                                    Text(item.reason).font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                                }
+                                Spacer()
+                            }
+                            .padding(.horizontal, 14).padding(.vertical, 6)
+                        }
+                        if items.count > 50 {
+                            Text("+ \(items.count - 50) more").font(.caption).foregroundStyle(.tertiary)
+                                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 14).padding(.vertical, 6)
+                        }
+                    }
+                    .padding(.vertical, 4)
                 }
             }
         }

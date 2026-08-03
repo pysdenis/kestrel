@@ -192,6 +192,7 @@ func usage() {
       kestrel shred <path> --apply              (secure permanent delete — no undo)
       kestrel rules list | run [name] [--apply] (declarative maintenance rules)
       kestrel stats [all|disk|mem|cpu|battery|net|health]
+      kestrel speedtest                         (internet download speed + latency)
       kestrel map <path> [--depth N]            (directory size tree)
       kestrel snapshot [path]                   (record disk usage; default: home)
       kestrel trend                             (growth rate + fill forecast)
@@ -331,6 +332,25 @@ do {
         case "health": showHealth()
         case "all": showHealth(); print(""); showDisk(); showMem(); showCPU(); showBattery(); showNet()
         default: print("Unknown stats view '\(which)'. Use: all|disk|mem|cpu|battery|net|health"); exit(2)
+        }
+
+    case "speedtest":
+        print("Testing internet speed (via Cloudflare)…")
+        let sem = DispatchSemaphore(value: 0)
+        var speedResult: Result<SpeedTestResult, Error>?
+        Task {
+            do { speedResult = .success(try await SpeedTest().run()) }
+            catch { speedResult = .failure(error) }
+            sem.signal()
+        }
+        sem.wait()
+        switch speedResult {
+        case .success(let r):
+            print(String(format: "Download: %.1f Mbps   Latency: %.0f ms", r.downloadMbps, r.latencyMs))
+        case .failure(let e):
+            FileHandle.standardError.write(Data("Speed test failed: \(e)\n".utf8)); exit(1)
+        case .none:
+            exit(1)
         }
 
     case "map":

@@ -118,7 +118,7 @@ Cíl: **umět vše, co CleanMyMac**, uspořádané jako jeho sekce. `[x]` hotovo
 Vše drží invarianty: dry-run default, vault + undo, audit, unknown se nemaže, žádné strašení.
 
 ### Smart Care (orchestrace jedním klikem)
-- [~] Jádro `SmartScan` (health + clutter + AV) → [ ] plný **Smart Care** flow: Cleanup + Protection + Performance + Applications updates → jeden čestný výsledek + „Run".
+- [x] **Smart Care** GUI flow (`SmartCareController` + `SmartCareSection`): jeden „Run" → cleanup scan + protection status + Downloads malware scan → jeden čestný výsledek (health/protection/malware tiles + reclaim karta s Move-to-Vault). Zbývá: Applications updates krok.
 
 ### Cleanup
 - [x] **System Junk** (uživatelské cache/logy, dev-tool cache).
@@ -170,9 +170,9 @@ Naportovat schválený návrh (redesign v2) do nativního SwiftUI, komponentu po
 - [x] Design tokens: paleta „Precision" (grafit + teal accent + sémantika) nasazená.
 - [x] Grafitové grunty, hairline (`Hairline`), sklo, prémiové stíny, hloubka (`Card` elevated + tint) napříč app.
 - [x] **Hero** health gauge (`HeroGauge`, conic gradient + glow) + verdikt + CTA („Free up space") + „Run Smart Care".
-- [~] **Radiální mini-gauge** v dlaždicích (`RadialMetricTile`); síťová sparkline hotová, CPU sparkline zbývá.
+- [x] **Radiální mini-gauge** v dlaždicích (`RadialMetricTile`); síťová sparkline na dashboardu, CPU sparkline v detailu.
 - [x] **Seskupený sidebar** (Monitor / Maintain / Intelligence) s ikonami, accent glow lištou aktivního stavu.
-- [~] **Storage forecast** karta (`ForecastCard`) ✅ + **Security status** karta (`ProtectionCard`) ✅; AI insight strip zbývá (jen na akci uživatele — invariant #7).
+- [x] **AI insight strip** (dashboard, on-demand, metadata-only), **Storage forecast** karta (`ForecastCard`), **Security status** karta (`ProtectionCard`).
 - [~] **My Tools** toolbox grid — hotové karty finderů (`PlanToolCard`); zbývá dotáhnout ostatní nástroje.
 - [x] **Command palette (⌘K)** — spusť/najdi jakoukoli akci (tintované ikony, highlight, hint patička).
 - [~] Redesign **menubar popoveru** — už plně custom (chip cluster, action/speed karty); drobný sjednocující pass zbývá.

@@ -265,6 +265,8 @@ func usage() {
       kestrel ask "<question>" [--path <dir>]   (ask the AI assistant — opt-in)
       kestrel explain <path>                    (AI: what is this / safe to delete? — opt-in)
       kestrel av scan <path>                    (honest on-demand malware scan)
+      kestrel av deep <path>                    (full ClamAV scan, if clamav installed)
+      kestrel av update                         (update ClamAV signatures via freshclam)
       kestrel av watch [paths...]               (on-access scan; default: Downloads+Desktop)
       kestrel av status                         (Gatekeeper + XProtect status)
       kestrel av quarantine [path]              (files downloaded from the internet)
@@ -574,6 +576,21 @@ do {
                 print(runAI { try? await assistant.explainFinding(f) } ?? "AI unavailable.")
                 print("")
             }
+
+        case "deep":
+            guard let path = rest.dropFirst().first(where: { !$0.hasPrefix("-") }) else { print("Usage: kestrel av deep <path>"); exit(2) }
+            let clam = ClamAVAdapter()
+            guard clam.isAvailable() else { print(ClamAVAdapter.installHint); break }
+            print("Deep scan with ClamAV — this can take a while…")
+            let result = clam.scan(path: (path as NSString).expandingTildeInPath)
+            if result.infected == 0 { print("Clean — ClamAV found no infected files. ✅") }
+            else {
+                print("\(result.infected) infected file(s):")
+                for f in result.findings { print("  \(f)") }
+            }
+
+        case "update":
+            print(ClamAVAdapter().updateDefinitions())
 
         case "status":
             let s = SystemProtectionReader().status()

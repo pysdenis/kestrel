@@ -47,7 +47,7 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 **DoD:** GUI kompiluje proti živému Core, žádné placebo tlačítko. Běh jako menubar app → po zabalení.
 
 ## Fáze 4 — Antivirus 🛡️ (jádro ✅, bundling ClamAV → později)
-- [ ] Bundling ClamAV + `freshclam` auto-update — zatím advisory `ClamAVAdapter` (deleguje na lokální clamscan).
+- [~] ClamAV: `av deep` (full sken) + `av update` (freshclam) přes lokální clamav (brew); bundling binárek do repa nepraktické.
 - [x] `RuleScanner` (EICAR test + string/SHA-256 pravidla) — čestný, jen reálné nálezy.
 - [x] Heuristika (quarantined executables, `LaunchAgentAuditor` osiřelí agenti).
 - [x] XProtect/Gatekeeper status reader (`SystemProtectionReader`), quarantine viewer (`QuarantineReader`).
@@ -90,7 +90,7 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 - [x] Živý graf síťového throughputu (sparkline) na dashboardu.
 - [x] Idle efektivita: polling jen když je UI vidět (idle 0 % CPU); adaptivní paleta 1:1 s referencí.
 - [x] Live odhad baterie z okamžitého proudu (AppleSmartBattery), time-left přímo na kartě.
-- [ ] Interaktivní treemap ve Space (klikací, jako ncdu).
+- [x] Interaktivní treemap ve Space (`Treemap` squarified + drill-down breadcrumb).
 
 ## Fáze 9 — AI & automatizace 🤖 (rozpracováno)
 Detaily viz brainstorm; AI je vždy opt-in a posílá jen metadata (invariant #7).
@@ -154,7 +154,7 @@ Vše drží invarianty: dry-run default, vault + undo, audit, unknown se nemaže
 - [x] **Mail Attachments** — `ClutterFinder.mailAttachments`, `kestrel mail`.
 
 ### Space Lens
-- [~] `DiskMap` + CLI `map` (treemap v terminálu) → [ ] **interaktivní treemap/sunburst v GUI** (klikací, drill-down).
+- [x] `DiskMap` + CLI `map` + **interaktivní treemap v GUI** (`Treemap`, klikací drill-down).
 
 ### Cloud Cleanup
 - [ ] **iCloud Drive / Dropbox / Google Drive** — offload lokálních kopií (evict, ne smazání).

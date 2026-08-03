@@ -27,6 +27,15 @@ public struct ClamAVAdapter {
         !(((try? runner.run("clamscan", ["--version"])) ?? "").isEmpty)
     }
 
+    public static let installHint = "ClamAV isn't installed. Install it with:  brew install clamav\nThen update its signatures:  kestrel av update"
+
+    /// Update virus signatures via freshclam. Advisory (may need write access to the db).
+    public func updateDefinitions() -> String {
+        guard isAvailable() else { return Self.installHint }
+        let output = (try? runner.run("freshclam", [])) ?? ""
+        return output.isEmpty ? "Could not run freshclam (you may need: sudo freshclam)." : output
+    }
+
     public func scan(path: String) -> ClamResult {
         guard isAvailable() else { return ClamResult(available: false, infected: 0, findings: []) }
         let output = (try? runner.run("clamscan", ["-r", "--infected", "--no-summary", path])) ?? ""

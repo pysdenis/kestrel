@@ -202,6 +202,7 @@ struct SpeedTestCard: View {
 struct SpaceSection: View {
     @EnvironmentObject private var model: AppModel
     @State private var tree: DirNode?
+    @State private var path: [DirNode] = []
     @State private var loading = false
 
     var body: some View {
@@ -224,9 +225,9 @@ struct SpaceSection: View {
             }
 
             HStack {
-                SectionTitle("Largest folders in Home", icon: "folder")
+                SectionTitle("Storage map", icon: "square.grid.3x3.fill")
                 Spacer()
-                Button { load() } label: { Label(tree == nil ? "Scan" : "Rescan", systemImage: "arrow.clockwise") }
+                Button { load() } label: { Label(tree == nil ? "Scan Home" : "Rescan", systemImage: "arrow.clockwise") }
                     .buttonStyle(.kestrel(tree == nil ? .prominent : .subtle, size: .small))
                     .disabled(loading)
             }
@@ -234,14 +235,23 @@ struct SpaceSection: View {
             if loading {
                 HStack { ProgressView().controlSize(.small); Text("Measuring…").foregroundStyle(.secondary) }
             } else if let tree {
-                Card {
-                    VStack(spacing: 10) {
-                        ForEach(Array(tree.children.prefix(12)), id: \.url) { child in
-                            LabeledBar(label: child.name, value: bytesString(child.size),
-                                       fraction: tree.size > 0 ? Double(child.size) / Double(tree.size) : 0, tint: Palette.blue)
-                        }
+                let current = path.last ?? tree
+                HStack(spacing: 5) {
+                    Button("Home") { path = [] }.buttonStyle(.plain).foregroundStyle(path.isEmpty ? Color.primary : Palette.accent)
+                    ForEach(Array(path.enumerated()), id: \.offset) { i, node in
+                        Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(.tertiary)
+                        Button(node.name) { path = Array(path.prefix(i + 1)) }
+                            .buttonStyle(.plain).foregroundStyle(i == path.count - 1 ? Color.primary : Palette.accent).lineLimit(1)
                     }
+                    Spacer()
+                    Text(bytesString(current.size)).foregroundStyle(.secondary)
                 }
+                .font(.caption)
+                Card(padding: 6) {
+                    TreemapView(node: current) { child in path.append(child) }
+                        .frame(height: 340)
+                }
+                Text("Click a block to drill in. Blocks are sized by folder size.").font(.caption2).foregroundStyle(.tertiary)
             } else {
                 Text("Scanning your Home folder reads Desktop, Documents, Downloads and Pictures, so macOS may ask for permission. Click Scan when you're ready.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -250,10 +260,10 @@ struct SpaceSection: View {
     }
 
     private func load() {
-        loading = true
+        loading = true; path = []
         let home = model.paths.home
         Task.detached {
-            let measured = DiskMap().measure(home, maxDepth: 1)
+            let measured = DiskMap().measure(home, maxDepth: 3)
             await MainActor.run { self.tree = measured; self.loading = false }
         }
     }

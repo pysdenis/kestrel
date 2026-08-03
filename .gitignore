@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+*.swp
+
+# Swift / SPM
+.build/
+.swiftpm/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+Package.resolved
+
+# Kestrel runtime (nikdy necommitovat data uživatele)
+.kestrel/
+vault/
+snapshots/
+audit.log
+
+# Third-party engine data (velké, generované)
+Resources/clamav-db/
+Resources/yara-rules/*.compiled
+
+# Secrets / signing
+*.p12
+*.provisionprofile
+notarize-credentials*

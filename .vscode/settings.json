@@ -1,0 +1,17 @@
+{
+  "swift.autoGenerateLaunchConfigurations": false,
+  "swift.backgroundCompilation": true,
+  "lldb.library": "/usr/lib/liblldb.dylib",
+  "files.exclude": {
+    "**/.build": true,
+    "**/.swiftpm": true
+  },
+  "search.exclude": {
+    "**/.build": true
+  },
+  "[swift]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true
+  }
+}

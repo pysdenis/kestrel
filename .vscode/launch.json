@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb-dap",
+      "request": "launch",
+      "name": "Run tests (kestrel-tests)",
+      "program": "${workspaceFolder}/.build/debug/kestrel-tests",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "swift: build"
+    },
+    {
+      "type": "lldb-dap",
+      "request": "launch",
+      "name": "CLI: scan ~/Downloads",
+      "program": "${workspaceFolder}/.build/debug/kestrel",
+      "args": ["scan", "${env:HOME}/Downloads"],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "swift: build"
+    },
+    {
+      "type": "lldb-dap",
+      "request": "launch",
+      "name": "CLI: custom args (edit me)",
+      "program": "${workspaceFolder}/.build/debug/kestrel",
+      "args": ["scan", "${workspaceFolder}"],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "swift: build"
+    }
+  ]
+}

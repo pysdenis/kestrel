@@ -2,11 +2,12 @@ import SwiftUI
 import KestrelCore
 
 enum AppSection: String, CaseIterable, Identifiable, Hashable {
-    case dashboard, cleanup, space, energy, security, tools, assistant, activity, settings
+    case smartcare, dashboard, cleanup, space, energy, security, tools, assistant, activity, settings
     var id: String { rawValue }
 
     var title: String {
         switch self {
+        case .smartcare: return "Smart Care"
         case .dashboard: return "Dashboard"
         case .cleanup: return "Cleanup"
         case .space: return "Space"
@@ -21,6 +22,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
 
     var icon: String {
         switch self {
+        case .smartcare: return "wand.and.stars"
         case .dashboard: return "gauge.with.dots.needle.67percent"
         case .cleanup: return "sparkles"
         case .space: return "chart.pie"
@@ -42,6 +44,7 @@ struct SidebarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             brand
+            group(nil, [.smartcare])
             group("Monitor", [.dashboard, .energy, .space])
             group("Maintain", [.cleanup, .security, .tools])
             group("Intelligence", [.assistant])
@@ -147,6 +150,7 @@ struct MainWindow: View {
 
     @ViewBuilder private var detail: some View {
         switch model.section ?? .dashboard {
+        case .smartcare: SmartCareSection(controller: model.smartcare)
         case .dashboard: DashboardSection(controller: model.dashboard)
         case .cleanup: CleanupSection(controller: model.cleanup)
         case .space: SpaceSection(controller: model.space)
@@ -235,12 +239,11 @@ struct DashboardSection: View {
         }
     }
 
-    /// "Smart Care" (lite): jump to Cleanup, select every safe category and start a real
-    /// scan — honest orchestration, no fake progress.
+    /// Jump to the Smart Care module and start its honest orchestrated pass.
     private func runSmartCare() {
-        model.section = .cleanup
-        model.cleanup.choice = .all
-        model.cleanup.scan()
+        model.section = .smartcare
+        let home = model.paths.home
+        model.smartcare.run(home: home, downloads: home.appendingPathComponent("Downloads"))
     }
 
     // MARK: metrics

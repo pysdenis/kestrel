@@ -28,8 +28,10 @@ struct CommandPaletteView: View {
         }
         out.append(Command(title: "Run speed test", subtitle: "Network", icon: "speedometer", tint: Palette.teal) { model.runSpeedTest(); model.section = .dashboard })
         out.append(Command(title: "Free up space", subtitle: "Cleanup", icon: "sparkles", tint: Palette.accent) { model.section = .cleanup })
-        out.append(Command(title: "Run Smart Care", subtitle: "Cleanup", icon: "wand.and.stars", tint: Palette.accent) {
-            model.section = .cleanup; model.cleanup.choice = .all; model.cleanup.scan()
+        out.append(Command(title: "Run Smart Care", subtitle: "Smart Care", icon: "wand.and.stars", tint: Palette.accent) {
+            model.section = .smartcare
+            let home = model.paths.home
+            model.smartcare.run(home: home, downloads: home.appendingPathComponent("Downloads"))
         })
         out.append(Command(title: "Ask the assistant", subtitle: "AI", icon: "bubble.left.and.sparkles", tint: Palette.violet) { model.section = .assistant })
         out.append(Command(title: "Reveal ~/.kestrel in Finder", subtitle: "Vault & logs", icon: "folder", tint: Palette.accent2) {

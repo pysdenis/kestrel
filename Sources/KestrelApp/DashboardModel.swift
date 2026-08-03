@@ -35,6 +35,7 @@ final class AppModel: ObservableObject {
     @Published var netDownBps: Double = 0
     @Published var netUpBps: Double = 0
     @Published var netHistory: [Double] = []          // recent download throughput
+    @Published var cpuHistory: [Double] = []          // recent CPU usage %
     private var lastNet: (inB: Int64, outB: Int64, at: Date)?
 
     /// Smoothed battery time estimate (minutes), computed once from a smoothed current
@@ -74,6 +75,7 @@ final class AppModel: ObservableObject {
     // Scan state lives here (not in the section views) so a scan survives navigating
     // between modules — start it in one, switch away, come back, it's still going.
     lazy var cleanup = CleanupController(paths: paths)
+    lazy var smartcare = SmartCareController(paths: paths)
     lazy var dashboard = DashboardController(paths: paths)
     lazy var security = SecurityController()
     lazy var space = SpaceController(paths: paths)
@@ -169,6 +171,9 @@ final class AppModel: ObservableObject {
         self.cpu = cpu
         self.battery = battery
         self.health = HealthScorer().score(disk: disk, memory: memory, cpu: cpu, battery: battery)
+
+        cpuHistory.append(cpu.usagePercent)
+        if cpuHistory.count > 40 { cpuHistory.removeFirst(cpuHistory.count - 40) }
 
         batteryTimeMinutes = computeBatteryMinutes(battery)
 

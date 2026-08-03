@@ -72,6 +72,80 @@ import KestrelCore
     }
 }
 
+// MARK: - Smart Care (one honest orchestrated pass)
+
+@MainActor final class SmartCareController: ObservableObject {
+    enum StepState { case pending, running, done }
+
+    @Published var running = false
+    @Published var finished = false
+    @Published var cleanupStep: StepState = .pending
+    @Published var protectionStep: StepState = .pending
+    @Published var malwareStep: StepState = .pending
+    @Published var status = ""
+
+    @Published var plan: CleanupPlan?
+    @Published var protection: GatekeeperStatus?
+    @Published var report: ScanReport?
+    @Published var applying = false
+    @Published var message: String?
+
+    private let paths: KestrelPaths
+    init(paths: KestrelPaths) { self.paths = paths }
+
+    /// Runs three honest checks in sequence — reclaimable space (safe categories only),
+    /// macOS protection status, and a malware scan of Downloads — reporting live progress.
+    /// Nothing is deleted; the cleanup plan is inert until the user applies it.
+    func run(home: URL, downloads: URL) {
+        guard !running else { return }
+        running = true; finished = false; message = nil
+        cleanupStep = .running; protectionStep = .pending; malwareStep = .pending
+        plan = nil; protection = nil; report = nil
+        status = "Scanning for reclaimable space…"
+
+        Task.detached { [weak self] in
+            let classified = (try? ScanCoordinator().scan(root: home) { count, url in
+                Task { @MainActor in self?.status = "Scanned \(count) files · \(url.lastPathComponent)" }
+            }) ?? []
+            let plan = Planner().plan(classified)
+            await MainActor.run {
+                self?.plan = plan; self?.cleanupStep = .done
+                self?.protectionStep = .running; self?.status = "Checking macOS protection…"
+            }
+
+            let protection = SystemProtectionReader().status()
+            await MainActor.run {
+                self?.protection = protection; self?.protectionStep = .done
+                self?.malwareStep = .running; self?.status = "Scanning Downloads for malware…"
+            }
+
+            let report = AntivirusEngine().scan(root: downloads) { done, total, url in
+                Task { @MainActor in self?.status = "Malware scan \(done)/\(total) · \(url.lastPathComponent)" }
+            }
+            await MainActor.run {
+                self?.report = report; self?.malwareStep = .done
+                self?.running = false; self?.finished = true; self?.status = ""
+            }
+        }
+    }
+
+    func apply() {
+        guard let plan, !applying else { return }
+        applying = true
+        let vaultURL = paths.vault
+        let auditURL = paths.auditLog
+        Task.detached { [weak self] in
+            let executor = CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL))
+            let result = try? executor.execute(plan, apply: true)
+            await MainActor.run {
+                self?.message = result.map { "Moved \($0.movedCount) item(s), \(bytesString($0.movedBytes)) to the vault (undoable)." } ?? "Cleanup failed."
+                self?.plan = nil
+                self?.applying = false
+            }
+        }
+    }
+}
+
 // MARK: - Dashboard (forecast + protection)
 
 @MainActor final class DashboardController: ObservableObject {

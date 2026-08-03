@@ -296,6 +296,14 @@ struct CPUDetailView: View {
                     }
                     Spacer()
                 }
+                if model.cpuHistory.count > 1 {
+                    Card(padding: 12) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Recent load").font(.caption).foregroundStyle(.secondary)
+                            Sparkline(values: model.cpuHistory, tint: Palette.warn).frame(height: 34)
+                        }
+                    }
+                }
                 Card(padding: 12) {
                     HStack { Image(systemName: "clock").foregroundStyle(Palette.warn); Text("Uptime").font(.subheadline.weight(.medium)); Spacer(); Text("\(model.uptimeDays)d").font(.subheadline.weight(.semibold)) }
                 }

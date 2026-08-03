@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import KestrelCore
 
 // A small, consistent design language: material cards, a health ring, metric tiles and
@@ -309,19 +310,19 @@ struct LabeledBar: View {
 }
 
 /// A "My Tools" card: scan a fixed target with a Core finder, then move the result to
-/// the vault. Runs off the main thread; everything it removes is undoable.
+/// the vault. Runs off the main thread; everything it removes is undoable. Its state
+/// lives in a `ToolRunState` owned by `ToolsController`, so a scan keeps running (and its
+/// result stays visible) when you switch modules and come back.
 struct PlanToolCard: View {
+    let id: String
     let title: String
     let subtitle: String
     let icon: String
     var tint: Color = Palette.accent
-    let scan: () -> CleanupPlan
+    @ObservedObject var state: ToolRunState
+    let scan: @Sendable () -> CleanupPlan
 
     @EnvironmentObject private var model: AppModel
-    @State private var plan: CleanupPlan?
-    @State private var scanning = false
-    @State private var applying = false
-    @State private var message: String?
 
     var body: some View {
         Card {
@@ -330,56 +331,35 @@ struct PlanToolCard: View {
                     Image(systemName: icon).foregroundStyle(tint).imageScale(.medium)
                     Text(title).font(.subheadline.weight(.semibold))
                     Spacer()
+                    if state.scanning { ScanRadar(tint: tint, size: 18) }
                 }
                 Text(subtitle).font(.caption).foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 30, alignment: .topLeading)
 
-                if let message {
+                if let message = state.message {
                     Text(message).font(.caption).foregroundStyle(Palette.good)
-                } else if let plan {
+                } else if state.scanning {
+                    Text("Scanning…").font(.caption).foregroundStyle(.secondary)
+                } else if let plan = state.plan {
                     Text(plan.items.isEmpty ? "Nothing to clean ✓" : "\(bytesString(plan.totalBytes)) · \(plan.count) items")
                         .font(.caption.weight(.medium)).foregroundStyle(plan.items.isEmpty ? .secondary : .primary)
                 }
 
                 HStack(spacing: 8) {
-                    Button(action: runScan) {
-                        if scanning { ProgressView().controlSize(.small) } else { Text(plan == nil ? "Scan" : "Rescan") }
+                    Button { model.tools.runTool(id, scan: scan) } label: {
+                        Text(state.plan == nil ? "Scan" : "Rescan")
                     }
                     .buttonStyle(.kestrel(.secondary, size: .small))
-                    .disabled(scanning || applying)
+                    .disabled(state.scanning || state.applying)
 
-                    if let plan, !plan.items.isEmpty {
-                        Button(action: apply) {
-                            if applying { ProgressView().controlSize(.small) } else { Text("Clean") }
+                    if let plan = state.plan, !plan.items.isEmpty {
+                        Button { model.tools.applyTool(id) } label: {
+                            if state.applying { ProgressView().controlSize(.small) } else { Text("Clean") }
                         }
                         .buttonStyle(.kestrel(.prominent, size: .small))
-                        .disabled(applying)
+                        .disabled(state.applying)
                     }
                 }
-            }
-        }
-    }
-
-    private func runScan() {
-        scanning = true; message = nil
-        let scan = self.scan
-        Task.detached {
-            let result = scan()
-            await MainActor.run { self.plan = result; self.scanning = false }
-        }
-    }
-
-    private func apply() {
-        guard let plan else { return }
-        applying = true
-        let vaultURL = model.paths.vault
-        let auditURL = model.paths.auditLog
-        Task.detached {
-            let result = try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
-            await MainActor.run {
-                self.message = result.map { "Cleaned \($0.movedCount), \(bytesString($0.movedBytes)) → vault" } ?? "Failed"
-                self.plan = nil
-                self.applying = false
             }
         }
     }
@@ -461,6 +441,32 @@ struct ScanningBanner: View {
                             .animation(.easeOut(duration: 0.25), value: progress)
                     }
                 }
+            }
+        }
+    }
+}
+
+/// Shown when the app lacks Full Disk Access — several honest features (emptying the
+/// Trash, scanning Mail, some caches) silently return nothing without it. Explains why
+/// and links straight to the right Settings pane.
+struct FullDiskAccessBanner: View {
+    var body: some View {
+        Card {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "lock.shield").font(.title2).foregroundStyle(Palette.warn)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Grant Full Disk Access").font(.subheadline.weight(.semibold))
+                    Text("Without it, macOS hides the Trash, Mail and some caches — so tools like “Empty Trash” find nothing. Turn Kestrel on in Settings, then relaunch.")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    Button {
+                        if let url = URL(string: FullDiskAccess.settingsURL) { NSWorkspace.shared.open(url) }
+                    } label: {
+                        Label("Open Full Disk Access settings", systemImage: "arrow.up.forward.app")
+                    }
+                    .buttonStyle(.kestrel(.secondary, size: .small))
+                    .padding(.top, 2)
+                }
+                Spacer()
             }
         }
     }

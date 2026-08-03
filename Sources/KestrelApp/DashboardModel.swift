@@ -64,6 +64,18 @@ final class AppModel: ObservableObject {
     }
 
     let paths = KestrelPaths()
+
+    // Scan state lives here (not in the section views) so a scan survives navigating
+    // between modules — start it in one, switch away, come back, it's still going.
+    lazy var cleanup = CleanupController(paths: paths)
+    lazy var security = SecurityController()
+    lazy var space = SpaceController(paths: paths)
+    lazy var tools = ToolsController(paths: paths)
+
+    /// Whether the app can read Full-Disk-Access-gated locations (Trash, Mail, some
+    /// caches). Refreshed when a surface appears; features that need it show a hint.
+    @Published var fullDiskAccess = true
+
     private let stats = StatsCollector()
     private let cpuSampler = CPUUsageSampler()
     lazy var cpuBrand: String = stats.cpuBrand()
@@ -82,6 +94,10 @@ final class AppModel: ObservableObject {
     func surfaceAppeared() {
         visibleSurfaces += 1
         refresh()
+        Task.detached {
+            let granted = FullDiskAccess.isGranted()
+            await MainActor.run { self.fullDiskAccess = granted }
+        }
         if timer == nil {
             timer = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
                 Task { @MainActor in self?.refresh() }

@@ -147,11 +147,11 @@ struct MainWindow: View {
     @ViewBuilder private var detail: some View {
         switch model.section ?? .dashboard {
         case .dashboard: DashboardSection()
-        case .cleanup: CleanupSection()
-        case .space: SpaceSection()
+        case .cleanup: CleanupSection(controller: model.cleanup)
+        case .space: SpaceSection(controller: model.space)
         case .energy: EnergySection()
-        case .security: SecuritySection()
-        case .tools: ToolsSection()
+        case .security: SecuritySection(controller: model.security)
+        case .tools: ToolsSection(controller: model.tools)
         case .assistant: AssistantSection()
         case .activity: ActivitySection()
         case .settings: SettingsSection()
@@ -286,12 +286,7 @@ struct SpeedTestCard: View {
 
 struct SpaceSection: View {
     @EnvironmentObject private var model: AppModel
-    @State private var tree: DirNode?
-    @State private var path: [DirNode] = []
-    @State private var loading = false
-    @State private var scanDone = 0
-    @State private var scanTotal = 0
-    @State private var scanStatus = ""
+    @ObservedObject var controller: SpaceController
 
     var body: some View {
         SectionScaffold(title: "Space", subtitle: "Where your storage is going") {
@@ -315,52 +310,39 @@ struct SpaceSection: View {
             HStack {
                 SectionTitle("Storage map", icon: "square.grid.3x3.fill")
                 Spacer()
-                Button { load() } label: { Label(tree == nil ? "Scan Home" : "Rescan", systemImage: "arrow.clockwise") }
-                    .buttonStyle(.kestrel(tree == nil ? .prominent : .subtle, size: .small))
-                    .disabled(loading)
+                Button { controller.load() } label: { Label(controller.tree == nil ? "Scan Home" : "Rescan", systemImage: "arrow.clockwise") }
+                    .buttonStyle(.kestrel(controller.tree == nil ? .prominent : .subtle, size: .small))
+                    .disabled(controller.loading)
             }
 
-            if loading {
+            if controller.loading {
                 ScanningBanner(title: "Measuring your Home folder…",
-                               detail: scanStatus.isEmpty ? "Reading top-level folders…" : scanStatus,
-                               progress: scanTotal > 0 ? Double(scanDone) / Double(scanTotal) : nil,
+                               detail: controller.scanStatus.isEmpty ? "Reading top-level folders…" : controller.scanStatus,
+                               progress: controller.scanTotal > 0 ? Double(controller.scanDone) / Double(controller.scanTotal) : nil,
                                tint: Palette.blue)
-            } else if let tree {
-                let current = path.last ?? tree
+            } else if let tree = controller.tree {
+                let current = controller.path.last ?? tree
                 HStack(spacing: 5) {
-                    Button("Home") { path = [] }.buttonStyle(.plain).foregroundStyle(path.isEmpty ? Color.primary : Palette.accent)
-                    ForEach(Array(path.enumerated()), id: \.offset) { i, node in
+                    Button("Home") { controller.path = [] }.buttonStyle(.plain).foregroundStyle(controller.path.isEmpty ? Color.primary : Palette.accent)
+                    ForEach(Array(controller.path.enumerated()), id: \.offset) { i, node in
                         Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(.tertiary)
-                        Button(node.name) { path = Array(path.prefix(i + 1)) }
-                            .buttonStyle(.plain).foregroundStyle(i == path.count - 1 ? Color.primary : Palette.accent).lineLimit(1)
+                        Button(node.name) { controller.path = Array(controller.path.prefix(i + 1)) }
+                            .buttonStyle(.plain).foregroundStyle(i == controller.path.count - 1 ? Color.primary : Palette.accent).lineLimit(1)
                     }
                     Spacer()
                     Text(bytesString(current.size)).foregroundStyle(.secondary)
                 }
                 .font(.caption)
                 Card(padding: 6) {
-                    TreemapView(node: current) { child in path.append(child) }
+                    TreemapView(node: current) { child in controller.path.append(child) }
                         .frame(height: 340)
                 }
-                Text("Click a block to drill in. Blocks are sized by folder size.").font(.caption2).foregroundStyle(.tertiary)
+                Text("Sized by real on-disk usage (allocated bytes), so sparse files like Docker.raw show their true footprint. Click a block to drill in.")
+                    .font(.caption2).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
             } else {
                 Text("Scanning your Home folder reads Desktop, Documents, Downloads and Pictures, so macOS may ask for permission. Click Scan when you're ready.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
-        }
-    }
-
-    private func load() {
-        loading = true; path = []; scanStatus = ""; scanDone = 0; scanTotal = 0
-        let home = model.paths.home
-        Task.detached {
-            let measured = DiskMap().measure(home, maxDepth: 3) { done, total, name in
-                Task { @MainActor in
-                    scanDone = done; scanTotal = total
-                    scanStatus = "Measured \(name) · \(done)/\(total)"
-                }
-            }
-            await MainActor.run { self.tree = measured; self.loading = false }
         }
     }
 }

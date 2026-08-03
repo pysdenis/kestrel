@@ -35,64 +35,56 @@ enum CleanupChoice: String, CaseIterable, Identifiable {
 
 struct CleanupSection: View {
     @EnvironmentObject private var model: AppModel
-    @State private var choice: CleanupChoice = .dev
-    @State private var root = FileManager.default.homeDirectoryForCurrentUser
-    @State private var scanning = false
-    @State private var applying = false
-    @State private var plan: CleanupPlan?
-    @State private var message: String?
-    @State private var aiReview: String?
-    @State private var reviewing = false
-    @State private var scanStatus = ""
+    @ObservedObject var controller: CleanupController
 
     var body: some View {
         SectionScaffold(title: "Cleanup", subtitle: "Preview first — nothing is deleted, items move to the vault") {
             Card {
                 VStack(alignment: .leading, spacing: 12) {
-                    Picker("Category", selection: $choice) {
+                    Picker("Category", selection: $controller.choice) {
                         ForEach(CleanupChoice.allCases) { Text($0.title).tag($0) }
                     }
                     .pickerStyle(.menu)
 
                     HStack {
                         Image(systemName: "folder")
-                        Text(root.path).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
+                        Text(controller.root.path).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
                         Spacer()
-                        Button("Choose…") { pickFolder() }.buttonStyle(.kestrel(.subtle, size: .small))
+                        Button("Choose…") { controller.pickFolder() }.buttonStyle(.kestrel(.subtle, size: .small))
                     }
 
                     HStack {
-                        Button(action: scan) {
-                            Label(scanning ? "Scanning…" : "Scan", systemImage: "magnifyingglass")
+                        Button { controller.scan() } label: {
+                            Label(controller.scanning ? "Scanning…" : "Scan", systemImage: "magnifyingglass")
                         }
                         .buttonStyle(.kestrel)
-                        .disabled(scanning || applying)
+                        .disabled(controller.scanning || controller.applying)
 
-                        if let plan, !plan.items.isEmpty {
-                            Button(action: apply) {
-                                if applying { ProgressView().controlSize(.small) } else { Label("Move \(plan.count) to Vault", systemImage: "tray.and.arrow.down") }
+                        if let plan = controller.plan, !plan.items.isEmpty {
+                            Button { controller.apply() } label: {
+                                if controller.applying { ProgressView().controlSize(.small) } else { Label("Move \(plan.count) to Vault", systemImage: "tray.and.arrow.down") }
                             }
                             .buttonStyle(.kestrel(.secondary))
-                            .disabled(applying)
+                            .disabled(controller.applying)
 
                             if model.aiConfigured {
-                                Button(action: review) {
-                                    if reviewing { ProgressView().controlSize(.small) } else { Label("AI review", systemImage: "sparkles") }
+                                Button { controller.review(assistant: model.aiAssistant) } label: {
+                                    if controller.reviewing { ProgressView().controlSize(.small) } else { Label("AI review", systemImage: "sparkles") }
                                 }
                                 .buttonStyle(.kestrel(.subtle))
-                                .disabled(reviewing)
+                                .disabled(controller.reviewing)
                             }
                         }
                     }
                 }
             }
 
-            if scanning {
-                ScanningBanner(title: "Scanning \(choice.title.lowercased())…",
-                               detail: scanStatus.isEmpty ? "Walking \(root.lastPathComponent)…" : scanStatus)
+            if controller.scanning {
+                ScanningBanner(title: "Scanning \(controller.choice.title.lowercased())…",
+                               detail: controller.scanStatus.isEmpty ? "Walking \(controller.root.lastPathComponent)…" : controller.scanStatus)
             }
 
-            if let aiReview {
+            if let aiReview = controller.aiReview {
                 Card {
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: "sparkles").foregroundStyle(Palette.violet)
@@ -101,14 +93,14 @@ struct CleanupSection: View {
                 }
             }
 
-            if let message {
+            if let message = controller.message {
                 Label(message, systemImage: "checkmark.circle.fill").foregroundStyle(Palette.good)
             }
 
-            if let plan, !scanning {
+            if let plan = controller.plan, !controller.scanning {
                 if plan.items.isEmpty {
                     EmptyState(icon: "checkmark.seal.fill", title: "Nothing to clean here",
-                               caption: "This category is already tidy in \(root.lastPathComponent).")
+                               caption: "This category is already tidy in \(controller.root.lastPathComponent).")
                 } else {
                     Text("Reclaimable: \(bytesString(plan.totalBytes)) across \(plan.count) item(s)").font(.headline)
                     Card {
@@ -126,53 +118,6 @@ struct CleanupSection: View {
                         }
                     }
                 }
-            }
-        }
-    }
-
-    private func pickFolder() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.directoryURL = root
-        if panel.runModal() == .OK, let url = panel.url { root = url; plan = nil; message = nil }
-    }
-
-    private func scan() {
-        scanning = true; plan = nil; message = nil; aiReview = nil; scanStatus = ""
-        let root = self.root
-        let categories = choice.categories
-        Task.detached {
-            let classified = (try? ScanCoordinator().scan(root: root) { count, url in
-                let name = url.lastPathComponent
-                Task { @MainActor in scanStatus = "Scanned \(count) files · \(name)" }
-            }) ?? []
-            let result = Planner().plan(classified, categories: categories)
-            await MainActor.run { self.plan = result; self.scanning = false }
-        }
-    }
-
-    private func review() {
-        guard let plan, let assistant = model.aiAssistant else { return }
-        reviewing = true; aiReview = nil
-        Task {
-            let text = (try? await assistant.review(plan: plan)) ?? "AI review failed. Check your key and connection."
-            await MainActor.run { aiReview = text; reviewing = false }
-        }
-    }
-
-    private func apply() {
-        guard let plan else { return }
-        applying = true
-        let vaultURL = model.paths.vault
-        let auditURL = model.paths.auditLog
-        Task.detached {
-            let executor = CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL))
-            let result = try? executor.execute(plan, apply: true)
-            await MainActor.run {
-                self.message = result.map { "Moved \($0.movedCount) item(s), \(bytesString($0.movedBytes)) to the vault (undoable)." } ?? "Cleanup failed."
-                self.plan = nil
-                self.applying = false
             }
         }
     }
@@ -409,18 +354,13 @@ struct EnergySection: View {
 
 struct SecuritySection: View {
     @EnvironmentObject private var model: AppModel
-    @State private var root = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
-    @State private var scanning = false
-    @State private var report: ScanReport?
-    @State private var status: GatekeeperStatus?
-    @State private var orphans: [LaunchItem] = []
-    @State private var extensions: [SystemExtension] = []
-    @State private var scanProgress: Double = 0
-    @State private var scanStatus = ""
+    @ObservedObject var controller: SecurityController
 
     var body: some View {
         SectionScaffold(title: "Security", subtitle: "Honest, evidence-based checks — no scare tactics") {
-            if let status {
+            if !model.fullDiskAccess { FullDiskAccessBanner() }
+
+            if let status = controller.status {
                 Card {
                     HStack(spacing: 20) {
                         badge("Gatekeeper", status.assessmentsEnabled == true ? "On" : (status.assessmentsEnabled == false ? "Off" : "?"),
@@ -436,19 +376,19 @@ struct SecuritySection: View {
                     SectionTitle("Scan for threats", icon: "magnifyingglass")
                     HStack {
                         Image(systemName: "folder")
-                        Text(root.path).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
+                        Text(controller.root.path).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
                         Spacer()
-                        Button("Choose…") { pickFolder() }.buttonStyle(.kestrel(.subtle, size: .small))
-                        Button(action: scan) {
-                            Text(scanning ? "Scanning…" : "Scan")
+                        Button("Choose…") { controller.pickFolder() }.buttonStyle(.kestrel(.subtle, size: .small))
+                        Button { controller.scan() } label: {
+                            Text(controller.scanning ? "Scanning…" : "Scan")
                         }
-                        .buttonStyle(.kestrel).disabled(scanning)
+                        .buttonStyle(.kestrel).disabled(controller.scanning)
                     }
-                    if scanning {
+                    if controller.scanning {
                         ScanningBanner(title: "Scanning for threats…",
-                                       detail: scanStatus.isEmpty ? "Reading files in \(root.lastPathComponent)…" : scanStatus,
-                                       progress: scanProgress)
-                    } else if let report {
+                                       detail: controller.scanStatus.isEmpty ? "Reading files in \(controller.root.lastPathComponent)…" : controller.scanStatus,
+                                       progress: controller.scanProgress)
+                    } else if let report = controller.report {
                         if report.isClean {
                             EmptyState(icon: "checkmark.shield.fill", title: "Clean",
                                        caption: "Scanned \(report.scanned) file(s) — no threats. No scare tactics.")
@@ -472,11 +412,11 @@ struct SecuritySection: View {
                 }
             }
 
-            if !extensions.isEmpty {
+            if !controller.extensions.isEmpty {
                 Card {
                     VStack(alignment: .leading, spacing: 8) {
                         SectionTitle("System extensions", icon: "puzzlepiece.extension")
-                        ForEach(Array(extensions.enumerated()), id: \.offset) { _, ext in
+                        ForEach(Array(controller.extensions.enumerated()), id: \.offset) { _, ext in
                             HStack {
                                 Text(ext.name.isEmpty ? ext.identifier : ext.name).font(.callout).lineLimit(1)
                                 Spacer()
@@ -487,25 +427,18 @@ struct SecuritySection: View {
                 }
             }
 
-            if !orphans.isEmpty {
+            if !controller.orphans.isEmpty {
                 Card {
                     VStack(alignment: .leading, spacing: 8) {
                         SectionTitle("Orphaned launch agents", icon: "bolt.badge.xmark")
-                        ForEach(Array(orphans.enumerated()), id: \.offset) { _, o in
+                        ForEach(Array(controller.orphans.enumerated()), id: \.offset) { _, o in
                             Text("\(o.label ?? "?") → \(o.program ?? "?")").font(.callout).foregroundStyle(.secondary).lineLimit(1)
                         }
                     }
                 }
             }
         }
-        .onAppear {
-            status = SystemProtectionReader().status()
-            Task.detached {
-                let orphaned = LaunchAgentAuditor().orphans()
-                let exts = SystemExtensionAuditor().list()
-                await MainActor.run { orphans = orphaned; extensions = exts }
-            }
-        }
+        .onAppear { controller.loadMeta() }
     }
 
     private func badge(_ title: String, _ value: String, ok: Bool) -> some View {
@@ -515,55 +448,29 @@ struct SecuritySection: View {
                 .foregroundStyle(ok ? Palette.good : Palette.crit).font(.headline)
         }
     }
-
-    private func pickFolder() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.directoryURL = root
-        if panel.runModal() == .OK, let url = panel.url { root = url; report = nil }
-    }
-
-    private func scan() {
-        scanning = true; report = nil; scanProgress = 0; scanStatus = ""
-        let root = self.root
-        Task.detached {
-            let result = AntivirusEngine().scan(root: root) { done, total, url in
-                let name = url.lastPathComponent
-                let fraction = total > 0 ? Double(done) / Double(total) : 0
-                Task { @MainActor in
-                    scanProgress = fraction
-                    scanStatus = "\(done) / \(total) files · \(name)"
-                }
-            }
-            await MainActor.run { self.report = result; self.scanning = false }
-        }
-    }
 }
 
 // MARK: - Tools
 
 struct ToolsSection: View {
     @EnvironmentObject private var model: AppModel
-    @State private var project = FileManager.default.homeDirectoryForCurrentUser
-    @State private var scanning = false
-    @State private var secrets: [SecretMatch]?
-    @State private var sleepers: [SleepAssertion] = []
-    @State private var maintenance: [MaintenanceTask] = []
+    @ObservedObject var controller: ToolsController
 
     private var home: URL { model.paths.home }
 
     var body: some View {
         SectionScaffold(title: "Tools", subtitle: "One-click cleanup tools and developer utilities") {
+            if !model.fullDiskAccess { FullDiskAccessBanner() }
+
             SectionTitle("My Tools", icon: "wrench.and.screwdriver")
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
-                PlanToolCard(title: "Trash Bins", subtitle: "Empty every Trash — undoable via the vault", icon: "trash", tint: Palette.good) { TrashFinder().find() }
-                PlanToolCard(title: "App Leftovers", subtitle: "Data left behind by removed apps", icon: "app.badge.checkmark", tint: Palette.accent) { OrphanFinder().find() }
-                PlanToolCard(title: "Old Installers", subtitle: ".dmg / .pkg / .iso in Downloads", icon: "shippingbox", tint: Palette.accent2) { ClutterFinder().oldInstallers(under: home.appendingPathComponent("Downloads")) }
-                PlanToolCard(title: "Screenshots", subtitle: "Screenshots on the Desktop", icon: "camera.viewfinder", tint: Palette.accent) { ClutterFinder().screenshots(under: home.appendingPathComponent("Desktop")) }
-                PlanToolCard(title: "Downloads", subtitle: "Files older than 30 days", icon: "arrow.down.circle", tint: Palette.accent2) { ClutterFinder().oldDownloads(under: home.appendingPathComponent("Downloads")) }
-                PlanToolCard(title: "Mail Attachments", subtitle: "Locally cached, re-downloadable", icon: "paperclip", tint: Palette.accent) { ClutterFinder().mailAttachments(under: home.appendingPathComponent("Library/Mail")) }
-                PlanToolCard(title: "Similar Images", subtitle: "Keep the best of each group", icon: "photo.on.rectangle.angled", tint: Palette.accent2) {
+                toolCard("Trash Bins", "Empty every Trash — undoable via the vault", "trash", Palette.good) { TrashFinder().find() }
+                toolCard("App Leftovers", "Data left behind by removed apps", "app.badge.checkmark", Palette.accent) { OrphanFinder().find() }
+                toolCard("Old Installers", ".dmg / .pkg / .iso in Downloads", "shippingbox", Palette.accent2) { ClutterFinder().oldInstallers(under: home.appendingPathComponent("Downloads")) }
+                toolCard("Screenshots", "Screenshots on the Desktop", "camera.viewfinder", Palette.accent) { ClutterFinder().screenshots(under: home.appendingPathComponent("Desktop")) }
+                toolCard("Downloads", "Files older than 30 days", "arrow.down.circle", Palette.accent2) { ClutterFinder().oldDownloads(under: home.appendingPathComponent("Downloads")) }
+                toolCard("Mail Attachments", "Locally cached, re-downloadable", "paperclip", Palette.accent) { ClutterFinder().mailAttachments(under: home.appendingPathComponent("Library/Mail")) }
+                toolCard("Similar Images", "Keep the best of each group", "photo.on.rectangle.angled", Palette.accent2) {
                     let files = (try? Scanner().scanFiles(under: home.appendingPathComponent("Pictures"), pruning: [], includingHidden: false)) ?? []
                     return SimilarImageFinder().plan(in: files)
                 }
@@ -573,21 +480,21 @@ struct ToolsSection: View {
                 VStack(alignment: .leading, spacing: 12) {
                     SectionTitle("Secrets scanner", icon: "key.horizontal")
                     HStack {
-                        Text(project.path).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
+                        Text(controller.project.path).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
                         Spacer()
-                        Button("Choose…") { pickProject() }.buttonStyle(.kestrel(.subtle, size: .small))
-                        Button(action: scanSecrets) {
-                            Text(scanning ? "Scanning…" : "Scan")
+                        Button("Choose…") { controller.pickProject() }.buttonStyle(.kestrel(.subtle, size: .small))
+                        Button { controller.scanSecrets() } label: {
+                            Text(controller.secretsScanning ? "Scanning…" : "Scan")
                         }
-                        .buttonStyle(.kestrel).disabled(scanning)
+                        .buttonStyle(.kestrel).disabled(controller.secretsScanning)
                     }
-                    if scanning {
+                    if controller.secretsScanning {
                         ScanningBanner(title: "Scanning for leaked secrets…",
-                                       detail: "Reading \(project.lastPathComponent)…", tint: Palette.kestrel)
-                    } else if let secrets {
+                                       detail: "Reading \(controller.project.lastPathComponent)…", tint: Palette.kestrel)
+                    } else if let secrets = controller.secrets {
                         if secrets.isEmpty {
                             EmptyState(icon: "checkmark.circle.fill", title: "No leaked credentials",
-                                       caption: "No API keys, tokens or private keys found in \(project.lastPathComponent).")
+                                       caption: "No API keys, tokens or private keys found in \(controller.project.lastPathComponent).")
                         } else {
                             Label("\(secrets.count) potential secret(s)", systemImage: "exclamationmark.triangle.fill")
                                 .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.orange)
@@ -602,10 +509,10 @@ struct ToolsSection: View {
             Card {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionTitle("Keeping the Mac awake", icon: "moon.zzz")
-                    if sleepers.isEmpty {
+                    if controller.sleepers.isEmpty {
                         Label("Nothing is preventing sleep.", systemImage: "checkmark.circle").foregroundStyle(Palette.good)
                     } else {
-                        ForEach(Array(sleepers.enumerated()), id: \.offset) { _, a in
+                        ForEach(Array(controller.sleepers.enumerated()), id: \.offset) { _, a in
                             Text("\(a.process) — \(a.type)").font(.callout).foregroundStyle(.secondary)
                         }
                     }
@@ -616,7 +523,7 @@ struct ToolsSection: View {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionTitle("Maintenance", icon: "wrench.adjustable")
                     Text("Run these yourself — they change system state.").font(.caption).foregroundStyle(.secondary)
-                    ForEach(Array(maintenance.enumerated()), id: \.offset) { _, t in
+                    ForEach(Array(controller.maintenance.enumerated()), id: \.offset) { _, t in
                         VStack(alignment: .leading, spacing: 1) {
                             Text(t.name + (t.needsSudo ? "  (needs sudo)" : "")).font(.callout.weight(.medium))
                             Text(t.command).font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled).lineLimit(1).truncationMode(.middle)
@@ -625,26 +532,14 @@ struct ToolsSection: View {
                 }
             }
         }
-        .onAppear {
-            sleepers = PowerAuditor().assertionsPreventingSleep()
-            maintenance = MaintenanceService().tasks()
-        }
+        .onAppear { controller.loadMeta() }
     }
 
-    private func pickProject() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.directoryURL = project
-        if panel.runModal() == .OK, let url = panel.url { project = url; secrets = nil }
-    }
-
-    private func scanSecrets() {
-        scanning = true; secrets = nil
-        let root = project
-        Task.detached {
-            let matches = SecretsScanner().scan(root: root)
-            await MainActor.run { self.secrets = matches; self.scanning = false }
-        }
+    /// Build a `PlanToolCard` bound to a persistent per-tool state, so its scan survives
+    /// navigating away and back.
+    private func toolCard(_ title: String, _ subtitle: String, _ icon: String, _ tint: Color,
+                          scan: @escaping @Sendable () -> CleanupPlan) -> some View {
+        PlanToolCard(id: title, title: title, subtitle: subtitle, icon: icon, tint: tint,
+                     state: controller.state(title), scan: scan)
     }
 }

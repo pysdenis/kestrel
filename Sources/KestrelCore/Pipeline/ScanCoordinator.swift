@@ -31,11 +31,13 @@ public struct ScanCoordinator {
     private let fm: FileManager
     private let dev: DevArtifactClassifier
     private let cache: CacheLogClassifier
+    private let privacy: PrivacyClassifier
 
     public init(fm: FileManager = .default) {
         self.fm = fm
         self.dev = DevArtifactClassifier(fm: fm)
         self.cache = CacheLogClassifier()
+        self.privacy = PrivacyClassifier()
     }
 
     /// Tool caches whose whole directory is a single reclaimable unit (matched by path
@@ -93,7 +95,12 @@ public struct ScanCoordinator {
             if cacheVerdict.category != .unknown {
                 results.append(cacheVerdict)
             } else {
-                looseFiles.append(fileEntry)
+                let privacyVerdict = privacy.classify(fileEntry)
+                if privacyVerdict.category != .unknown {
+                    results.append(privacyVerdict)
+                } else {
+                    looseFiles.append(fileEntry)
+                }
             }
         }
 

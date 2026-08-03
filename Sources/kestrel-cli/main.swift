@@ -22,8 +22,9 @@ func categoryFilter(_ name: String?) -> Set<KestrelCore.Category>? {
     case "dev": return [.devArtifact]
     case "dupes": return [.duplicate]
     case "large": return [.largeOld]
+    case "privacy": return [.privacy]
     default:
-        FileHandle.standardError.write(Data("Unknown category '\(name!)'. Use: all|cache|logs|dev|dupes|large\n".utf8))
+        FileHandle.standardError.write(Data("Unknown category '\(name!)'. Use: all|cache|logs|dev|dupes|large|privacy\n".utf8))
         exit(2)
     }
 }
@@ -36,6 +37,7 @@ func categoryLabel(_ c: KestrelCore.Category) -> String {
     case .duplicate: return "duplicate"
     case .largeOld: return "large & old"
     case .appLeftover: return "app leftover"
+    case .privacy: return "privacy"
     case .trash: return "trash"
     case .unknown: return "unknown"
     }
@@ -87,7 +89,7 @@ func printPlan(_ plan: CleanupPlan, limit: Int = 25) {
 /// Duplicates and large & old files are opt-in; surface them so the user knows they
 /// exist without ever including them in a default cleanup.
 func printReviewHints(_ classified: [ClassifiedEntry]) {
-    let review: [(KestrelCore.Category, String)] = [(.duplicate, "dupes"), (.largeOld, "large")]
+    let review: [(KestrelCore.Category, String)] = [(.duplicate, "dupes"), (.largeOld, "large"), (.privacy, "privacy")]
     var printedHeader = false
     for (cat, flagName) in review {
         let plan = Planner().plan(classified, categories: [cat])
@@ -163,12 +165,13 @@ func usage() {
     kestrel — honest macOS maintenance
 
     USAGE:
-      kestrel scan <path> [--category all|cache|logs|dev|dupes|large] [scan opts]
+      kestrel scan <path> [--category all|cache|logs|dev|dupes|large|privacy] [scan opts]
       kestrel clean <path> [--category ...] [--apply] [scan opts]   (default: dry-run)
       kestrel vault list
       kestrel vault undo <session-id>
       kestrel vault purge [--days N]                                (default: 14)
       kestrel uninstall <app> [--apply]         (app bundle + leftovers → vault)
+      kestrel orphans [--apply]                 (leftover data from removed apps)
       kestrel stats [all|disk|mem|cpu|battery|net|health]
       kestrel map <path> [--depth N]            (directory size tree)
       kestrel snapshot [path]                   (record disk usage; default: home)
@@ -379,6 +382,17 @@ do {
         default:
             print("Unknown av subcommand '\(sub)'. Use: scan|status|quarantine|agents"); exit(2)
         }
+
+    case "orphans":
+        let plan = OrphanFinder().find()
+        printPlan(plan)
+        guard flag("--apply", in: rest) else {
+            if !plan.items.isEmpty { print("\nDRY-RUN — nothing moved. Re-run with --apply to move these to the vault.") }
+            break
+        }
+        let result = try CleanupExecutor(vault: vault, audit: audit).execute(plan, apply: true)
+        print("\nMoved \(result.movedCount) item(s), \(fmtBytes(result.movedBytes)) → vault session \(result.sessionId ?? "?")")
+        print("Undo with:  kestrel vault undo \(result.sessionId ?? "")")
 
     case "docker":
         printExternalPreview(DockerAdapter().preview())

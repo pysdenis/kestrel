@@ -642,6 +642,40 @@ do {
     check(gk.assessmentsEnabled == true, "Gatekeeper status parsed")
 }
 
+// MARK: - Privacy
+
+section("PrivacyClassifier: browser data is review-only, bookmarks untouched")
+do {
+    func p(_ path: String) -> ClassifiedEntry {
+        PrivacyClassifier().classify(FileEntry(url: URL(fileURLWithPath: path), size: 1, modified: Date(), isDirectory: false))
+    }
+    check(p("/Users/x/Library/Safari/History.db").category == .privacy, "Safari history")
+    check(p("/Users/x/Library/Application Support/Google/Chrome/Default/Cookies").category == .privacy, "Chrome cookies")
+    check(p("/Users/x/Library/Application Support/Firefox/Profiles/ab.default/logins.json").category == .unknown, "Firefox logins left alone")
+    let hit = p("/Users/x/Library/Cookies/Cookies.binarycookies")
+    check(Planner().plan([hit]).items.isEmpty, "privacy excluded from 'all' plan")
+    check(Planner().plan([hit], categories: [.privacy]).count == 1, "privacy included when named")
+}
+
+// MARK: - Orphaned data
+
+section("OrphanFinder: leftovers of uninstalled apps, Apple data skipped")
+withTempDir { tmp in
+    let home = makeDir(tmp.appendingPathComponent("home"))
+    let appSupport = "Library/Application Support"
+    makeFile(home.appendingPathComponent("\(appSupport)/com.gone.app/state.db"), "x")
+    makeFile(home.appendingPathComponent("\(appSupport)/com.present.app/state.db"), "x")
+    makeFile(home.appendingPathComponent("\(appSupport)/com.apple.helpd/data"), "x")
+    makeFile(home.appendingPathComponent("Library/Preferences/com.gone.app.plist"), "prefs")
+
+    let plan = OrphanFinder(home: home).find(installedBundleIds: ["com.present.app"])
+    let ids = plan.items.map { $0.entry.url.lastPathComponent }
+    check(ids.contains("com.gone.app"), "orphaned app-support flagged")
+    check(ids.contains("com.gone.app.plist"), "orphaned preferences flagged")
+    check(!ids.contains("com.present.app"), "installed app kept")
+    check(!ids.contains { $0.hasPrefix("com.apple.") }, "Apple data never flagged")
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

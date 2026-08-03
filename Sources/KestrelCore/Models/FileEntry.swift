@@ -35,6 +35,7 @@ public enum Category: String, Codable, Sendable, CaseIterable {
     case duplicate
     case largeOld
     case appLeftover
+    case privacy
     case trash
     case unknown
 
@@ -48,7 +49,7 @@ public enum Category: String, Codable, Sendable, CaseIterable {
     /// and large & old files (that big video might be wanted) are inherently judgment
     /// calls, so removing them is always an opt-in decision.
     public var requiresExplicitSelection: Bool {
-        self == .duplicate || self == .largeOld
+        self == .duplicate || self == .largeOld || self == .privacy
     }
 }
 

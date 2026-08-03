@@ -34,8 +34,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleShortVersionString</key> <string>${VERSION}</string>
     <key>CFBundleVersion</key>         <string>${VERSION}</string>
     <key>LSMinimumSystemVersion</key>  <string>13.0</string>
-    <!-- Menu-bar accessory: no Dock icon, no main window. -->
-    <key>LSUIElement</key>             <true/>
+    <!-- Regular app: shows the window and a Dock icon on launch, plus a menu-bar item.
+         (Set LSUIElement to true for a pure menu-bar accessory once packaged.) -->
+    <key>LSUIElement</key>             <false/>
     <key>NSHumanReadableCopyright</key><string>© 2026 Denis Pyš. MIT.</string>
 </dict>
 </plist>

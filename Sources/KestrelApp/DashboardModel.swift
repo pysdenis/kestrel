@@ -185,10 +185,8 @@ final class AppModel: ObservableObject {
         open(id: "main")
     }
 
-    /// Return to menu-bar-only once the main window closes.
-    func mainWindowClosed() {
-        NSApp.setActivationPolicy(.accessory)
-    }
+    /// The window closed — keep the app running (Dock + menu bar) so it stays reachable.
+    func mainWindowClosed() {}
 
     func quit() {
         NSApp.terminate(nil)

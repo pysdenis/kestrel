@@ -26,4 +26,7 @@ public struct KestrelPaths: Sendable {
 
     /// Rolling per-process energy samples (for the "last 24h" battery view).
     public var energyLog: URL { root.appendingPathComponent("energy.json") }
+
+    /// Optional Gemini API key file (GUI apps don't inherit the shell environment).
+    public var geminiKey: URL { root.appendingPathComponent("gemini.key") }
 }

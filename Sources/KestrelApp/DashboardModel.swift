@@ -182,4 +182,30 @@ final class AppModel: ObservableObject {
     func quit() {
         NSApp.terminate(nil)
     }
+
+    // MARK: - AI (opt-in)
+
+    /// The key from the environment (CLI) or `~/.kestrel/gemini.key` (GUI apps don't
+    /// inherit the shell environment).
+    func geminiKey() -> String {
+        if let env = ProcessInfo.processInfo.environment["KESTREL_GEMINI_API_KEY"], !env.isEmpty { return env }
+        if let file = try? String(contentsOf: paths.geminiKey, encoding: .utf8) {
+            return file.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return ""
+    }
+
+    var aiConfigured: Bool { !geminiKey().isEmpty }
+
+    var aiAssistant: AIAssistant? {
+        let key = geminiKey()
+        return key.isEmpty ? nil : AIAssistant(client: GeminiClient(apiKey: key))
+    }
+
+    func aiContext() -> String {
+        var parts: [String] = []
+        if let d = disk { parts.append("Disk: \(bytesString(d.used)) used of \(bytesString(d.total)), \(bytesString(d.available)) free" + (d.purgeable > 0 ? ", \(bytesString(d.purgeable)) purgeable." : ".")) }
+        if let m = memory { parts.append("Memory: \(Int(m.usedFraction * 100))% used.") }
+        return parts.joined(separator: "\n")
+    }
 }

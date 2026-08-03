@@ -75,7 +75,9 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 - [x] Old installers/.dmg/.pkg finder (`ClutterFinder`, `kestrel installers`).
 - [ ] Config profile / kernel & system extensions audit.
 - [x] Sensitive file shredder (`Shredder`, `kestrel shred`, honest o SSD/FileVault).
-- [ ] Weekly digest (lokální), menu bar quick actions, „Explain this".
+- [x] **AI asistent (Gemini, opt-in)** — „Explain this", cleanup summary, ask (metadata-only):
+      `GeminiClient` + `AIAssistant`, CLI `ask`/`explain`/`advise`, GUI Assistant sekce.
+- [ ] Weekly digest (lokální), menu bar quick actions.
 
 ## Fáze 8 — GUI 2.0 🎨 (rozpracováno)
 - [x] Oprava zobrazení místa (purgeable se nepočítá jako volné; sedí s `df`/Finder).

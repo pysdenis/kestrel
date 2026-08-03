@@ -848,6 +848,49 @@ check(ProcessController().quit(pid: 0) == false, "pid 0 (process group) refused"
 check(ProcessController().quit(pid: 1) == false, "pid 1 (launchd) refused")
 check(ProcessController().quit(pid: -1) == false, "negative pid refused")
 
+// MARK: - AI (Gemini)
+
+func awaitResult<T>(_ op: @escaping () async -> T) -> T {
+    let sem = DispatchSemaphore(value: 0)
+    var out: T!
+    Task { out = await op(); sem.signal() }
+    sem.wait()
+    return out
+}
+
+struct StubHTTP: HTTPClient {
+    let data: Data
+    let status: Int
+    func post(url: URL, headers: [String: String], body: Data) async throws -> (data: Data, status: Int) { (data, status) }
+}
+
+section("Gemini: parses generateContent, handles empty")
+do {
+    let ok = Data(#"{"candidates":[{"content":{"parts":[{"text":"Hello from Gemini"}]}}]}"#.utf8)
+    check((try? GeminiClient.parseText(ok)) == "Hello from Gemini", "response text parsed")
+    let empty = Data(#"{"candidates":[]}"#.utf8)
+    check((try? GeminiClient.parseText(empty)) == nil, "empty candidates → error")
+}
+
+section("Gemini: generate via stub; refuses without an API key (no egress)")
+do {
+    let ok = Data(#"{"candidates":[{"content":{"parts":[{"text":"Hi"}]}}]}"#.utf8)
+    let text = awaitResult { try? await GeminiClient(apiKey: "k", http: StubHTTP(data: ok, status: 200)).generate("q") }
+    check(text == "Hi", "generate returns model text")
+
+    let refused = awaitResult { () -> Bool in
+        do { _ = try await GeminiClient(apiKey: "", http: StubHTTP(data: Data(), status: 200)).generate("q"); return false }
+        catch { return (error as? GeminiClient.GeminiError) == .noAPIKey }
+    }
+    check(refused, "no API key → refuses before any request")
+
+    let httpErr = awaitResult { () -> Bool in
+        do { _ = try await GeminiClient(apiKey: "k", http: StubHTTP(data: Data(), status: 429)).generate("q"); return false }
+        catch { return (error as? GeminiClient.GeminiError) == .http(429) }
+    }
+    check(httpErr, "non-200 surfaces as http error")
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

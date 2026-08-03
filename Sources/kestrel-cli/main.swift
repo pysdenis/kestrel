@@ -136,6 +136,47 @@ func fmtDays(_ days: Double) -> String {
     days >= 365 ? String(format: "%.1f years", days / 365) : String(format: "%.0f days", days)
 }
 
+// MARK: - AI (Gemini, opt-in)
+
+func geminiAssistant() -> AIAssistant? {
+    let key = ProcessInfo.processInfo.environment["KESTREL_GEMINI_API_KEY"] ?? ""
+    guard !key.isEmpty else { return nil }
+    let model = ProcessInfo.processInfo.environment["KESTREL_GEMINI_MODEL"] ?? "gemini-2.5-flash"
+    return AIAssistant(client: GeminiClient(apiKey: key, model: model))
+}
+
+let aiDisabledHelp = """
+AI is off. It is opt-in and sends only metadata (names, sizes, categories) to Google's
+Gemini — never file contents. Enable it by exporting your key:
+  export KESTREL_GEMINI_API_KEY=your-key
+  (optional) export KESTREL_GEMINI_MODEL=gemini-2.5-flash
+"""
+
+func runAI(_ op: @escaping () async -> String?) -> String? {
+    let sem = DispatchSemaphore(value: 0)
+    var result: String?
+    Task { result = await op(); sem.signal() }
+    sem.wait()
+    return result
+}
+
+func aiContext(path: String?) -> String {
+    var parts: [String] = []
+    if let d = StatsCollector().disk() {
+        parts.append("Disk: \(fmtBytes(d.used)) used of \(fmtBytes(d.total)), \(fmtBytes(d.available)) free.")
+    }
+    if let path {
+        let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        let classified = (try? ScanCoordinator().scan(root: root)) ?? []
+        let plan = Planner().plan(classified)
+        parts.append("Reclaimable under \(root.lastPathComponent): \(fmtBytes(plan.totalBytes)) across \(plan.count) items.")
+        for (c, b) in plan.bytesByCategory.sorted(by: { $0.value > $1.value }) {
+            parts.append("  \(categoryLabel(c)): \(fmtBytes(b))")
+        }
+    }
+    return parts.joined(separator: "\n")
+}
+
 func printExternalPreview(_ p: ExternalCleanupPreview) {
     guard p.available else {
         print("\(p.tool): not found on PATH — nothing to report.")
@@ -202,6 +243,9 @@ func usage() {
       kestrel maintenance                       (advisory system maintenance actions)
       kestrel updates                           (outdated Homebrew casks)
       kestrel activity                          (what Kestrel has reclaimed, from audit)
+      kestrel advise [path]                     (AI cleanup summary — opt-in, metadata only)
+      kestrel ask "<question>" [--path <dir>]   (ask the AI assistant — opt-in)
+      kestrel explain <path>                    (AI: what is this / safe to delete? — opt-in)
       kestrel av scan <path>                    (honest on-demand malware scan)
       kestrel av watch [paths...]               (on-access scan; default: Downloads+Desktop)
       kestrel av status                         (Gatekeeper + XProtect status)
@@ -362,6 +406,34 @@ do {
         case .none:
             exit(1)
         }
+
+    case "ask":
+        guard let assistant = geminiAssistant() else { print(aiDisabledHelp); exit(2) }
+        let question = rest.filter { !$0.hasPrefix("-") && $0 != option("--path", in: rest) }.joined(separator: " ")
+        guard !question.isEmpty else { print("Usage: kestrel ask \"<question>\" [--path <dir>]"); exit(2) }
+        print("(AI: sending metadata only — names, sizes, your question. No file contents.)\n")
+        let context = aiContext(path: option("--path", in: rest))
+        let answer = runAI { try? await assistant.ask(question, context: context) }
+        print(answer ?? "AI request failed.")
+
+    case "explain":
+        guard let assistant = geminiAssistant() else { print(aiDisabledHelp); exit(2) }
+        guard let path = rest.first(where: { !$0.hasPrefix("-") }) else { print("Usage: kestrel explain <path>"); exit(2) }
+        let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        let verdict = RuleClassifier().classify(Scanner().makeEntry(url))
+        print("(AI: sending only the item's name and category.)\n")
+        let answer = runAI { try? await assistant.explain(name: url.lastPathComponent, category: verdict.category, reason: verdict.reason) }
+        print(answer ?? "AI request failed.")
+
+    case "advise":
+        guard let assistant = geminiAssistant() else { print(aiDisabledHelp); exit(2) }
+        let path = rest.first(where: { !$0.hasPrefix("-") }) ?? paths.home.path
+        let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        print("(AI: sending metadata only — category names and sizes.)\n")
+        let classified = try ScanCoordinator().scan(root: root)
+        let plan = Planner().plan(classified)
+        let answer = runAI { try? await assistant.summarize(plan: plan, disk: StatsCollector().disk()) }
+        print(answer ?? "AI request failed.")
 
     case "map":
         guard let path = rest.first(where: { !$0.hasPrefix("-") }) else { print("Usage: kestrel map <path> [--depth N]"); exit(2) }

@@ -140,6 +140,134 @@ struct CleanupSection: View {
     }
 }
 
+// MARK: - Assistant (AI, opt-in)
+
+struct AssistantSection: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var question = ""
+    @State private var answer: String?
+    @State private var thinking = false
+    @State private var root = FileManager.default.homeDirectoryForCurrentUser
+
+    private let suggestions = [
+        "What's using most of my disk?",
+        "Is it safe to clear developer caches?",
+        "How can I free space as a developer?",
+    ]
+
+    var body: some View {
+        SectionScaffold(title: "Assistant", subtitle: "Honest AI help — opt-in, sends metadata only") {
+            if !model.aiConfigured {
+                setupCard
+            } else {
+                askCard
+                analyzeCard
+                if thinking {
+                    HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Thinking…").foregroundStyle(.secondary) }
+                }
+                if let answer {
+                    Card {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Assistant", systemImage: "sparkles").font(.headline).foregroundStyle(Palette.violet)
+                            Text(answer).textSelection(.enabled).font(.callout)
+                        }
+                    }
+                }
+                Text("Sends only metadata (names, sizes, categories) to Google Gemini — never file contents. Off unless you set a key.")
+                    .font(.caption2).foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private var setupCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Turn on the assistant", systemImage: "key").font(.headline)
+                Text("The assistant is opt-in and off by default. To enable it, put your Google Gemini API key in a file:")
+                    .font(.callout).foregroundStyle(.secondary)
+                Text(model.paths.geminiKey.path).font(.caption.monospaced()).textSelection(.enabled)
+                Text("It then sends only metadata (names, sizes, categories) — never file contents.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button { NSWorkspace.shared.activateFileViewerSelecting([model.paths.root]) } label: {
+                    Label("Reveal ~/.kestrel in Finder", systemImage: "folder")
+                }
+                .buttonStyle(.kestrel(.secondary))
+            }
+        }
+    }
+
+    private var askCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("Ask anything", icon: "bubble.left.and.sparkles")
+                HStack {
+                    TextField("e.g. what can I safely clean?", text: $question)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit(ask)
+                    Button(action: ask) { Text("Ask") }
+                        .buttonStyle(.kestrel(.prominent, tint: Palette.violet))
+                        .disabled(thinking || question.isEmpty)
+                }
+                HStack {
+                    ForEach(suggestions, id: \.self) { s in
+                        Button { question = s; ask() } label: { Text(s).font(.caption) }
+                            .buttonStyle(.kestrel(.subtle, size: .small))
+                            .disabled(thinking)
+                    }
+                }
+            }
+        }
+    }
+
+    private var analyzeCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("Analyze a folder", icon: "sparkle.magnifyingglass")
+                HStack {
+                    Text(root.path).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Choose…") { pickFolder() }.buttonStyle(.kestrel(.subtle, size: .small))
+                    Button(action: analyze) { Text("Analyze") }
+                        .buttonStyle(.kestrel(.prominent, tint: Palette.violet))
+                        .disabled(thinking)
+                }
+            }
+        }
+    }
+
+    private func pickFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.directoryURL = root
+        if panel.runModal() == .OK, let url = panel.url { root = url }
+    }
+
+    private func ask() {
+        guard let assistant = model.aiAssistant, !question.isEmpty else { return }
+        let q = question
+        let context = model.aiContext()
+        thinking = true; answer = nil
+        Task {
+            let result = (try? await assistant.ask(q, context: context)) ?? "The request failed. Check your API key and connection."
+            await MainActor.run { answer = result; thinking = false }
+        }
+    }
+
+    private func analyze() {
+        guard let assistant = model.aiAssistant else { return }
+        let target = root
+        let currentDisk = model.disk
+        thinking = true; answer = nil
+        Task.detached {
+            let classified = (try? ScanCoordinator().scan(root: target)) ?? []
+            let plan = Planner().plan(classified)
+            let result = (try? await assistant.summarize(plan: plan, disk: currentDisk)) ?? "The request failed. Check your API key and connection."
+            await MainActor.run { answer = result; thinking = false }
+        }
+    }
+}
+
 // MARK: - Energy
 
 struct EnergySection: View {

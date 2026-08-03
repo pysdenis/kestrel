@@ -24,6 +24,10 @@ tu znamená ztrátu dat nebo falešný pocit bezpečí. Podle toho se chováme.
 6. **Antivirus nikdy nestraší.** Report obsahuje jen reálné nálezy s cestou k důkazu
    (pravidlo/hash). Když je čisto, řekni „čisto". Žádné vymyšlené „doporučené hloubkové skeny".
 7. **Zero telemetry.** Nic neodchází ze zařízení. Žádný účet, žádné analytics.
+   **Výjimka (opt-in):** volitelný AI asistent (Gemini) — defaultně vypnutý, aktivní
+   jen když uživatel dodá vlastní API klíč; posílá **pouze metadata** (názvy, velikosti,
+   kategorie, dotaz), **nikdy obsah souborů**. Speed test kontaktuje Cloudflare jen na
+   akci uživatele a nic neposílá. Vše ostatní zůstává offline.
 
 ## Konvence kódu
 - **Swift 5.9+**, SwiftUI pro UI, Swift Package Manager.

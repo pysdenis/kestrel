@@ -2,7 +2,7 @@ import SwiftUI
 import KestrelCore
 
 enum AppSection: String, CaseIterable, Identifiable, Hashable {
-    case dashboard, cleanup, space, energy, security, tools, activity, settings
+    case dashboard, cleanup, space, energy, security, tools, assistant, activity, settings
     var id: String { rawValue }
 
     var title: String {
@@ -13,6 +13,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         case .energy: return "Energy"
         case .security: return "Security"
         case .tools: return "Tools"
+        case .assistant: return "Assistant"
         case .activity: return "Activity"
         case .settings: return "Settings"
         }
@@ -26,6 +27,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         case .energy: return "bolt.fill"
         case .security: return "shield.lefthalf.filled"
         case .tools: return "wrench.and.screwdriver"
+        case .assistant: return "bubble.left.and.sparkles"
         case .activity: return "clock.arrow.circlepath"
         case .settings: return "gearshape"
         }
@@ -62,6 +64,7 @@ struct MainWindow: View {
         case .energy: EnergySection()
         case .security: SecuritySection()
         case .tools: ToolsSection()
+        case .assistant: AssistantSection()
         case .activity: ActivitySection()
         case .settings: SettingsSection()
         }

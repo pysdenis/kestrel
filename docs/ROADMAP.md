@@ -102,8 +102,8 @@ Detaily viz brainstorm; AI je vždy opt-in a posílá jen metadata (invariant #7
 - [x] **`launchd` automatizace** pro rules (`RulesScheduler`, `kestrel rules install-agent`).
 - [ ] **Perceptuální hash** na podobné fotky + seskupení screenshotů.
 - [x] **System extensions audit** (`SystemExtensionAuditor`, `kestrel sysext`); config profiles zbývá.
-- [ ] **Lokální notifikace** (UserNotifications) — málo místa / velký nález.
-- [ ] **Menu bar quick action** „Free up dev junk" jedním klikem.
+- [x] **Lokální notifikace** (`Notifier`, UserNotifications) — málo místa (opt-in toggle v Settings, bundle-guarded).
+- [x] **Menu bar quick action** „Clean dev junk" (popover → Cleanup dev sken k review).
 
 ## Fáze 7 — Vydání 📦 (rozpracováno)
 - [ ] Vlastní branding + ikony (NE od CleanMyMac) — zatím SF Symbol `bird.fill`.
@@ -130,13 +130,13 @@ Vše drží invarianty: dry-run default, vault + undo, audit, unknown se nemaže
 - [x] **Malware Finder** — čestný scanner (EICAR + heuristika, quarantined) → [ ] bundling **ClamAV + YARA** + freshclam definice.
 - [x] **Privacy Items** — browser cache/history/cookies → [ ] rozšířit (recent items, uložené stavy, chat/app logy).
 - [x] On-access sken (FSEvents).
-- [ ] **Application Permissions** — přehled TCC oprávnění appek (kamera/mikrofon/disk/…), read-only.
+- [x] **Application Permissions** — GUI modul `PermissionsSection` nad `TCCReader` (kamera/mikrofon/Full Disk Access/…), read-only, seskupené podle appky s ikonami.
 
 ### Performance
 - [x] **Maintenance Tasks** — advisory katalog (DNS flush, Spotlight/LaunchServices rebuild, purge, fontcache).
-- [~] **Login Items** — výpis `LaunchAgentAuditor` + `kestrel login-items`; toggle přes launchctl (advisory).
+- [x] **Login Items** — výpis `LaunchAgentAuditor` + `kestrel login-items` + **GUI karta v Tools** (orphan badge, reveal).
 - [x] **Background Items** — výpis všech agentů/daemonů (`kestrel login-items` / `background-items`).
-- [ ] **Free up RAM** — `purge` / uvolnění neaktivní paměti (opt-in).
+- [x] **Free up RAM** — `MemoryReliever` (`purge`), tlačítko v Energy Memory kartě (opt-in, non-destructive).
 - [x] **Power & Wake auditor** — kdo brání spánku — *navíc*.
 
 ### Applications
@@ -183,7 +183,8 @@ Diferenciátory — většina už hotová, tady jako přehled + zbytek.
 - [x] Dev-first úklid (chápe repozitáře), [x] Vault + Undo, [x] Secrets scanner, [x] čestný AV (nestraší),
       [x] Energy per-app + quit + live time-left, [x] Zero telemetry, [x] plné CLI (skriptovatelné, CI/cron),
       [x] AI asistent + „druhý názor", [x] Storage forecast, [x] Rules engine + launchd, [x] Shredder.
-- [x] Command palette (⌘K), [ ] Weekly digest, [ ] Lokální notifikace, [ ] Bandwidth monitor per-app,
+- [x] Command palette (⌘K, klávesová navigace), [x] Lokální notifikace, [x] Free up RAM, [x] App Permissions (TCC),
+      [x] Login Items viewer, [x] Drag&drop sken složky, [ ] Weekly digest (GUI), [ ] Bandwidth monitor per-app,
       [ ] Apple Shortcuts integrace, [ ] „Explain this" všude.
 
 ---

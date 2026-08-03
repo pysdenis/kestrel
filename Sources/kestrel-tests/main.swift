@@ -224,6 +224,25 @@ withTempDir { tmp in
     check(classifyDir(makeDir(tmp.appendingPathComponent("my-notes"))).category == .unknown, "random folder untouched")
 }
 
+// MARK: - Cache / log classifier
+
+func classifyPath(_ path: String, dir: Bool = false) -> ClassifiedEntry {
+    CacheLogClassifier().classify(FileEntry(url: URL(fileURLWithPath: path), size: 1, modified: Date(), isDirectory: dir))
+}
+
+section("CacheLog: recognises per-app and developer-tool caches")
+check(classifyPath("/Users/x/Library/Caches/com.app/blob").category == .safeCache, "Library cache")
+check(classifyPath("/Users/x/.npm/_cacache/index/ab").category == .safeCache, "npm cache")
+check(classifyPath("/Users/x/.cargo/registry/cache/x.crate").category == .safeCache, "Cargo cache")
+check(classifyPath("/Users/x/.gradle/caches/modules/x.jar").category == .safeCache, "Gradle cache")
+check(classifyPath("/Users/x/go/pkg/mod/cache/download/x.zip").category == .safeCache, "Go mod cache")
+
+section("CacheLog: log locations vs stray project logs")
+check(classifyPath("/Users/x/Library/Logs/app.log").category == .logs, "Library log")
+check(classifyPath("/Users/x/.npm/_logs/2026.log").category == .logs, "npm log")
+check(classifyPath("/Users/x/proj/debug.log").category == .unknown, "stray project log left alone")
+check(classifyPath("/Users/x/proj/src/main.swift").category == .unknown, "source left alone")
+
 // MARK: - Safety guard
 
 section("SafetyGuard: protects credentials, VCS, system and libraries")

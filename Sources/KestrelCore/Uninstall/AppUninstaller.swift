@@ -74,6 +74,23 @@ public struct AppUninstaller {
         return CleanupPlan(items: dedupe(items))
     }
 
+    /// Reset an app to a clean state: move its data (caches, preferences, containers,
+    /// saved state…) to the vault but keep the app itself. Undoable like everything else.
+    public func resetPlan(for appURL: URL) throws -> CleanupPlan {
+        guard appURL.pathExtension == "app" else { throw UninstallError.notAnApp(appURL.path) }
+        guard !appURL.path.hasPrefix("/System/") else { throw UninstallError.systemApp(appURL.path) }
+        guard fm.fileExists(atPath: appURL.path) else { throw UninstallError.missing(appURL.path) }
+
+        let bundleId = bundleIdentifier(of: appURL)
+        let appName = appURL.deletingPathExtension().lastPathComponent
+        var items: [CleanupItem] = []
+        for (url, reason) in leftoverCandidates(bundleId: bundleId, appName: appName)
+        where fm.fileExists(atPath: url.path) && !SafetyGuard.isProtected(url) {
+            items.append(CleanupItem(entry: sizedEntry(url), category: .appLeftover, reason: "Reset: \(reason)"))
+        }
+        return CleanupPlan(items: dedupe(items))
+    }
+
     // MARK: - Internals
 
     private func leftoverCandidates(bundleId: String?, appName: String) -> [(URL, String)] {

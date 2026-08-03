@@ -58,7 +58,7 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 - [x] SmartScan (orchestrace health + clutter + review + AV) — `SmartScan`, `kestrel smartscan`.
 - [x] MaintenanceService (advisory katalog: DNS flush, Spotlight/LaunchServices rebuild, purge, fontcache).
 - [x] App Updater (Homebrew casks outdated + Sparkle feed reader) + orphaned data (`OrphanFinder`, `kestrel orphans`).
-- [ ] Cloud Cleanup (iCloud Drive/Dropbox/GDrive, offload místo mazání).
+- [x] Cloud Cleanup (`CloudOffloadFinder`, `kestrel cloud` — offload iCloud přes brctl, advisory).
 - [x] Privacy cleaner (browser cache/history/cookies, review-only) — `PrivacyClassifier`.
 - [x] My Activity view nad AuditLog + statistiky úspor (`ActivityReporter`, `kestrel activity`).
 
@@ -98,7 +98,7 @@ Detaily viz brainstorm; AI je vždy opt-in a posílá jen metadata (invariant #7
 - [x] **AI „druhý názor" před `apply`** (`AIAssistant.review`, CLI `clean --review`, GUI tlačítko).
 - [x] **AI vysvětlení bezpečnostního nálezu** (`AIAssistant.explainFinding`, `kestrel av explain`).
 - [ ] **Přirozený jazyk → rule** — „ukliď node_modules starší měsíce" → AI navrhne pravidlo (uživatel potvrdí, nemaže samo).
-- [ ] **Weekly AI digest** nad snapshoty („co narostlo od minule").
+- [x] **Weekly digest** (`DigestReporter`, `kestrel digest` — úspory + trend + co narostlo).
 - [x] **`launchd` automatizace** pro rules (`RulesScheduler`, `kestrel rules install-agent`).
 - [ ] **Perceptuální hash** na podobné fotky + seskupení screenshotů.
 - [x] **System extensions audit** (`SystemExtensionAuditor`, `kestrel sysext`); config profiles zbývá.
@@ -143,7 +143,7 @@ Vše drží invarianty: dry-run default, vault + undo, audit, unknown se nemaže
 - [x] **Uninstaller** (bundle + leftovers).
 - [x] **App Leftovers** (`OrphanFinder`).
 - [~] **App Updater** (Homebrew casks outdated) → [ ] Sparkle feedy + GUI seznam s update tlačítky.
-- [ ] **Reset App** — smazat data appky, ne appku samotnou (soft reset).
+- [x] **Reset App** — `AppUninstaller.resetPlan`, `kestrel reset` (vymaže data, appku nechá).
 
 ### My Clutter
 - [x] **Duplicate Finder** (size→partial→full hash).

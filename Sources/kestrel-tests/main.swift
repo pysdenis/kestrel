@@ -990,6 +990,45 @@ withTempDir { tmp in
     check(names == ["a.png", "b.png"], "a and b grouped, c separate")
 }
 
+// MARK: - Reset app / Cloud / Digest
+
+section("AppUninstaller.resetPlan: clears data but keeps the app bundle")
+withTempDir { tmp in
+    let apps = makeDir(tmp.appendingPathComponent("Applications"))
+    let home = makeDir(tmp.appendingPathComponent("home"))
+    let app = makeApp(apps, bundleId: "com.test.app")
+    makeFile(home.appendingPathComponent("Library/Caches/com.test.app/blob"), "cache")
+    makeFile(home.appendingPathComponent("Library/Preferences/com.test.app.plist"), "prefs")
+
+    let plan = try AppUninstaller(home: home).resetPlan(for: app)
+    let names = plan.items.map { $0.entry.url.lastPathComponent }
+    check(!names.contains("Test.app"), "app bundle kept (not reset)")
+    check(names.contains("com.test.app") && names.contains("com.test.app.plist"), "data cleared")
+}
+
+section("CloudOffloadFinder: large local files, skips placeholders")
+withTempDir { tmp in
+    makeFile(tmp.appendingPathComponent("big.mov"), String(repeating: "x", count: 200))
+    makeFile(tmp.appendingPathComponent("small.txt"), "x")
+    makeFile(tmp.appendingPathComponent("stub.icloud"), String(repeating: "x", count: 200))
+    let found = CloudOffloadFinder().find(under: tmp, minSizeBytes: 100).map { $0.url.lastPathComponent }
+    check(found == ["big.mov"], "only the large materialized file (got \(found))")
+}
+
+section("DigestReporter: combines savings and storage trend")
+withTempDir { tmp in
+    let audit = AuditLog(url: tmp.appendingPathComponent("audit.log"))
+    try audit.append(AuditEntry(action: "vault-move", category: "devArtifact", paths: ["/a"], bytes: 5000, result: "ok"))
+    let store = SnapshotStore(directory: tmp.appendingPathComponent("snap"))
+    let day1 = Date(timeIntervalSince1970: 1_700_000_000)
+    try store.save(DiskSnapshot(date: day1, space: DiskSpace(total: 1000, available: 900), breakdown: ["/x": 10]))
+    try store.save(DiskSnapshot(date: day1.addingTimeInterval(2 * 86400), space: DiskSpace(total: 1000, available: 860), breakdown: ["/x": 50]))
+    let digest = DigestReporter(audit: audit, snapshots: store).generate()
+    check(digest.reclaimedAllTime == 5000, "all-time savings")
+    check(digest.dailyGrowthBytes == 20, "growth from snapshots")
+    check(digest.recentChanges.first?.path == "/x", "what grew")
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

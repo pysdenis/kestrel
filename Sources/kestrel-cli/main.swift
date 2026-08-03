@@ -232,6 +232,9 @@ func usage() {
       kestrel vault undo <session-id>
       kestrel vault purge [--days N]                                (default: 14)
       kestrel uninstall <app> [--apply]         (app bundle + leftovers → vault)
+      kestrel reset <app> [--apply]             (clear an app's data, keep the app)
+      kestrel cloud                             (large local iCloud files, offloadable)
+      kestrel digest                            (weekly digest: savings + storage trend)
       kestrel orphans [--apply]                 (leftover data from removed apps)
       kestrel installers [path] [--apply]       (old .dmg/.pkg/.iso; default: Downloads)
       kestrel screenshots [path] [--apply]      (screenshots; default: Desktop)
@@ -624,6 +627,35 @@ do {
             print("  \(mark)  \(i.label ?? "?")\n       \(i.program ?? "—")")
         }
         print("\nDisable one with:  launchctl bootout gui/$(id -u) <path>")
+
+    case "reset":
+        guard let target = rest.first(where: { !$0.hasPrefix("-") }) else { print("Usage: kestrel reset <app name or path> [--apply]"); exit(2) }
+        let uninstaller = AppUninstaller()
+        let app = try uninstaller.resolve(target)
+        print("Reset \(app.lastPathComponent) — keeps the app, clears its data\n")
+        try runPlan(try uninstaller.resetPlan(for: app), apply: flag("--apply", in: rest))
+
+    case "cloud":
+        let finder = CloudOffloadFinder()
+        let files = finder.find()
+        if files.isEmpty { print("No large local iCloud files to offload."); break }
+        let total = files.reduce(Int64(0)) { $0 + $1.size }
+        print("\(files.count) large local iCloud file(s), \(fmtBytes(total)) offloadable (stay in iCloud):")
+        for f in files.prefix(30) { print("  \(fmtBytes(f.size).padding(toLength: 10, withPad: " ", startingAt: 0))  \(f.url.path)") }
+        print("\nOffload one with:  \(finder.evictCommand(for: files[0].url))")
+        print("(Delegated to iCloud — the file stays in the cloud, not moved to the vault.)")
+
+    case "digest":
+        let d = DigestReporter(audit: audit, snapshots: SnapshotStore(directory: paths.snapshots)).generate()
+        print("Kestrel digest")
+        print("  Reclaimed all-time: \(fmtBytes(d.reclaimedAllTime)) across \(d.totalActions) action(s)")
+        if let g = d.dailyGrowthBytes {
+            print("  Storage growth: \(g >= 0 ? "+" : "-")\(fmtBytes(abs(g)))/day" + (d.daysUntilFull.map { ", full in ~\(fmtDays($0))" } ?? ""))
+        }
+        if !d.recentChanges.isEmpty {
+            print("  Changed since last snapshot:")
+            for c in d.recentChanges { print("    \(c.delta >= 0 ? "+" : "-")\(fmtBytes(abs(c.delta)))  \(c.path)") }
+        }
 
     case "trash":
         try runPlan(TrashFinder().find(), apply: flag("--apply", in: rest))

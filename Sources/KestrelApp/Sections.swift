@@ -843,63 +843,92 @@ struct ToolsSection: View {
                 }
             }
 
-            Card {
-                VStack(alignment: .leading, spacing: 12) {
-                    SectionTitle("Secrets scanner", icon: "key.horizontal")
-                    HStack {
-                        Text(controller.project.path).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
-                        Spacer()
-                        Button("Choose…") { controller.pickProject() }.buttonStyle(.kestrel(.subtle, size: .small))
-                        Button { controller.scanSecrets() } label: {
-                            Text(controller.secretsScanning ? "Scanning…" : "Scan")
-                        }
-                        .buttonStyle(.kestrel).disabled(controller.secretsScanning)
-                    }
-                    if controller.secretsScanning {
-                        ScanningBanner(title: "Scanning for leaked secrets…",
-                                       detail: "Reading \(controller.project.lastPathComponent)…", tint: Palette.kestrel)
-                    } else if let secrets = controller.secrets {
-                        if secrets.isEmpty {
-                            EmptyState(icon: "checkmark.circle.fill", title: "No leaked credentials",
-                                       caption: "No API keys, tokens or private keys found in \(controller.project.lastPathComponent).")
-                        } else {
-                            Label("\(secrets.count) potential secret(s)", systemImage: "exclamationmark.triangle.fill")
-                                .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.orange)
-                            ForEach(Array(secrets.prefix(40).enumerated()), id: \.offset) { _, m in
-                                Text("[\(m.rule)] \(m.path):\(m.line)").font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                            }
-                        }
-                    }
-                }
-            }
+            secretsCard
+            awakeCard
+            maintenanceCard
+        }
+        .onAppear { controller.loadMeta() }
+    }
 
-            Card {
-                VStack(alignment: .leading, spacing: 8) {
-                    SectionTitle("Keeping the Mac awake", icon: "moon.zzz")
-                    if controller.sleepers.isEmpty {
-                        Label("Nothing is preventing sleep.", systemImage: "checkmark.circle").foregroundStyle(Palette.good)
+    private var secretsCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionTitle("Secrets scanner", icon: "key.horizontal")
+                FolderChip(url: controller.project) { controller.pickProject() }
+                Button { controller.scanSecrets() } label: {
+                    Label(controller.secretsScanning ? "Scanning…" : "Scan for leaked credentials", systemImage: "key.viewfinder")
+                }
+                .buttonStyle(.kestrel).disabled(controller.secretsScanning)
+
+                if controller.secretsScanning {
+                    ScanningBanner(title: "Scanning for leaked secrets…",
+                                   detail: "Reading \(controller.project.lastPathComponent)…", tint: Palette.kestrel)
+                } else if let secrets = controller.secrets {
+                    if secrets.isEmpty {
+                        EmptyState(icon: "checkmark.circle.fill", title: "No leaked credentials",
+                                   caption: "No API keys, tokens or private keys found in \(controller.project.lastPathComponent).")
                     } else {
-                        ForEach(Array(controller.sleepers.enumerated()), id: \.offset) { _, a in
-                            Text("\(a.process) — \(a.type)").font(.callout).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-
-            Card {
-                VStack(alignment: .leading, spacing: 8) {
-                    SectionTitle("Maintenance", icon: "wrench.adjustable")
-                    Text("Run these yourself — they change system state.").font(.caption).foregroundStyle(.secondary)
-                    ForEach(Array(controller.maintenance.enumerated()), id: \.offset) { _, t in
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(t.name + (t.needsSudo ? "  (needs sudo)" : "")).font(.callout.weight(.medium))
-                            Text(t.command).font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled).lineLimit(1).truncationMode(.middle)
+                        Label("\(secrets.count) potential secret(s)", systemImage: "exclamationmark.triangle.fill")
+                            .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.orange)
+                        ForEach(Array(secrets.prefix(40).enumerated()), id: \.offset) { _, m in
+                            HStack(spacing: 8) {
+                                StatePill(text: m.rule, ok: false)
+                                Text("\(m.path):\(m.line)").font(.caption.monospaced()).foregroundStyle(.secondary)
+                                    .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+                                Spacer()
+                            }
+                            .padding(.vertical, 2)
                         }
                     }
                 }
             }
         }
-        .onAppear { controller.loadMeta() }
+    }
+
+    private var awakeCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("Keeping the Mac awake", icon: "moon.zzz")
+                if controller.sleepers.isEmpty {
+                    Label("Nothing is preventing sleep.", systemImage: "checkmark.circle").foregroundStyle(Palette.good).font(.callout)
+                } else {
+                    ForEach(Array(controller.sleepers.enumerated()), id: \.offset) { _, a in
+                        HStack(spacing: 8) {
+                            Image(systemName: "cup.and.saucer").font(.caption).foregroundStyle(Palette.orange)
+                            Text(a.process).font(.callout)
+                            Spacer()
+                            StatePill(text: a.type, ok: false)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var maintenanceCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("Maintenance", icon: "wrench.adjustable")
+                Text("Advisory — run these yourself; they change system state. Copy the command when you're ready.")
+                    .font(.caption).foregroundStyle(.secondary)
+                ForEach(Array(controller.maintenance.enumerated()), id: \.offset) { i, t in
+                    if i > 0 { Hairline() }
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text(t.name).font(.callout.weight(.medium))
+                                if t.needsSudo { StatePill(text: "sudo", ok: false) }
+                            }
+                            Text(t.command).font(.caption.monospaced()).foregroundStyle(.secondary)
+                                .textSelection(.enabled).lineLimit(1).truncationMode(.middle)
+                        }
+                        Spacer()
+                        CopyButton(text: t.command)
+                    }
+                    .padding(.vertical, 3)
+                }
+            }
+        }
     }
 
     /// Build a `PlanToolCard` bound to a persistent per-tool state, so its scan survives
@@ -908,5 +937,27 @@ struct ToolsSection: View {
                           scan: @escaping @Sendable () -> CleanupPlan) -> some View {
         PlanToolCard(id: title, title: title, subtitle: subtitle, icon: icon, tint: tint,
                      state: controller.state(title), scan: scan)
+    }
+}
+
+/// A copy-to-clipboard button that flips to a checkmark for a moment — used for advisory
+/// maintenance commands the user runs themselves.
+struct CopyButton: View {
+    let text: String
+    @State private var copied = false
+
+    var body: some View {
+        Button {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            withAnimation(.easeOut(duration: 0.15)) { copied = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+                withAnimation(.easeOut(duration: 0.2)) { copied = false }
+            }
+        } label: {
+            Image(systemName: copied ? "checkmark" : "doc.on.doc").font(.caption.weight(.semibold))
+        }
+        .buttonStyle(.kestrel(.subtle, tint: copied ? Palette.good : Palette.accent, size: .small))
+        .help("Copy command")
     }
 }

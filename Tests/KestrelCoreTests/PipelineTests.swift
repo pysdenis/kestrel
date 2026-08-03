@@ -35,6 +35,7 @@ final class PipelineTests: XCTestCase {
     }
 
     func testDryRunMovesNothing() throws {
+        try "{}".write(to: tmp.appendingPathComponent("package.json"), atomically: true, encoding: .utf8) // confirms 'build'
         let dir = try makeDir("build", file: "out.o")
         let entries = try Scanner().scanChildren(of: tmp)
         let plan = Planner().plan(entries.map(RuleClassifier().classify))
@@ -50,6 +51,7 @@ final class PipelineTests: XCTestCase {
     }
 
     func testApplyMovesToVaultAndAudits() throws {
+        try "[package]".write(to: tmp.appendingPathComponent("Cargo.toml"), atomically: true, encoding: .utf8) // confirms 'target'
         let dir = try makeDir("target", file: "app")
         let entries = try Scanner().scanChildren(of: tmp)
         let plan = Planner().plan(entries.map(RuleClassifier().classify))

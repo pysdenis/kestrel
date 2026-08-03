@@ -17,13 +17,20 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 
 > Pozn.: XCTest (`swift test`) vyžaduje plný Xcode. Bez něj: `swift run kestrel-tests`.
 
-## Fáze 1 — Čisticí jádro + CLI 🧹
-- [ ] Classifiery: safe cache/logs, dev-artefakty (node/Xcode/Python/Rust/Java/CocoaPods),
-      duplicity (size→partial hash→full hash), velké & staré soubory.
-- [ ] Docker cleanup adapter (`docker system df` / `prune` s náhledem).
+## Fáze 1 — Čisticí jádro + CLI 🧹 (rozpracováno)
+- [x] Classifiery: safe cache/logs (per-app + dev-tool cache), dev-artefakty
+      (node/Xcode/Python/Rust/Java/Gradle/CocoaPods) s potvrzením přes project marker,
+      duplicity (size→partial hash→full hash), velké & staré soubory (konfig. prahy).
+- [x] `SafetyGuard` blacklist (klíče, klíčenky, `.git`, Photos, systémové cesty)
+      jako finální brána v planneru + review-only kategorie (dupes/large).
+- [x] `ScanCoordinator` — jeden rekurzivní průchod, najde i vnořené dev-artefakty.
+- [x] Docker cleanup adapter (`docker system df` náhled, advisory — mimo vault).
+- [x] Homebrew adapter (`brew cleanup --dry-run` náhled, advisory — mimo vault).
+- [x] `kestrel clean --category cache|logs|dev|dupes|large [--apply]` + breakdown.
 - [ ] App uninstaller (bundle + leftovers).
-- [ ] `kestrel clean --category ... [--apply]`.
+- [ ] Skutečné provedení Docker/brew prune (mimo vault → vyžaduje explicitní opt-in UX).
 **DoD:** reálně uvolní místo na mém Macu, defaultně dry-run, nic důležitého nesmaže (testy).
+Stav: 90 testů zelených (`swift run kestrel-tests`). Zbývá app uninstaller.
 
 ## Fáze 2 — Přehled místa 📊
 - [ ] `DiskMap` rekurzivní velikosti (paralelně).

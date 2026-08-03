@@ -29,15 +29,31 @@ Bezpečnostní základ postaven a ověřen end-to-end (22/22 testů zelených):
 5. Antivirus nikdy nestraší. Zero telemetry.
 6. Testy na temp adresářích — nikdy nesahat na reálný `~/Library` v testech.
 
-## Další krok: Fáze 1 — čisticí jádro (dev-first)
-Pořadí dle Denisovy niky (vývojářský úklid má přednost):
-1. Rozšířit classifiery: cache/logy (per-app), **dev-artefakty** (node_modules, DerivedData,
-   .venv, target, dist, build, .gradle, CocoaPods), **Docker** (`docker system df`/prune náhled),
-   **Homebrew** (`brew cleanup`, staré verze).
-2. **Duplicity**: size → partial hash → full hash.
-3. **Velké & staré soubory**: konfigurovatelné prahy.
-4. Každý classifier = vlastní typ + testy (napřed test, pak zapojení do plánu).
-5. Rozšířit CLI výstup o breakdown po kategoriích.
+## Fáze 1 — čisticí jádro (dev-first) — ROZPRACOVÁNO (90 testů zelených)
+Hotovo:
+- **`SafetyGuard`** (`Safety/SafetyGuard.swift`): centrální blacklist (klíče, klíčenky,
+  `.git`/`.svn`/`.hg`, Photos/Music knihovny, lockfiles, systémové cesty) — finální brána
+  v `Planner`u, i kdyby classifier zaškobrtl. Review-only kategorie (`dupes`/`large`)
+  se do „ukliď vše" nikdy nezametou (`Category.requiresExplicitSelection`).
+- **`DevArtifactClassifier`**: dev-artefakty přes „project marker" (node_modules↔package.json,
+  target↔Cargo.toml/pom.xml, Pods↔Podfile, .build↔Package.swift, venv↔pyvenv.cfg…).
+  Generické názvy (build/dist/out/target) bez markeru = `unknown`. Distinktivní
+  (node_modules, DerivedData, __pycache__) se věří podle jména.
+- **`CacheLogClassifier`**: per-app Library cache/logy + dev-tool cache (npm, yarn, pnpm,
+  pip, Cargo, Go, Gradle, Maven, CocoaPods, Homebrew). Stray projektové `.log` se nechají být.
+- **`LargeOldClassifier`**: konfigurovatelné prahy (default 100 MB / 180 dní), review-only.
+- **`DuplicateFinder`**: size → partial hash → full SHA-256; nechá jeden originál, vrací kopie.
+- **`ScanCoordinator`**: jeden rekurzivní průchod, prořezává dev-artefakty i cache jednotky,
+  najde i **vnořené** node_modules v monorepu; zbytek sbírá pro dupes/large.
+- **Docker/Homebrew adaptery** (`External/`): advisory náhled reclaimable místa
+  (`docker system df`, `brew cleanup --dry-run`), Kestrel sám nic nemaže (mimo vault).
+  `CommandRunner` je injektovatelný → testy bez nainstalovaných nástrojů.
+- **CLI**: `scan`/`clean` přes coordinator, breakdown po kategoriích, „Review (opt-in)"
+  sekce, `--min-size/--min-age/--no-dupes/--no-large`, `kestrel docker`, `kestrel brew`.
+
+Zbývá ve Fázi 1:
+- **App uninstaller** (bundle + leftovers).
+- Reálné provedení Docker/brew prune (mimo vault → potřebuje explicitní opt-in UX).
 
 Pak Fáze 2 (Space Lens/přehled místa) → Fáze 3 (SwiftUI menubar GUI, tady přijde Xcode)
 → Fáze 4 (antivirus) → Fáze 5 (zbytek CleanMyMac sekcí) → Fáze 6 (extra) → Fáze 7 (release).

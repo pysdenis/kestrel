@@ -8,6 +8,8 @@ import KestrelCore
 struct CommandPaletteView: View {
     @EnvironmentObject private var model: AppModel
     @State private var query = ""
+    @State private var selected = 0
+    @State private var keyMonitor: Any?
     @FocusState private var focused: Bool
 
     private struct Command: Identifiable {
@@ -51,29 +53,33 @@ struct CommandPaletteView: View {
                 TextField("Search or run a command…", text: $query)
                     .textFieldStyle(.plain).font(.title3)
                     .focused($focused)
-                    .onSubmit { runFirst() }
+                    .onSubmit { runSelected() }
+                    .onChange(of: query) { _ in selected = 0 }
                 Text("esc").font(.caption.monospaced()).foregroundStyle(.tertiary)
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(.quaternary, in: RoundedRectangle(cornerRadius: 5))
             }
             .padding(16)
             Hairline()
-            ScrollView {
-                VStack(spacing: 2) {
-                    ForEach(Array(filtered.enumerated()), id: \.element.id) { i, command in
-                        row(command, highlighted: i == 0 && !query.isEmpty)
-                    }
-                    if filtered.isEmpty {
-                        VStack(spacing: 8) {
-                            Image(systemName: "questionmark.circle").font(.title).foregroundStyle(.tertiary)
-                            Text("No matching commands.").foregroundStyle(.secondary)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 2) {
+                        ForEach(Array(filtered.enumerated()), id: \.element.id) { i, command in
+                            row(command, highlighted: i == selected).id(i)
                         }
-                        .frame(maxWidth: .infinity).padding(28)
+                        if filtered.isEmpty {
+                            VStack(spacing: 8) {
+                                Image(systemName: "questionmark.circle").font(.title).foregroundStyle(.tertiary)
+                                Text("No matching commands.").foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity).padding(28)
+                        }
                     }
+                    .padding(8)
                 }
-                .padding(8)
+                .frame(maxHeight: 340)
+                .onChange(of: selected) { new in withAnimation(.easeOut(duration: 0.12)) { proxy.scrollTo(new, anchor: .center) } }
             }
-            .frame(maxHeight: 340)
             Hairline()
             HStack(spacing: 14) {
                 hint("return", "run")
@@ -88,10 +94,38 @@ struct CommandPaletteView: View {
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.1)))
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .shadow(color: .black.opacity(0.3), radius: 30, y: 12)
-        .onAppear { focused = true }
+        .onAppear { focused = true; installKeyMonitor() }
+        .onDisappear { removeKeyMonitor() }
         .overlay(alignment: .topTrailing) {
             Button("", action: dismiss).keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0)
         }
+    }
+
+    /// Arrow-key navigation via a local key monitor — ↑/↓ move the selection, Return runs
+    /// it. Reads/writes @State through its stable storage, so it always sees the current
+    /// query and selection.
+    private func installKeyMonitor() {
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            let count = filtered.count
+            switch event.keyCode {
+            case 125: // down
+                if count > 0 { selected = min(selected + 1, count - 1) }
+                return nil
+            case 126: // up
+                if count > 0 { selected = max(selected - 1, 0) }
+                return nil
+            case 36, 76: // return / enter
+                runSelected()
+                return nil
+            default:
+                return event
+            }
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+        keyMonitor = nil
     }
 
     private func row(_ command: Command, highlighted: Bool) -> some View {
@@ -123,6 +157,10 @@ struct CommandPaletteView: View {
     }
 
     private func run(_ command: Command) { command.run(); dismiss() }
-    private func runFirst() { if let first = filtered.first { run(first) } }
-    private func dismiss() { model.showPalette = false }
+    private func runSelected() {
+        let list = filtered
+        if list.indices.contains(selected) { run(list[selected]) }
+        else if let first = list.first { run(first) }
+    }
+    private func dismiss() { removeKeyMonitor(); model.showPalette = false }
 }

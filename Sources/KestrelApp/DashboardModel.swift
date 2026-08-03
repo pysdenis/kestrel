@@ -89,6 +89,29 @@ final class AppModel: ObservableObject {
     /// caches). Refreshed when a surface appears; features that need it show a hint.
     @Published var fullDiskAccess = true
 
+    /// Opt-in local notifications (low disk space). Off by default; nothing leaves the Mac.
+    @Published var notificationsEnabled = UserDefaults.standard.bool(forKey: "kestrel.notifications")
+    private var lowDiskNotified = false
+
+    func setNotifications(_ on: Bool) {
+        notificationsEnabled = on
+        UserDefaults.standard.set(on, forKey: "kestrel.notifications")
+        if on { Notifier.shared.requestAuthorization() }
+    }
+
+    private func maybeNotifyLowDisk(_ disk: DiskSpace?) {
+        guard let disk, notificationsEnabled, disk.total > 0 else { return }
+        let freeFraction = Double(disk.available) / Double(disk.total)
+        if freeFraction < 0.10, !lowDiskNotified {
+            lowDiskNotified = true
+            Notifier.shared.notify(title: "Low disk space",
+                                   body: "Only \(bytesString(disk.available)) free. Open Kestrel to reclaim space.",
+                                   id: "kestrel.low-disk")
+        } else if freeFraction > 0.15 {
+            lowDiskNotified = false
+        }
+    }
+
     private let stats = StatsCollector()
     private let cpuSampler = CPUUsageSampler()
     lazy var cpuBrand: String = stats.cpuBrand()
@@ -104,8 +127,10 @@ final class AppModel: ObservableObject {
     // MARK: - Lifecycle (drives all polling — nothing runs while nothing is shown)
 
     /// Call from a surface's `.onAppear`.
+    private var requestedNotifAuth = false
     func surfaceAppeared() {
         visibleSurfaces += 1
+        if notificationsEnabled, !requestedNotifAuth { requestedNotifAuth = true; Notifier.shared.requestAuthorization() }
         refresh()
         Task.detached {
             let granted = FullDiskAccess.isGranted()
@@ -187,6 +212,8 @@ final class AppModel: ObservableObject {
         self.battery = battery
         self.health = HealthScorer().score(disk: disk, memory: memory, cpu: cpu, battery: battery)
 
+        maybeNotifyLowDisk(disk)
+
         cpuHistory.append(cpu.usagePercent)
         if cpuHistory.count > 40 { cpuHistory.removeFirst(cpuHistory.count - 40) }
 
@@ -228,6 +255,15 @@ final class AppModel: ObservableObject {
     var speedDisplay: Double? {
         if speedTesting { return speedLive }
         return speed?.downloadMbps
+    }
+
+    /// Menu-bar quick action: open the window on Cleanup and immediately scan dev junk
+    /// (node_modules, DerivedData, build dirs…) for review — honest, no silent delete.
+    func freeDevJunk(_ open: OpenWindowAction) {
+        section = .cleanup
+        cleanup.choice = .dev
+        cleanup.scan()
+        openMainWindow(open)
     }
 
     /// Bring up the full window and give the app a Dock presence while it is open.

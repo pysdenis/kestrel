@@ -91,15 +91,22 @@ struct MenuBarView: View {
 
     private var actionCard: some View {
         Card(padding: 12) {
-            HStack(spacing: 11) {
-                Image(systemName: "sparkles").font(.title2).foregroundStyle(Palette.accent)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Free up space").font(.subheadline.weight(.semibold))
-                    Text("Dev junk, caches, duplicates & more").font(.caption).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 11) {
+                    Image(systemName: "sparkles").font(.title2).foregroundStyle(Palette.accent)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Free up space").font(.subheadline.weight(.semibold))
+                        Text("Dev junk, caches, duplicates & more").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
                 }
-                Spacer()
-                Button("Review") { model.openMainWindow(openWindow) }
-                    .buttonStyle(.kestrel(.prominent, size: .small))
+                HStack(spacing: 8) {
+                    Button { model.freeDevJunk(openWindow) } label: { Label("Clean dev junk", systemImage: "hammer") }
+                        .buttonStyle(.kestrel(.prominent, size: .small))
+                    Button { model.section = .cleanup; model.openMainWindow(openWindow) } label: { Text("Review all") }
+                        .buttonStyle(.kestrel(.secondary, size: .small))
+                    Spacer()
+                }
             }
         }
     }

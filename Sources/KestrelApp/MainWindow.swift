@@ -689,6 +689,16 @@ struct SettingsSection: View {
                                                 set: { controller.setLaunchAtLogin($0) }))
                 }
                 Hairline()
+                HStack {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Low-space notifications").font(.callout.weight(.medium))
+                        Text("A local alert when the disk is nearly full. Nothing leaves this Mac.").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    KestrelToggle(isOn: Binding(get: { model.notificationsEnabled },
+                                                set: { model.setNotifications($0) }))
+                }
+                Hairline()
                 VStack(alignment: .leading, spacing: 8) {
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Vault retention").font(.callout.weight(.medium))

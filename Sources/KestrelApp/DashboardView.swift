@@ -1,118 +1,107 @@
 import SwiftUI
 import KestrelCore
 
-/// The menu-bar dashboard: a Mac Health header, live tiles, and a one-click dry-run
-/// scan. No placebo controls — every value is real and every action maps to Core.
-struct DashboardView: View {
-    @StateObject private var model = DashboardModel()
+/// Compact menu-bar popover: a health summary, live tiles, a one-tap speed test, and a
+/// button to open the full window.
+struct MenuBarView: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.openWindow) private var openWindow
+
+    private let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            Divider()
             tiles
-            Divider()
-            freeUp
+            speedRow
             Divider()
             footer
         }
         .padding(14)
+        .frame(width: 340)
         .onAppear { model.start() }
     }
 
     private var header: some View {
-        HStack {
-            Image(systemName: "bird.fill").foregroundStyle(.tint)
-            Text("Kestrel").font(.headline)
-            Spacer()
-            if let health = model.health {
-                Text("\(health.overall)")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundStyle(color(for: health.overall))
-                Text("/ 100").foregroundStyle(.secondary).font(.caption)
+        HStack(spacing: 12) {
+            HealthRing(score: model.health?.overall ?? 0, size: 62)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Kestrel").font(.title3.weight(.bold))
+                Text(healthCaption).font(.caption).foregroundStyle(.secondary)
             }
+            Spacer()
+        }
+    }
+
+    private var healthCaption: String {
+        guard let score = model.health?.overall else { return "Measuring…" }
+        switch score {
+        case 80...: return "Your Mac looks healthy"
+        case 50..<80: return "A little attention needed"
+        default: return "Needs attention"
         }
     }
 
     private var tiles: some View {
-        VStack(spacing: 8) {
-            if let disk = model.disk {
-                Tile(label: "Disk", value: "\(Int(disk.usedFraction * 100))% full",
-                     fraction: disk.usedFraction, detail: bytes(disk.used) + " / " + bytes(disk.total))
+        LazyVGrid(columns: columns, spacing: 10) {
+            if let d = model.disk {
+                MetricTile(icon: "internaldrive", title: "Disk", value: "\(Int(d.usedFraction * 100))%",
+                           detail: "\(bytesString(d.available)) free", fraction: d.usedFraction, tint: .blue)
             }
-            if let memory = model.memory {
-                Tile(label: "Memory", value: "\(Int(memory.usedFraction * 100))% used",
-                     fraction: memory.usedFraction, detail: bytes(memory.used) + " / " + bytes(memory.total))
+            if let m = model.memory {
+                MetricTile(icon: "memorychip", title: "Memory", value: "\(Int(m.usedFraction * 100))%",
+                           detail: "\(bytesString(m.used)) used", fraction: m.usedFraction, tint: .purple)
             }
-            if let cpu = model.cpu {
-                Tile(label: "CPU", value: String(format: "load %.2f", cpu.loadAverages.first ?? 0),
-                     fraction: min(1, cpu.pressure), detail: "\(cpu.coreCount) cores")
+            if let c = model.cpu {
+                MetricTile(icon: "cpu", title: "CPU", value: String(format: "%.2f", c.loadAverages.first ?? 0),
+                           detail: "\(c.coreCount) cores", fraction: min(1, c.pressure), tint: .orange)
             }
-            if let battery = model.battery {
-                Tile(label: "Battery", value: "\(battery.percent)%",
-                     fraction: Double(battery.percent) / 100,
-                     detail: battery.healthPercent.map { "health \($0)%" } ?? (battery.isCharging ? "charging" : ""))
+            if let b = model.battery {
+                MetricTile(icon: batteryIcon(b), title: "Battery", value: "\(b.percent)%",
+                           detail: b.healthPercent.map { "health \($0)%" } ?? "", fraction: Double(b.percent) / 100, tint: .green)
             }
         }
     }
 
-    private var freeUp: some View {
-        VStack(alignment: .leading, spacing: 6) {
+    private func batteryIcon(_ b: BatteryStats) -> String {
+        b.isCharging ? "battery.100.bolt" : "battery.100"
+    }
+
+    private var speedRow: some View {
+        Card(padding: 12) {
             HStack {
-                Button {
-                    model.scan(path: "~/Developer")
-                } label: {
-                    Label("Scan ~/Developer", systemImage: "sparkles")
+                Image(systemName: "speedometer").foregroundStyle(.teal)
+                if let s = model.speed {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(String(format: "%.0f Mbps", s.downloadMbps)).font(.subheadline.weight(.semibold))
+                        Text(String(format: "%.0f ms latency", s.latencyMs)).font(.caption2).foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("Internet speed").font(.subheadline).foregroundStyle(.secondary)
                 }
-                .disabled(model.scanning)
-                if model.scanning { ProgressView().controlSize(.small) }
-            }
-            if let summary = model.scanSummary {
-                Text(summary).font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Button(action: model.runSpeedTest) {
+                    if model.speedTesting { ProgressView().controlSize(.small) }
+                    else { Text("Test").font(.callout.weight(.medium)) }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(model.speedTesting)
             }
         }
     }
 
     private var footer: some View {
         HStack {
-            Text("Dry-run — nothing is deleted without confirmation")
-                .font(.caption2).foregroundStyle(.tertiary)
-            Spacer()
-            Button("Quit") { NSApplication.shared.terminate(nil) }
-                .buttonStyle(.borderless).font(.caption)
-        }
-    }
-
-    private func color(for score: Int) -> Color {
-        switch score {
-        case 80...: return .green
-        case 50..<80: return .yellow
-        default: return .red
-        }
-    }
-
-    private func bytes(_ value: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
-    }
-}
-
-/// A single live metric row with a progress bar.
-private struct Tile: View {
-    let label: String
-    let value: String
-    let fraction: Double
-    let detail: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Text(label).font(.subheadline.weight(.medium))
-                Spacer()
-                Text(value).font(.subheadline).foregroundStyle(.secondary)
+            Button {
+                model.openMainWindow(openWindow)
+            } label: {
+                Label("Open Kestrel", systemImage: "macwindow")
             }
-            ProgressView(value: min(1, max(0, fraction)))
-                .tint(fraction > 0.9 ? .red : (fraction > 0.75 ? .yellow : .accentColor))
-            Text(detail).font(.caption2).foregroundStyle(.tertiary)
+            .buttonStyle(.borderedProminent)
+            Spacer()
+            Button("Quit") { model.quit() }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
         }
     }
 }

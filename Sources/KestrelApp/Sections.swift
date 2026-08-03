@@ -101,6 +101,9 @@ struct CleanupSection: View {
                 }
             }
         }
+        .dropFolder { url in
+            controller.root = url; controller.plan = nil; controller.message = nil; controller.scan()
+        }
     }
 
     // MARK: config
@@ -114,11 +117,15 @@ struct CleanupSection: View {
 
                 FolderChip(url: controller.root) { controller.pickFolder() }
 
-                Button { controller.scan() } label: {
-                    Label(controller.scanning ? "Scanning…" : "Scan for reclaimable space", systemImage: "magnifyingglass")
+                HStack(spacing: 10) {
+                    Button { controller.scan() } label: {
+                        Label(controller.scanning ? "Scanning…" : "Scan for reclaimable space", systemImage: "magnifyingglass")
+                    }
+                    .buttonStyle(.kestrel)
+                    .disabled(controller.scanning || controller.applying)
+                    Label("or drop a folder anywhere here", systemImage: "arrow.down.doc")
+                        .font(.caption).foregroundStyle(.tertiary)
                 }
-                .buttonStyle(.kestrel)
-                .disabled(controller.scanning || controller.applying)
             }
         }
     }
@@ -699,6 +706,7 @@ struct SecuritySection: View {
             if !controller.extensions.isEmpty { extensionsCard }
             if !controller.orphans.isEmpty { orphansCard }
         }
+        .dropFolder { url in controller.root = url; controller.report = nil; controller.scan() }
         .onAppear { controller.loadMeta() }
     }
 
@@ -885,10 +893,43 @@ struct ToolsSection: View {
             }
 
             secretsCard
+            loginItemsCard
             awakeCard
             maintenanceCard
         }
         .onAppear { controller.loadMeta() }
+    }
+
+    private var loginItemsCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("Starts at login", icon: "person.badge.clock")
+                if controller.loginItems.isEmpty {
+                    Label("No launch agents found.", systemImage: "checkmark.circle").foregroundStyle(Palette.good).font(.callout)
+                } else {
+                    Text("Launch agents that run when you log in. Ones pointing at a missing program are flagged.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    ForEach(Array(controller.loginItems.enumerated()), id: \.offset) { i, item in
+                        if i > 0 { Hairline() }
+                        HStack(spacing: 10) {
+                            Image(systemName: item.programExists ? "bolt.fill" : "bolt.slash.fill")
+                                .font(.caption).foregroundStyle(item.programExists ? Palette.accent : Palette.warn)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(item.label ?? (item.path as NSString).lastPathComponent).font(.callout).lineLimit(1).truncationMode(.middle)
+                                Text(item.program ?? item.path).font(.caption2.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                            }
+                            Spacer()
+                            if !item.programExists { StatePill(text: "orphan", ok: false) }
+                            Button { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)]) } label: {
+                                Image(systemName: "magnifyingglass")
+                            }
+                            .buttonStyle(.kestrel(.subtle, size: .small)).help("Reveal in Finder")
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+        }
     }
 
     private var secretsCard: some View {

@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 import KestrelCore
 
 // A small, consistent design language: material cards, a health ring, metric tiles and
@@ -781,4 +782,38 @@ struct ConfirmHost: ViewModifier {
 extension View {
     /// Hosts Kestrel's custom confirmation modal (driven by `AppModel.confirmRequest`).
     func confirmHost() -> some View { modifier(ConfirmHost()) }
+}
+
+/// Accept a folder dropped anywhere on a surface — a dashed accent outline highlights the
+/// drop, and the folder (a dropped file resolves to its parent) is handed to `onDrop`.
+struct FolderDrop: ViewModifier {
+    let onDrop: (URL) -> Void
+    @State private var targeted = false
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                if targeted {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Palette.accent, style: StrokeStyle(lineWidth: 2, dash: [7, 5]))
+                        .allowsHitTesting(false)
+                }
+            }
+            .onDrop(of: [.fileURL], isTargeted: $targeted) { providers in
+                guard let provider = providers.first else { return false }
+                provider.loadDataRepresentation(forTypeIdentifier: UTType.fileURL.identifier) { data, _ in
+                    guard let data, let url = URL(dataRepresentation: data, relativeTo: nil) else { return }
+                    var isDir: ObjCBool = false
+                    let dir = (FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) && isDir.boolValue)
+                        ? url : url.deletingLastPathComponent()
+                    DispatchQueue.main.async { onDrop(dir) }
+                }
+                return true
+            }
+    }
+}
+
+extension View {
+    /// Scan a folder dropped onto this surface.
+    func dropFolder(_ onDrop: @escaping (URL) -> Void) -> some View { modifier(FolderDrop(onDrop: onDrop)) }
 }

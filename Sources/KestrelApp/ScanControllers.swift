@@ -420,6 +420,7 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var secrets: [SecretMatch]?
     @Published var sleepers: [SleepAssertion] = []
     @Published var maintenance: [MaintenanceTask] = []
+    @Published var loginItems: [LaunchItem] = []
     private var states: [String: ToolRunState] = [:]
     private var loadedMeta = false
 
@@ -440,7 +441,8 @@ struct ChatMessage: Identifiable, Equatable {
         Task.detached { [weak self] in
             let sleep = PowerAuditor().assertionsPreventingSleep()
             let tasks = MaintenanceService().tasks()
-            await MainActor.run { self?.sleepers = sleep; self?.maintenance = tasks }
+            let items = LaunchAgentAuditor().audit()
+            await MainActor.run { self?.sleepers = sleep; self?.maintenance = tasks; self?.loginItems = items }
         }
     }
 

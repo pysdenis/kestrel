@@ -16,15 +16,17 @@ struct MenuBarView: View {
         VStack(alignment: .leading, spacing: 12) {
             header
             tiles
-            if let expanded { detailPanel(expanded) }
+            detailArea
             speedSection
             Divider().opacity(0.6)
             footer
         }
         .padding(14)
         .frame(width: 344)
+        .fixedSize(horizontal: false, vertical: true)
         .background(popoverBackground)
-        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: expanded)
+        // easeOut (no overshoot) so the popover grows smoothly instead of bouncing.
+        .animation(.easeOut(duration: 0.16), value: expanded)
         .onAppear { model.surfaceAppeared() }
         .onDisappear { model.surfaceDisappeared() }
     }
@@ -107,44 +109,59 @@ struct MenuBarView: View {
         .buttonStyle(.plain)
     }
 
-    @ViewBuilder private func detailPanel(_ kind: MetricKind) -> some View {
+    /// Always on screen at a constant height, so toggling details never resizes the
+    /// popover (that was the "jumping"). With no tile selected it shows the health
+    /// breakdown; tapping a tile swaps in that metric's four details in place.
+    private var detailArea: some View {
         Card(padding: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                switch kind {
-                case .disk:
-                    if let d = model.disk {
-                        row("Used", bytesString(d.used))
-                        row("Free", bytesString(d.available))
-                        if d.purgeable > 0 { row("Purgeable", bytesString(d.purgeable)) }
-                        row("Total", bytesString(d.total))
-                    }
-                case .memory:
-                    if let m = model.memory {
-                        row("App", bytesString(m.active))
-                        row("Wired", bytesString(m.wired))
-                        row("Compressed", bytesString(m.compressed))
-                        row("Free", bytesString(m.free))
-                    }
-                case .cpu:
-                    if let c = model.cpu {
-                        row("Usage", "\(Int(c.usagePercent.rounded()))%")
-                        row("Load 1 min", String(format: "%.2f", c.loadAverages[0]))
-                        row("Load 5 / 15", String(format: "%.2f / %.2f", c.loadAverages[1], c.loadAverages[2]))
-                        row("Cores", "\(c.coreCount)")
-                    }
-                case .battery:
-                    if let b = model.battery {
-                        row("Charge", "\(b.percent)%")
-                        row("State", b.isCharging ? "Charging" : "On battery")
-                        if b.isCharging, let m = b.timeToFullMinutes { row("Full in", minutesString(m)) }
-                        if !b.isCharging, let m = b.timeToEmptyMinutes { row("Time left", minutesString(m)) }
-                        if let h = b.healthPercent { row("Health", "\(h)%") }
-                        if let cy = b.cycleCount { row("Cycles", "\(cy)") }
-                    }
+            VStack(alignment: .leading, spacing: 5) {
+                detailRows
+            }
+            .frame(maxWidth: .infinity, minHeight: 94, alignment: .top)
+        }
+    }
+
+    @ViewBuilder private var detailRows: some View {
+        switch expanded {
+        case .none:
+            ForEach(model.health?.components ?? [], id: \.name) { c in
+                HStack(spacing: 8) {
+                    Text(c.name).font(.caption).foregroundStyle(.secondary).frame(width: 64, alignment: .leading)
+                    ProgressView(value: Double(c.score) / 100).tint(healthColor(c.score))
+                    Text("\(c.score)").font(.caption.monospacedDigit().weight(.medium)).frame(width: 26, alignment: .trailing)
                 }
             }
+        case .disk:
+            if let d = model.disk {
+                row("Used", bytesString(d.used))
+                row("Free", bytesString(d.available))
+                row("Purgeable", d.purgeable > 0 ? bytesString(d.purgeable) : "—")
+                row("Total", bytesString(d.total))
+            }
+        case .memory:
+            if let m = model.memory {
+                row("App", bytesString(m.active))
+                row("Wired", bytesString(m.wired))
+                row("Compressed", bytesString(m.compressed))
+                row("Free", bytesString(m.free))
+            }
+        case .cpu:
+            if let c = model.cpu {
+                row("Usage", "\(Int(c.usagePercent.rounded()))%")
+                row("Load 1 min", String(format: "%.2f", c.loadAverages[0]))
+                row("Load 5 / 15", String(format: "%.2f / %.2f", c.loadAverages[1], c.loadAverages[2]))
+                row("Cores", "\(c.coreCount)")
+            }
+        case .battery:
+            if let b = model.battery {
+                row("Charge", "\(b.percent)%")
+                row("State", b.isCharging ? "Charging" : "On battery")
+                if b.isCharging, let m = b.timeToFullMinutes { row("Full in", minutesString(m)) }
+                else if !b.isCharging, let m = b.timeToEmptyMinutes { row("Time left", minutesString(m)) }
+                else { row("Health", b.healthPercent.map { "\($0)%" } ?? "—") }
+                row("Cycles", b.cycleCount.map { "\($0)" } ?? "—")
+            }
         }
-        .transition(.asymmetric(insertion: .push(from: .top).combined(with: .opacity), removal: .opacity))
     }
 
     private func row(_ key: String, _ value: String) -> some View {

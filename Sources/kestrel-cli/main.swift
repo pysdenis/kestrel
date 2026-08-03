@@ -151,6 +151,18 @@ func printExternalPreview(_ p: ExternalCleanupPreview) {
     if let note = p.note { print("(\(note))") }
 }
 
+/// Print a plan, then either stop (dry-run) or move everything to the vault.
+func runPlan(_ plan: CleanupPlan, apply: Bool) throws {
+    printPlan(plan)
+    guard apply else {
+        if !plan.items.isEmpty { print("\nDRY-RUN — nothing moved. Re-run with --apply to move these to the vault.") }
+        return
+    }
+    let result = try CleanupExecutor(vault: vault, audit: audit).execute(plan, apply: true)
+    print("\nMoved \(result.movedCount) item(s), \(fmtBytes(result.movedBytes)) → vault session \(result.sessionId ?? "?")")
+    print("Undo with:  kestrel vault undo \(result.sessionId ?? "")")
+}
+
 // MARK: - Argument option helpers
 
 func option(_ name: String, in args: [String]) -> String? {
@@ -172,6 +184,12 @@ func usage() {
       kestrel vault purge [--days N]                                (default: 14)
       kestrel uninstall <app> [--apply]         (app bundle + leftovers → vault)
       kestrel orphans [--apply]                 (leftover data from removed apps)
+      kestrel installers [path] [--apply]       (old .dmg/.pkg/.iso; default: Downloads)
+      kestrel screenshots [path] [--apply]      (screenshots; default: Desktop)
+      kestrel secrets <path>                    (scan a project for leaked credentials)
+      kestrel power                             (what is keeping the Mac awake)
+      kestrel localsnapshots                    (APFS/Time Machine local snapshots)
+      kestrel shred <path> --apply              (secure permanent delete — no undo)
       kestrel stats [all|disk|mem|cpu|battery|net|health]
       kestrel map <path> [--depth N]            (directory size tree)
       kestrel snapshot [path]                   (record disk usage; default: home)
@@ -424,15 +442,57 @@ do {
         }
 
     case "orphans":
-        let plan = OrphanFinder().find()
-        printPlan(plan)
+        try runPlan(OrphanFinder().find(), apply: flag("--apply", in: rest))
+
+    case "installers":
+        let path = rest.first(where: { !$0.hasPrefix("-") }) ?? paths.home.appendingPathComponent("Downloads").path
+        let days = Int(option("--min-age", in: rest) ?? "30") ?? 30
+        let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        try runPlan(ClutterFinder().oldInstallers(under: root, olderThanDays: days), apply: flag("--apply", in: rest))
+
+    case "screenshots":
+        let path = rest.first(where: { !$0.hasPrefix("-") }) ?? paths.home.appendingPathComponent("Desktop").path
+        let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        try runPlan(ClutterFinder().screenshots(under: root), apply: flag("--apply", in: rest))
+
+    case "secrets":
+        guard let path = rest.first(where: { !$0.hasPrefix("-") }) else { print("Usage: kestrel secrets <path>"); exit(2) }
+        let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        let matches = SecretsScanner().scan(root: root)
+        if matches.isEmpty { print("No leaked credentials found. ✅"); break }
+        print("\(matches.count) potential secret(s):\n")
+        for m in matches.prefix(100) {
+            print("  [\(m.rule)] \(m.path):\(m.line)\n     ↳ \(m.preview)")
+        }
+
+    case "power":
+        let assertions = PowerAuditor().assertionsPreventingSleep()
+        if assertions.isEmpty { print("Nothing is preventing sleep. ✅"); break }
+        print("Processes keeping the Mac awake:")
+        for a in assertions { print("  \(a.process.padding(toLength: 24, withPad: " ", startingAt: 0)) \(a.type)") }
+
+    case "localsnapshots":
+        let auditor = LocalSnapshotAuditor()
+        let snaps = auditor.snapshots()
+        if snaps.isEmpty { print("No local Time Machine snapshots."); break }
+        print("\(snaps.count) local snapshot(s) (purgeable space):")
+        for s in snaps { print("  \(s)") }
+        if let date = auditor.deletionDate(from: snaps[0]) {
+            print("\nDelete one with:  tmutil deletelocalsnapshots \(date)")
+            print("(Delegated to tmutil — not moved to Kestrel's vault.)")
+        }
+
+    case "shred":
+        guard let path = rest.first(where: { !$0.hasPrefix("-") }) else { print("Usage: kestrel shred <path> --apply"); exit(2) }
+        let target = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
         guard flag("--apply", in: rest) else {
-            if !plan.items.isEmpty { print("\nDRY-RUN — nothing moved. Re-run with --apply to move these to the vault.") }
+            print("Would securely shred: \(target.path)")
+            print("\nWARNING: shredding is PERMANENT and bypasses the vault — it cannot be undone.")
+            print("Re-run with --apply to proceed.")
             break
         }
-        let result = try CleanupExecutor(vault: vault, audit: audit).execute(plan, apply: true)
-        print("\nMoved \(result.movedCount) item(s), \(fmtBytes(result.movedBytes)) → vault session \(result.sessionId ?? "?")")
-        print("Undo with:  kestrel vault undo \(result.sessionId ?? "")")
+        try Shredder(audit: audit).shred(target)
+        print("Shredded \(target.path). (Best-effort overwrite; on SSDs FileVault is the real protection.)")
 
     case "docker":
         printExternalPreview(DockerAdapter().preview())

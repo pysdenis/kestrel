@@ -1,0 +1,46 @@
+import Foundation
+
+/// Finds two common kinds of disposable clutter: old disk-image / installer packages
+/// (re-downloadable) and screenshots. Both are returned as ordinary vault-backed cleanup
+/// plans, so removal is undoable, and every candidate is checked against `SafetyGuard`.
+public struct ClutterFinder {
+    private let now: Date
+
+    public static let installerExtensions: Set<String> = ["dmg", "pkg", "iso"]
+
+    public init(now: Date = Date()) {
+        self.now = now
+    }
+
+    /// Installer/disk-image files not modified within `olderThanDays`.
+    public func oldInstallers(under root: URL, olderThanDays: Int = 30) -> CleanupPlan {
+        let cutoff = TimeInterval(olderThanDays) * 86400
+        let files = (try? Scanner().scanFiles(under: root, pruning: [], includingHidden: false)) ?? []
+        let items = files.compactMap { entry -> CleanupItem? in
+            guard Self.installerExtensions.contains(entry.url.pathExtension.lowercased()),
+                  now.timeIntervalSince(entry.modified) >= cutoff,
+                  !SafetyGuard.isProtected(entry.url) else { return nil }
+            let days = Int(now.timeIntervalSince(entry.modified) / 86400)
+            return CleanupItem(entry: entry, category: .largeOld, reason: "Old installer (.\(entry.url.pathExtension.lowercased())), \(days) days old")
+        }
+        return CleanupPlan(items: items)
+    }
+
+    /// Screenshot image files (macOS default naming, plus CleanShot).
+    public func screenshots(under root: URL) -> CleanupPlan {
+        let files = (try? Scanner().scanFiles(under: root, pruning: [], includingHidden: false)) ?? []
+        let items = files.compactMap { entry -> CleanupItem? in
+            let name = entry.url.lastPathComponent
+            guard Self.isScreenshot(name), !SafetyGuard.isProtected(entry.url) else { return nil }
+            return CleanupItem(entry: entry, category: .largeOld, reason: "Screenshot")
+        }
+        return CleanupPlan(items: items)
+    }
+
+    static func isScreenshot(_ name: String) -> Bool {
+        let ext = (name as NSString).pathExtension.lowercased()
+        guard ["png", "jpg", "jpeg"].contains(ext) else { return false }
+        let lower = name.lowercased()
+        return lower.hasPrefix("screenshot ") || lower.hasPrefix("screen shot ") || lower.hasPrefix("cleanshot")
+    }
+}

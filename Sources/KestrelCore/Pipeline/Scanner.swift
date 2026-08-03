@@ -27,7 +27,8 @@ public struct Scanner {
     public func scanFiles(
         under root: URL,
         pruning: Set<String> = DevArtifactClassifier.pruneDirectories,
-        includingHidden: Bool = false
+        includingHidden: Bool = false,
+        skipProtectedFiles: Bool = true
     ) throws -> [FileEntry] {
         let keys: [URLResourceKey] = [
             .isDirectoryKey, .isRegularFileKey, .contentModificationDateKey, .fileSizeKey,
@@ -48,7 +49,7 @@ public struct Scanner {
                 }
                 continue
             }
-            guard values?.isRegularFile == true, !SafetyGuard.isProtected(url) else { continue }
+            guard values?.isRegularFile == true, !(skipProtectedFiles && SafetyGuard.isProtected(url)) else { continue }
             out.append(FileEntry(
                 url: url,
                 size: Int64(values?.fileSize ?? 0),

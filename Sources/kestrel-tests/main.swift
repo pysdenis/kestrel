@@ -711,6 +711,84 @@ withTempDir { tmp in
     check(summary.bytesByCategory["devArtifact"] == 1000, "per-category savings")
 }
 
+// MARK: - Secrets scanner
+
+section("SecretsScanner: finds leaked credentials, redacts, ignores clean files")
+withTempDir { tmp in
+    makeFile(tmp.appendingPathComponent("config.env"), "AWS_KEY=AKIAIOSFODNN7EXAMPLE\nHOST=localhost")
+    makeFile(tmp.appendingPathComponent("key.pem"), "-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----")
+    makeFile(tmp.appendingPathComponent("readme.md"), "no secrets here, just prose")
+
+    let matches = SecretsScanner().scan(root: tmp)
+    check(matches.contains { $0.rule == "AWS access key id" }, "AWS key found")
+    check(matches.contains { $0.rule == "Private key block" }, "private key found")
+    check(matches.allSatisfy { !$0.preview.contains("AKIAIOSFODNN7EXAMPLE") }, "secret is redacted in preview")
+    check(!matches.contains { $0.path.hasSuffix("readme.md") }, "clean file not flagged")
+}
+
+// MARK: - Power & snapshots (advisory)
+
+section("PowerAuditor: parses processes that prevent sleep")
+do {
+    struct Stub: CommandRunner {
+        func run(_ tool: String, _ args: [String]) throws -> String {
+            """
+            Assertion status system-wide:
+               PreventUserIdleSystemSleep      1
+            Listed by owning process:
+               pid 42(coreaudiod): [0x0000000e00000939] PreventUserIdleSystemSleep named: "com.apple.audio"
+               pid 99(zoom.us): [0x0000000f0000093a] PreventUserIdleDisplaySleep named: "screen"
+            """
+        }
+    }
+    let assertions = PowerAuditor(runner: Stub()).assertionsPreventingSleep()
+    check(assertions.contains { $0.process == "coreaudiod" }, "coreaudiod flagged")
+    check(assertions.count == 2, "both sleep-preventing assertions parsed")
+}
+
+section("LocalSnapshotAuditor: lists tmutil snapshots and derives delete date")
+do {
+    struct Stub: CommandRunner {
+        func run(_ tool: String, _ args: [String]) throws -> String {
+            "Snapshots for volume group containing disk /:\ncom.apple.TimeMachine.2026-01-01-120000.local\ncom.apple.TimeMachine.2026-01-02-130000.local"
+        }
+    }
+    let auditor = LocalSnapshotAuditor(runner: Stub())
+    let snaps = auditor.snapshots()
+    check(snaps.count == 2, "two snapshots listed")
+    check(auditor.deletionDate(from: snaps[0]) == "2026-01-01-120000", "deletion date derived")
+}
+
+// MARK: - Clutter finder
+
+section("ClutterFinder: old installers and screenshots")
+withTempDir { tmp in
+    let old = makeFile(tmp.appendingPathComponent("Setup.dmg"), "diskimage")
+    try? fm.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -60 * 86400)], ofItemAtPath: old.path)
+    makeFile(tmp.appendingPathComponent("Fresh.dmg"), "new") // recent → excluded
+    makeFile(tmp.appendingPathComponent("Screenshot 2026-01-01 at 10.00.00.png"), "img")
+    makeFile(tmp.appendingPathComponent("photo.png"), "img") // not a screenshot
+
+    let installers = ClutterFinder().oldInstallers(under: tmp, olderThanDays: 30)
+    check(installers.items.map { $0.entry.url.lastPathComponent } == ["Setup.dmg"], "only the old installer")
+    let shots = ClutterFinder().screenshots(under: tmp)
+    check(shots.items.count == 1 && shots.items.first?.entry.url.lastPathComponent.hasPrefix("Screenshot") == true, "only the screenshot")
+}
+
+// MARK: - Shredder
+
+section("Shredder: overwrites then removes, refuses missing")
+withTempDir { tmp in
+    let secret = makeFile(tmp.appendingPathComponent("secret.txt"), "TOP-SECRET-CONTENT")
+    try Shredder().overwrite(secret)
+    let after = (try? String(contentsOf: secret, encoding: .utf8))
+    check(after != "TOP-SECRET-CONTENT", "content overwritten before deletion")
+    try Shredder().shred(secret)
+    check(!fm.fileExists(atPath: secret.path), "file removed after shred")
+    do { try Shredder().shred(tmp.appendingPathComponent("nope")); check(false, "expected throw") }
+    catch { check((error as? Shredder.ShredError) == .missing(tmp.appendingPathComponent("nope").path), "missing throws") }
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

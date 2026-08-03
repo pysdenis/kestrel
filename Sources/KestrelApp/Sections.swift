@@ -502,72 +502,83 @@ struct EnergySection: View {
 
     var body: some View {
         SectionScaffold(title: "Energy", subtitle: "What's using power — right now and over the last 24 hours") {
-            if let b = model.battery {
-                Card {
-                    HStack(spacing: 22) {
-                        badge(icon: b.isCharging ? "battery.100.bolt" : "battery.75", title: "Charge", value: "\(b.percent)%", tint: Palette.good)
-                        if let h = b.healthPercent { badge(icon: "heart.text.square", title: "Health", value: "\(h)%", tint: Palette.pink) }
-                        if let cy = b.cycleCount { badge(icon: "arrow.triangle.2.circlepath", title: "Cycles", value: "\(cy)", tint: Palette.blue) }
-                        badge(icon: "bolt", title: "State", value: b.isCharging ? "Charging" : "On battery", tint: Palette.orange)
-                        if let m = model.batteryTimeMinutes {
-                            badge(icon: b.isCharging ? "battery.100.bolt" : "hourglass",
-                                  title: b.isCharging ? "Full in" : "Time left", value: minutesString(m), tint: Palette.teal)
-                        }
-                        Spacer()
+            if let b = model.battery { batteryCard(b) }
+            drainingCard
+            historyCard
+        }
+        .onAppear { model.energyAppeared() }
+        .onDisappear { model.energyDisappeared() }
+    }
+
+    // MARK: battery
+
+    private func batteryCard(_ b: BatteryStats) -> some View {
+        let full = b.percent > 20
+        return Card(elevated: true, tint: full ? Palette.good : Palette.crit) {
+            HStack(spacing: 20) {
+                ZStack {
+                    SegmentedRing(fraction: Double(b.percent) / 100, tint: full ? Palette.good : Palette.crit, size: 104)
+                    VStack(spacing: 0) {
+                        Text("\(b.percent)").font(.system(size: 28, weight: .bold, design: .rounded)).monospacedDigit()
+                        Text("%").font(.caption2).foregroundStyle(.secondary)
                     }
                 }
-            }
-
-            Card {
-                VStack(alignment: .leading, spacing: 10) {
-                    SectionTitle("Draining right now", icon: "bolt.fill")
-                    if model.energyNow.isEmpty {
-                        HStack(spacing: 10) {
-                            ScanRadar(tint: Palette.orange, size: 24)
-                            Text("Reading energy usage…").foregroundStyle(.secondary).font(.callout)
-                        }
-                    } else {
-                        ForEach(model.energyNow) { proc in
-                            HStack(spacing: 12) {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    HStack {
-                                        Text(proc.name).font(.callout).lineLimit(1).truncationMode(.middle)
-                                        Spacer()
-                                        Text(String(format: "%.0f%% CPU", proc.cpuPercent)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                                    }
-                                    MiniBar(fraction: proc.energyImpact / maxNow)
-                                }
-                                Button { confirmQuit(proc) } label: {
-                                    Image(systemName: "xmark.circle.fill").font(.title3).foregroundStyle(Palette.crit)
-                                }
-                                .buttonStyle(.plain).help("Quit \(proc.name)")
-                            }
-                            .padding(.vertical, 3)
-                        }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(b.isCharging ? "Charging" : "On battery").font(.title3.weight(.bold))
+                    if let m = model.batteryTimeMinutes {
+                        Text(b.isCharging ? "About \(minutesString(m)) until full" : "About \(minutesString(m)) remaining")
+                            .font(.subheadline).foregroundStyle(.secondary)
                     }
                 }
+                Spacer()
+                FlowLayout(spacing: 10, lineSpacing: 10) {
+                    if let h = b.healthPercent { EnergyStat(icon: "heart.fill", label: "Health", value: "\(h)%", tint: Palette.pink) }
+                    if let cy = b.cycleCount { EnergyStat(icon: "arrow.triangle.2.circlepath", label: "Cycles", value: "\(cy)", tint: Palette.blue) }
+                    if let t = b.temperatureC { EnergyStat(icon: "thermometer.medium", label: "Temp", value: "\(Int(t.rounded()))°", tint: Palette.orange) }
+                }
             }
+        }
+    }
 
-            Card {
-                VStack(alignment: .leading, spacing: 10) {
-                    SectionTitle("Most draining — last 24 hours", icon: "clock.arrow.circlepath")
-                    if model.energy24h.count < 2 {
-                        Text("Building history… this fills in while Kestrel is running.").foregroundStyle(.secondary).font(.callout)
-                    } else {
-                        ForEach(Array(model.energy24h.prefix(10))) { usage in
-                            LabeledBar(label: usage.name, value: String(format: "%.0f", usage.total),
-                                       fraction: usage.total / max24h, tint: Palette.orange)
-                        }
-                        if let start = model.energyStart {
-                            Text("Recorded since \(start.formatted(date: .abbreviated, time: .shortened)).")
-                                .font(.caption2).foregroundStyle(.tertiary)
-                        }
+    // MARK: right now
+
+    private var drainingCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionTitle("Draining right now", icon: "bolt.fill")
+                if model.energyNow.isEmpty {
+                    HStack(spacing: 10) {
+                        ScanRadar(tint: Palette.orange, size: 24)
+                        Text("Reading energy usage…").foregroundStyle(.secondary).font(.callout)
+                    }
+                } else {
+                    ForEach(Array(model.energyNow.enumerated()), id: \.element.id) { i, proc in
+                        if i > 0 { Hairline() }
+                        EnergyRow(rank: i + 1, proc: proc, fraction: proc.energyImpact / maxNow) { confirmQuit(proc) }
                     }
                 }
             }
         }
-        .onAppear { model.energyAppeared() }
-        .onDisappear { model.energyDisappeared() }
+    }
+
+    private var historyCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionTitle("Most draining — last 24 hours", icon: "clock.arrow.circlepath")
+                if model.energy24h.count < 2 {
+                    Text("Building history… this fills in while Kestrel is running.").foregroundStyle(.secondary).font(.callout)
+                } else {
+                    ForEach(Array(model.energy24h.prefix(10))) { usage in
+                        LabeledBar(label: usage.name, value: String(format: "%.0f", usage.total),
+                                   fraction: usage.total / max24h, tint: Palette.orange)
+                    }
+                    if let start = model.energyStart {
+                        Text("Recorded since \(start.formatted(date: .abbreviated, time: .shortened)).")
+                            .font(.caption2).foregroundStyle(.tertiary)
+                    }
+                }
+            }
+        }
     }
 
     private func confirmQuit(_ proc: ProcessEnergy) {
@@ -579,15 +590,54 @@ struct EnergySection: View {
             onConfirm: { model.quitProcess(pid: proc.pid) }
         ))
     }
+}
 
-    private func badge(icon: String, title: String, value: String, tint: Color) -> some View {
+/// A boxed battery stat (health/cycles/temperature) for the Energy header.
+struct EnergyStat: View {
+    let icon: String
+    let label: String
+    let value: String
+    let tint: Color
+    var body: some View {
         HStack(spacing: 9) {
-            Image(systemName: icon).font(.title3).foregroundStyle(tint)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.caption).foregroundStyle(.secondary)
-                Text(value).font(.headline)
+            Image(systemName: icon).font(.callout).foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(label).font(.caption2).foregroundStyle(.secondary)
+                Text(value).font(.subheadline.weight(.semibold)).monospacedDigit()
             }
         }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(.white.opacity(0.06)))
+    }
+}
+
+/// A "draining right now" row: rank, name, live CPU%, an impact bar, and a quit button.
+struct EnergyRow: View {
+    let rank: Int
+    let proc: ProcessEnergy
+    let fraction: Double
+    let onQuit: () -> Void
+
+    private var tint: Color { fraction > 0.66 ? Palette.crit : (fraction > 0.33 ? Palette.orange : Palette.accent) }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("\(rank)").font(.caption.monospacedDigit().weight(.bold)).foregroundStyle(.tertiary).frame(width: 16)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(proc.name).font(.callout).lineLimit(1).truncationMode(.middle)
+                    Spacer()
+                    Text(String(format: "%.0f%% CPU", proc.cpuPercent)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                }
+                MiniBar(fraction: fraction, tint: tint)
+            }
+            Button(action: onQuit) {
+                Image(systemName: "xmark.circle.fill").font(.title3).foregroundStyle(Palette.crit)
+            }
+            .buttonStyle(.plain).help("Quit \(proc.name)")
+        }
+        .padding(.vertical, 5)
     }
 }
 
@@ -601,93 +651,169 @@ struct SecuritySection: View {
         SectionScaffold(title: "Security", subtitle: "Honest, evidence-based checks — no scare tactics") {
             if !model.fullDiskAccess { FullDiskAccessBanner() }
 
-            if let status = controller.status {
-                Card {
-                    HStack(spacing: 20) {
-                        badge("Gatekeeper", status.assessmentsEnabled == true ? "On" : (status.assessmentsEnabled == false ? "Off" : "?"),
-                              ok: status.assessmentsEnabled == true)
-                        badge("XProtect", status.xprotectVersion ?? "—", ok: status.xprotectVersion != nil)
-                        Spacer()
-                    }
-                }
-            }
+            if let status = controller.status { protectionHero(status) }
 
-            Card {
-                VStack(alignment: .leading, spacing: 12) {
-                    SectionTitle("Scan for threats", icon: "magnifyingglass")
-                    HStack {
-                        Image(systemName: "folder")
-                        Text(controller.root.path).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
-                        Spacer()
-                        Button("Choose…") { controller.pickFolder() }.buttonStyle(.kestrel(.subtle, size: .small))
-                        Button { controller.scan() } label: {
-                            Text(controller.scanning ? "Scanning…" : "Scan")
-                        }
-                        .buttonStyle(.kestrel).disabled(controller.scanning)
-                    }
-                    if controller.scanning {
-                        ScanningBanner(title: "Scanning for threats…",
-                                       detail: controller.scanStatus.isEmpty ? "Reading files in \(controller.root.lastPathComponent)…" : controller.scanStatus,
-                                       progress: controller.scanProgress)
-                    } else if let report = controller.report {
-                        if report.isClean {
-                            EmptyState(icon: "checkmark.shield.fill", title: "Clean",
-                                       caption: "Scanned \(report.scanned) file(s) — no threats. No scare tactics.")
-                        } else {
-                            Label("\(report.findings.count) finding(s) with evidence", systemImage: "exclamationmark.triangle.fill")
-                                .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.orange)
-                            ForEach(Array(report.findings.enumerated()), id: \.offset) { _, f in
-                                HStack(alignment: .top, spacing: 10) {
-                                    Image(systemName: f.severity == .malicious ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
-                                        .foregroundStyle(f.severity == .malicious ? Palette.crit : Palette.orange)
-                                    VStack(alignment: .leading, spacing: 1) {
-                                        Text("\(f.rule)  ·  \(f.severity.rawValue)").font(.callout.weight(.medium))
-                                        Text(f.path).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                                        Text(f.evidence).font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
-                                    }
-                                    Spacer()
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            scanCard
 
-            if !controller.extensions.isEmpty {
-                Card {
-                    VStack(alignment: .leading, spacing: 8) {
-                        SectionTitle("System extensions", icon: "puzzlepiece.extension")
-                        ForEach(Array(controller.extensions.enumerated()), id: \.offset) { _, ext in
-                            HStack {
-                                Text(ext.name.isEmpty ? ext.identifier : ext.name).font(.callout).lineLimit(1)
-                                Spacer()
-                                Text(ext.state).font(.caption).foregroundStyle(ext.state.contains("enabled") ? Palette.good : .secondary)
-                            }
-                        }
-                    }
-                }
-            }
-
-            if !controller.orphans.isEmpty {
-                Card {
-                    VStack(alignment: .leading, spacing: 8) {
-                        SectionTitle("Orphaned launch agents", icon: "bolt.badge.xmark")
-                        ForEach(Array(controller.orphans.enumerated()), id: \.offset) { _, o in
-                            Text("\(o.label ?? "?") → \(o.program ?? "?")").font(.callout).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                    }
-                }
-            }
+            if !controller.extensions.isEmpty { extensionsCard }
+            if !controller.orphans.isEmpty { orphansCard }
         }
         .onAppear { controller.loadMeta() }
     }
 
-    private func badge(_ title: String, _ value: String, ok: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            Label(value, systemImage: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundStyle(ok ? Palette.good : Palette.crit).font(.headline)
+    // MARK: protection status
+
+    private func protectionHero(_ status: GatekeeperStatus) -> some View {
+        let ok = status.assessmentsEnabled == true && status.xprotectVersion != nil
+        return Card(elevated: true, tint: ok ? Palette.good : Palette.warn) {
+            VStack(spacing: 14) {
+                HStack(spacing: 15) {
+                    ZStack {
+                        Circle().fill((ok ? Palette.good : Palette.warn).opacity(0.14)).frame(width: 56, height: 56)
+                        Image(systemName: ok ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
+                            .font(.system(size: 25, weight: .semibold)).foregroundStyle(ok ? Palette.good : Palette.warn)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(ok ? "macOS protection is on" : "Protection needs a look").font(.title3.weight(.bold))
+                        Text(ok ? "Gatekeeper and XProtect are active." : "One of macOS's built-in defenses is off.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+                HStack(spacing: 10) {
+                    StatusTile(icon: "lock.shield", label: "Gatekeeper",
+                               value: status.assessmentsEnabled == true ? "On" : (status.assessmentsEnabled == false ? "Off" : "Unknown"),
+                               ok: status.assessmentsEnabled == true)
+                    StatusTile(icon: "checkmark.seal", label: "XProtect",
+                               value: status.xprotectVersion ?? "—", ok: status.xprotectVersion != nil)
+                }
+            }
         }
+    }
+
+    // MARK: threat scan
+
+    private var scanCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionTitle("Scan for threats", icon: "magnifyingglass")
+                FolderChip(url: controller.root) { controller.pickFolder() }
+                Button { controller.scan() } label: {
+                    Label(controller.scanning ? "Scanning…" : "Scan for malware", systemImage: "shield.checkerboard")
+                }
+                .buttonStyle(.kestrel).disabled(controller.scanning)
+
+                if controller.scanning {
+                    ScanningBanner(title: "Scanning for threats…",
+                                   detail: controller.scanStatus.isEmpty ? "Reading files in \(controller.root.lastPathComponent)…" : controller.scanStatus,
+                                   progress: controller.scanProgress)
+                } else if let report = controller.report {
+                    if report.isClean {
+                        EmptyState(icon: "checkmark.shield.fill", title: "Clean",
+                                   caption: "Scanned \(report.scanned) file(s) — no threats found. No scare tactics.")
+                    } else {
+                        Label("\(report.findings.count) finding(s), each with evidence", systemImage: "exclamationmark.triangle.fill")
+                            .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.orange)
+                        ForEach(Array(report.findings.enumerated()), id: \.offset) { _, f in FindingRow(finding: f) }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: extensions & agents
+
+    private var extensionsCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("System extensions", icon: "puzzlepiece.extension")
+                ForEach(Array(controller.extensions.enumerated()), id: \.offset) { i, ext in
+                    if i > 0 { Hairline() }
+                    HStack {
+                        Text(ext.name.isEmpty ? ext.identifier : ext.name).font(.callout).lineLimit(1)
+                        Spacer()
+                        StatePill(text: ext.state, ok: ext.state.contains("enabled"))
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+
+    private var orphansCard: some View {
+        Card(tint: Palette.warn) {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("Orphaned launch agents", icon: "bolt.badge.xmark")
+                Text("These agents point at programs that no longer exist — usually safe to remove.")
+                    .font(.caption).foregroundStyle(.secondary)
+                ForEach(Array(controller.orphans.enumerated()), id: \.offset) { _, o in
+                    HStack(spacing: 8) {
+                        Image(systemName: "bolt.slash").font(.caption).foregroundStyle(Palette.warn)
+                        Text(o.label ?? "?").font(.callout).lineLimit(1)
+                        Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.tertiary)
+                        Text(o.program ?? "?").font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        Spacer()
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// A compact status tile (icon + label + value) tinted good/warn — the Security header's
+/// building block.
+struct StatusTile: View {
+    let icon: String
+    let label: String
+    let value: String
+    let ok: Bool
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: icon).foregroundStyle(ok ? Palette.good : Palette.warn).imageScale(.small)
+                Text(label).font(.caption).foregroundStyle(.secondary)
+            }
+            Text(value).font(.headline.weight(.semibold)).lineLimit(1).truncationMode(.middle)
+        }
+        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.white.opacity(0.06)))
+    }
+}
+
+/// A small state pill (green when enabled, quiet otherwise).
+struct StatePill: View {
+    let text: String
+    let ok: Bool
+    var body: some View {
+        Text(text).font(.caption2.weight(.semibold))
+            .padding(.horizontal, 9).padding(.vertical, 3)
+            .foregroundStyle(ok ? Palette.good : Color.secondary)
+            .background((ok ? Palette.good : Color.secondary).opacity(0.14), in: Capsule())
+    }
+}
+
+/// One malware finding, as an evidence card with a severity stripe.
+struct FindingRow: View {
+    let finding: ScanFinding
+    private var crit: Bool { finding.severity == .malicious }
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            RoundedRectangle(cornerRadius: 2).fill(crit ? Palette.crit : Palette.orange).frame(width: 3)
+            Image(systemName: crit ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
+                .font(.title3).foregroundStyle(crit ? Palette.crit : Palette.orange)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 8) {
+                    Text(finding.rule).font(.callout.weight(.semibold))
+                    StatePill(text: finding.severity.rawValue, ok: false)
+                }
+                Text(finding.path).font(.caption).foregroundStyle(.secondary).textSelection(.enabled).lineLimit(1).truncationMode(.middle)
+                Text(finding.evidence).font(.caption2.monospaced()).foregroundStyle(.tertiary).lineLimit(2)
+            }
+            Spacer()
+        }
+        .padding(11)
+        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
     }
 }
 

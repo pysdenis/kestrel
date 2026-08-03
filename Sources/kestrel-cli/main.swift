@@ -97,6 +97,43 @@ func printReviewHints(_ classified: [ClassifiedEntry]) {
     }
 }
 
+func printTree(_ node: DirNode, indent: String = "", isRoot: Bool = true) {
+    if isRoot {
+        print("\(fmtBytes(node.size).padding(toLength: 11, withPad: " ", startingAt: 0)) \(node.url.path)")
+    }
+    let shown = node.children.prefix(20)
+    for (i, child) in shown.enumerated() {
+        let last = (i == shown.count - 1)
+        let branch = last ? "└─ " : "├─ "
+        let bar = sizeBar(child.size, of: node.size)
+        print("\(indent)\(branch)\(fmtBytes(child.size).padding(toLength: 10, withPad: " ", startingAt: 0)) \(bar) \(child.name)")
+        if !child.children.isEmpty {
+            printTree(child, indent: indent + (last ? "   " : "│  "), isRoot: false)
+        }
+    }
+    if node.children.count > shown.count {
+        print("\(indent)   … and \(node.children.count - shown.count) more")
+    }
+}
+
+func sizeBar(_ part: Int64, of whole: Int64) -> String {
+    guard whole > 0 else { return "" }
+    let filled = Int((Double(part) / Double(whole)) * 10)
+    return "[" + String(repeating: "█", count: filled) + String(repeating: " ", count: 10 - filled) + "]"
+}
+
+/// Take a disk snapshot: volume capacity plus a top-level size breakdown of `root`.
+func takeSnapshot(root: URL) -> DiskSnapshot {
+    let space = DiskUsageReader().space(at: root) ?? DiskSpace(total: 0, available: 0)
+    let tree = DiskMap().measure(root, maxDepth: 1)
+    let breakdown = Dictionary(uniqueKeysWithValues: tree.children.map { ($0.url.path, $0.size) })
+    return DiskSnapshot(date: Date(), space: space, breakdown: breakdown)
+}
+
+func fmtDays(_ days: Double) -> String {
+    days >= 365 ? String(format: "%.1f years", days / 365) : String(format: "%.0f days", days)
+}
+
 func printExternalPreview(_ p: ExternalCleanupPreview) {
     guard p.available else {
         print("\(p.tool): not found on PATH — nothing to report.")
@@ -132,6 +169,10 @@ func usage() {
       kestrel vault undo <session-id>
       kestrel vault purge [--days N]                                (default: 14)
       kestrel uninstall <app> [--apply]         (app bundle + leftovers → vault)
+      kestrel map <path> [--depth N]            (directory size tree)
+      kestrel snapshot [path]                   (record disk usage; default: home)
+      kestrel trend                             (growth rate + fill forecast)
+      kestrel diff                              (what changed since last snapshot)
       kestrel docker                            (reclaimable Docker space, advisory)
       kestrel brew                              (reclaimable Homebrew space, advisory)
       kestrel audit tail [N]
@@ -221,6 +262,44 @@ do {
         let result = try CleanupExecutor(vault: vault, audit: audit).execute(plan, apply: true)
         print("\nMoved \(result.movedCount) item(s), \(fmtBytes(result.movedBytes)) → vault session \(result.sessionId ?? "?")")
         print("Undo with:  kestrel vault undo \(result.sessionId ?? "")")
+
+    case "map":
+        guard let path = rest.first(where: { !$0.hasPrefix("-") }) else { print("Usage: kestrel map <path> [--depth N]"); exit(2) }
+        let depth = Int(option("--depth", in: rest) ?? "2") ?? 2
+        let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        printTree(DiskMap().measure(root, maxDepth: depth))
+
+    case "snapshot":
+        let path = rest.first(where: { !$0.hasPrefix("-") }) ?? paths.home.path
+        let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        let store = SnapshotStore(directory: paths.snapshots)
+        let snapshot = takeSnapshot(root: root)
+        try store.save(snapshot)
+        print("Snapshot saved: used \(fmtBytes(snapshot.space.used)) of \(fmtBytes(snapshot.space.total)) (\(Int(snapshot.space.usedFraction * 100))%), \(snapshot.breakdown.count) top-level entries under \(root.path)")
+
+    case "trend":
+        let store = SnapshotStore(directory: paths.snapshots)
+        let snapshots = try store.all()
+        guard snapshots.count >= 2 else {
+            print("Need at least 2 snapshots. Run 'kestrel snapshot' on different days."); break
+        }
+        print("\(snapshots.count) snapshots, \(snapshots.first!.date) → \(snapshots.last!.date)")
+        if let t = try store.trend() {
+            let dir = t.dailyGrowthBytes >= 0 ? "+" : "-"
+            print("Growth: \(dir)\(fmtBytes(abs(t.dailyGrowthBytes)))/day")
+            if let full = t.daysUntilFull { print("At this rate the volume fills in ~\(fmtDays(full)).") }
+            else { print("Not filling up — usage is flat or shrinking.") }
+        }
+
+    case "diff":
+        let store = SnapshotStore(directory: paths.snapshots)
+        let changes = try store.recentChanges()
+        if changes.isEmpty { print("No change between the two most recent snapshots (need ≥2)."); break }
+        print("What changed since the previous snapshot:")
+        for c in changes.prefix(20) {
+            let sign = c.delta >= 0 ? "+" : "-"
+            print("  \(sign)\(fmtBytes(abs(c.delta)).padding(toLength: 10, withPad: " ", startingAt: 0))  \(c.path)")
+        }
 
     case "docker":
         printExternalPreview(DockerAdapter().preview())

@@ -513,6 +513,45 @@ check(parseHumanBytes("1KiB") == 1024, "KiB")
 check(parseHumanBytes("0B") == 0, "0B")
 check(parseHumanBytes("nonsense") == nil, "garbage → nil")
 
+// MARK: - Disk map
+
+section("DiskMap: recursive sizes, sorted largest-first, depth-limited")
+withTempDir { tmp in
+    makeFile(tmp.appendingPathComponent("a/file1.txt"), "aaaa")      // 4
+    makeFile(tmp.appendingPathComponent("a/file2.txt"), "bbbbbb")    // 6
+    makeFile(tmp.appendingPathComponent("b/big.bin"), "12345678901234567890") // 20
+    makeFile(tmp.appendingPathComponent("c.txt"), "ccc")             // 3
+
+    let tree = DiskMap().measure(tmp, maxDepth: 2)
+    check(tree.size == 33, "root total = 33 (got \(tree.size))")
+    check(tree.children.map(\.name) == ["b", "a", "c.txt"], "children sorted largest-first")
+    check(tree.children.first(where: { $0.name == "a" })?.children.count == 2, "'a' expanded at depth 2")
+
+    let shallow = DiskMap().measure(tmp, maxDepth: 1)
+    let aShallow = shallow.children.first { $0.name == "a" }
+    check(aShallow?.size == 10 && aShallow?.children.isEmpty == true, "depth 1 sums but does not expand")
+}
+
+// MARK: - Snapshots & trend
+
+section("SnapshotStore: save/load, trend forecast, and change diff")
+withTempDir { tmp in
+    let store = SnapshotStore(directory: tmp.appendingPathComponent("snapshots"))
+    let day1 = Date(timeIntervalSince1970: 1_700_000_000)
+    let day3 = day1.addingTimeInterval(2 * 86400)
+    try store.save(DiskSnapshot(date: day1, space: DiskSpace(total: 1000, available: 900), breakdown: ["/x": 50, "/y": 50]))
+    try store.save(DiskSnapshot(date: day3, space: DiskSpace(total: 1000, available: 860), breakdown: ["/x": 50, "/y": 90]))
+
+    let count = try store.all().count
+    check(count == 2, "two snapshots persisted")
+    let trend = try store.trend()
+    check(trend?.dailyGrowthBytes == 20, "growth 20 bytes/day (got \(trend?.dailyGrowthBytes ?? -1))")
+    check(trend?.daysUntilFull == 43, "≈43 days until full (got \(trend?.daysUntilFull ?? -1))")
+
+    let changes = try store.recentChanges()
+    check(changes == [SpaceDelta(path: "/y", delta: 40)], "only /y grew, by 40")
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

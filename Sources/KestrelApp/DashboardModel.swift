@@ -78,6 +78,7 @@ final class AppModel: ObservableObject {
     lazy var smartcare = SmartCareController(paths: paths)
     lazy var dashboard = DashboardController(paths: paths)
     lazy var security = SecurityController()
+    lazy var apps = AppsController(paths: paths)
     lazy var space = SpaceController(paths: paths)
     lazy var tools = ToolsController(paths: paths)
     lazy var assistant = AssistantController()

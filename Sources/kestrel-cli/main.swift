@@ -177,6 +177,10 @@ func usage() {
       kestrel snapshot [path]                   (record disk usage; default: home)
       kestrel trend                             (growth rate + fill forecast)
       kestrel diff                              (what changed since last snapshot)
+      kestrel smartscan [path]                  (health + clutter + antivirus overview)
+      kestrel maintenance                       (advisory system maintenance actions)
+      kestrel updates                           (outdated Homebrew casks)
+      kestrel activity                          (what Kestrel has reclaimed, from audit)
       kestrel av scan <path>                    (honest on-demand malware scan)
       kestrel av status                         (Gatekeeper + XProtect status)
       kestrel av quarantine [path]              (files downloaded from the internet)
@@ -341,6 +345,42 @@ do {
         for c in changes.prefix(20) {
             let sign = c.delta >= 0 ? "+" : "-"
             print("  \(sign)\(fmtBytes(abs(c.delta)).padding(toLength: 10, withPad: " ", startingAt: 0))  \(c.path)")
+        }
+
+    case "smartscan":
+        let path = rest.first(where: { !$0.hasPrefix("-") }) ?? paths.home.path
+        let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        print("Smart Scan of \(root.path)\n")
+        let report = SmartScan().run(root: root)
+        print("Mac Health: \(report.health.overall)/100")
+        print("Reclaimable now: \(fmtBytes(report.cleanup.totalBytes)) across \(report.cleanup.count) item(s)")
+        if !report.reviewByCategory.isEmpty {
+            print("Opt-in review:")
+            for (cat, bytes) in report.reviewByCategory.sorted(by: { $0.value > $1.value }) {
+                print("  \(categoryLabel(cat).padding(toLength: 14, withPad: " ", startingAt: 0))\(fmtBytes(bytes))")
+            }
+        }
+        print("Antivirus: " + (report.antivirus.isClean ? "clean ✅ (\(report.antivirus.scanned) files)" : "\(report.antivirus.findings.count) finding(s) in \(report.antivirus.scanned) files"))
+
+    case "maintenance":
+        print("Maintenance actions (run the command yourself — these change system state):\n")
+        for t in MaintenanceService().tasks() {
+            print("  • \(t.name)\(t.needsSudo ? "  [needs sudo]" : "")")
+            print("      \(t.detail)")
+            print("      $ \(t.command)")
+        }
+
+    case "updates":
+        let outdated = AppUpdater().outdatedCasks()
+        if outdated.isEmpty { print("No outdated Homebrew casks (or Homebrew not installed)."); break }
+        print("\(outdated.count) outdated cask(s):")
+        for c in outdated { print("  \(c.name.padding(toLength: 28, withPad: " ", startingAt: 0)) \(c.current) → \(c.latest)") }
+
+    case "activity":
+        let summary = ActivityReporter(audit: audit).summary()
+        print("Kestrel has reclaimed \(fmtBytes(summary.reclaimedBytes)) across \(summary.totalActions) action(s).")
+        for (cat, bytes) in summary.bytesByCategory.sorted(by: { $0.value > $1.value }) {
+            print("  \(cat.padding(toLength: 16, withPad: " ", startingAt: 0)) \(fmtBytes(bytes))")
         }
 
     case "av":

@@ -676,6 +676,41 @@ withTempDir { tmp in
     check(!ids.contains { $0.hasPrefix("com.apple.") }, "Apple data never flagged")
 }
 
+// MARK: - Maintenance, updates, activity
+
+section("MaintenanceService: advisory catalog with real commands")
+do {
+    let tasks = MaintenanceService().tasks()
+    check(tasks.contains { $0.name == "Flush DNS cache" }, "DNS flush listed")
+    check(tasks.allSatisfy { !$0.command.isEmpty }, "every task has a command")
+}
+
+section("AppUpdater: parses brew outdated casks")
+do {
+    struct Stub: CommandRunner {
+        func run(_ tool: String, _ args: [String]) throws -> String {
+            let key = ([tool] + args).joined(separator: " ")
+            if key == "brew --version" { return "Homebrew 4.2.0" }
+            return "visual-studio-code (1.80.0) != 1.85.0\nslack (4.30) != 4.35\n"
+        }
+    }
+    let outdated = AppUpdater(runner: Stub()).outdatedCasks()
+    check(outdated.count == 2, "two outdated casks parsed")
+    check(outdated.first == OutdatedCask(name: "visual-studio-code", current: "1.80.0", latest: "1.85.0"), "fields parsed")
+}
+
+section("ActivityReporter: savings summed from the audit log only")
+withTempDir { tmp in
+    let audit = AuditLog(url: tmp.appendingPathComponent("audit.log"))
+    try audit.append(AuditEntry(action: "vault-move", category: "devArtifact", paths: ["/a"], bytes: 1000, result: "ok", sessionId: "s"))
+    try audit.append(AuditEntry(action: "vault-move", category: "safeCache", paths: ["/b"], bytes: 500, result: "ok", sessionId: "s"))
+    try audit.append(AuditEntry(action: "vault-move", category: "devArtifact", paths: ["/c"], bytes: 200, result: "error: x", sessionId: "s"))
+    let summary = ActivityReporter(audit: audit).summary()
+    check(summary.totalActions == 2, "failed move excluded")
+    check(summary.reclaimedBytes == 1500, "only successful bytes summed")
+    check(summary.bytesByCategory["devArtifact"] == 1000, "per-category savings")
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

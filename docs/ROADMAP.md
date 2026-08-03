@@ -140,10 +140,10 @@ Vše drží invarianty: dry-run default, vault + undo, audit, unknown se nemaže
 - [x] **Power & Wake auditor** — kdo brání spánku — *navíc*.
 
 ### Applications
-- [x] **Uninstaller** (bundle + leftovers).
+- [x] **Uninstaller** (bundle + leftovers) — CLI + **GUI modul** (`ApplicationsSection`: ikony, velikosti, uninstall/reset přes vault, search).
 - [x] **App Leftovers** (`OrphanFinder`).
-- [~] **App Updater** (Homebrew casks outdated) → [ ] Sparkle feedy + GUI seznam s update tlačítky.
-- [x] **Reset App** — `AppUninstaller.resetPlan`, `kestrel reset` (vymaže data, appku nechá).
+- [x] **App Updater** — Homebrew casks outdated **v GUI** (advisory karta s copy `brew upgrade`); Sparkle feedy zbývají.
+- [x] **Reset App** — `AppUninstaller.resetPlan`, `kestrel reset` + GUI tlačítko (vymaže data, appku nechá).
 
 ### My Clutter
 - [x] **Duplicate Finder** (size→partial→full hash).

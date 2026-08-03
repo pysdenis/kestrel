@@ -298,7 +298,11 @@ do {
     case "stats":
         let which = rest.first(where: { !$0.hasPrefix("-") }) ?? "all"
         let s = StatsCollector()
-        func showDisk() { if let d = s.disk() { print("Disk:    \(fmtBytes(d.used)) used of \(fmtBytes(d.total))  (\(Int(d.usedFraction * 100))% full)") } }
+        func showDisk() {
+            if let d = s.disk() {
+                print("Disk:    \(fmtBytes(d.used)) used of \(fmtBytes(d.total))  (\(Int(d.usedFraction * 100))% full), \(fmtBytes(d.available)) free" + (d.purgeable > 0 ? " + \(fmtBytes(d.purgeable)) purgeable" : ""))
+            }
+        }
         func showMem() { let m = s.memory(); print("Memory:  \(fmtBytes(m.used)) used of \(fmtBytes(m.total))  (\(Int(m.usedFraction * 100))%)") }
         func showCPU() { let c = s.cpu(); print(String(format: "CPU:     load %.2f / %.2f / %.2f on %d cores", c.loadAverages[0], c.loadAverages[1], c.loadAverages[2], c.coreCount)) }
         func showBattery() {

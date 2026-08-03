@@ -1,4 +1,6 @@
 import Foundation
+import CoreGraphics
+import ImageIO
 import KestrelCore
 
 // Dependency-free test runner (no XCTest). Mirrors Tests/KestrelCoreTests so the
@@ -909,6 +911,66 @@ do {
         catch { return (error as? GeminiClient.GeminiError) == .http(429) }
     }
     check(httpErr, "non-200 surfaces as http error")
+}
+
+// MARK: - Trash / Downloads / Mail
+
+section("TrashFinder: lists trash contents as a trash-category plan")
+withTempDir { tmp in
+    let trash = makeDir(tmp.appendingPathComponent("Trash"))
+    makeFile(trash.appendingPathComponent("old.dmg"), "junk")
+    makeFile(trash.appendingPathComponent("note.txt"), "x")
+    let plan = TrashFinder(locations: [trash]).find()
+    check(plan.count == 2, "both trashed items listed")
+    check(plan.items.allSatisfy { $0.category == .trash }, "category trash")
+}
+
+section("ClutterFinder: old downloads and mail attachments")
+withTempDir { tmp in
+    let dl = makeDir(tmp.appendingPathComponent("Downloads"))
+    let old = makeFile(dl.appendingPathComponent("installer.dmg"), "x")
+    try? fm.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -60 * 86400)], ofItemAtPath: old.path)
+    makeFile(dl.appendingPathComponent("fresh.zip"), "x")
+    check(ClutterFinder().oldDownloads(under: dl, olderThanDays: 30).items.map { $0.entry.url.lastPathComponent } == ["installer.dmg"], "only old download")
+
+    let mail = makeDir(tmp.appendingPathComponent("Mail"))
+    makeFile(mail.appendingPathComponent("V10/Data/Attachments/1/photo.jpg"), "img")
+    makeFile(mail.appendingPathComponent("V10/Data/Messages/1.emlx"), "msg")
+    let att = ClutterFinder().mailAttachments(under: mail).items.map { $0.entry.url.lastPathComponent }
+    check(att == ["photo.jpg"], "only attachment, not the message")
+}
+
+// MARK: - Similar images (perceptual hash)
+
+func makePNG(_ url: URL, _ draw: (CGContext) -> Void) {
+    try? fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    let ctx = CGContext(data: nil, width: 64, height: 64, bitsPerComponent: 8, bytesPerRow: 0,
+                        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+    draw(ctx)
+    guard let img = ctx.makeImage(),
+          let dst = CGImageDestinationCreateWithURL(url as CFURL, "public.png" as CFString, 1, nil) else { return }
+    CGImageDestinationAddImage(dst, img, nil)
+    CGImageDestinationFinalize(dst)
+}
+
+section("SimilarImageFinder: groups look-alikes, separates different images")
+withTempDir { tmp in
+    let leftRight: (CGContext) -> Void = { c in
+        c.setFillColor(red: 0, green: 0, blue: 0, alpha: 1); c.fill(CGRect(x: 0, y: 0, width: 32, height: 64))
+        c.setFillColor(red: 1, green: 1, blue: 1, alpha: 1); c.fill(CGRect(x: 32, y: 0, width: 32, height: 64))
+    }
+    let topBottom: (CGContext) -> Void = { c in
+        c.setFillColor(red: 0, green: 0, blue: 0, alpha: 1); c.fill(CGRect(x: 0, y: 0, width: 64, height: 32))
+        c.setFillColor(red: 1, green: 1, blue: 1, alpha: 1); c.fill(CGRect(x: 0, y: 32, width: 64, height: 32))
+    }
+    let a = tmp.appendingPathComponent("a.png"); makePNG(a, leftRight)
+    let b = tmp.appendingPathComponent("b.png"); makePNG(b, leftRight)
+    let c = tmp.appendingPathComponent("c.png"); makePNG(c, topBottom)
+    let entries = [a, b, c].map { Scanner().makeEntry($0) }
+    let groups = SimilarImageFinder().find(in: entries)
+    check(groups.count == 1, "one similar group (got \(groups.count))")
+    let names = Set(groups.first?.map { $0.url.lastPathComponent } ?? [])
+    check(names == ["a.png", "b.png"], "a and b grouped, c separate")
 }
 
 // MARK: - Summary

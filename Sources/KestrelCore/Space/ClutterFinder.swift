@@ -43,4 +43,27 @@ public struct ClutterFinder {
         let lower = name.lowercased()
         return lower.hasPrefix("screenshot ") || lower.hasPrefix("screen shot ") || lower.hasPrefix("cleanshot")
     }
+
+    /// Old files sitting in Downloads (one-time-use clutter). Review-only.
+    public func oldDownloads(under root: URL, olderThanDays: Int = 30) -> CleanupPlan {
+        let cutoff = TimeInterval(olderThanDays) * 86400
+        let files = (try? Scanner().scanFiles(under: root, pruning: [], includingHidden: false)) ?? []
+        let items = files.compactMap { entry -> CleanupItem? in
+            guard now.timeIntervalSince(entry.modified) >= cutoff, !SafetyGuard.isProtected(entry.url) else { return nil }
+            let days = Int(now.timeIntervalSince(entry.modified) / 86400)
+            return CleanupItem(entry: entry, category: .largeOld, reason: "Download, \(days) days old")
+        }
+        return CleanupPlan(items: items)
+    }
+
+    /// Locally cached Mail attachments (`~/Library/Mail/.../Attachments/…`). They are
+    /// re-downloadable from the server, so removing them frees space safely. Review-only.
+    public func mailAttachments(under mailRoot: URL) -> CleanupPlan {
+        let files = (try? Scanner().scanFiles(under: mailRoot, pruning: [], includingHidden: true)) ?? []
+        let items = files.compactMap { entry -> CleanupItem? in
+            guard entry.url.path.contains("/Attachments/"), !SafetyGuard.isProtected(entry.url) else { return nil }
+            return CleanupItem(entry: entry, category: .largeOld, reason: "Mail attachment (re-downloadable)")
+        }
+        return CleanupPlan(items: items)
+    }
 }

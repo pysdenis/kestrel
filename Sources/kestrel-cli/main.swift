@@ -235,6 +235,10 @@ func usage() {
       kestrel orphans [--apply]                 (leftover data from removed apps)
       kestrel installers [path] [--apply]       (old .dmg/.pkg/.iso; default: Downloads)
       kestrel screenshots [path] [--apply]      (screenshots; default: Desktop)
+      kestrel trash [--apply]                   (contents of all Trash bins → vault)
+      kestrel downloads [path] [--apply]        (old files in Downloads)
+      kestrel mail [--apply]                    (locally cached Mail attachments)
+      kestrel photos [path] [--apply]           (similar images; keeps the best of each)
       kestrel secrets <path>                    (scan a project for leaked credentials)
       kestrel power                             (what is keeping the Mac awake)
       kestrel localsnapshots                    (APFS/Time Machine local snapshots)
@@ -590,6 +594,39 @@ do {
         let path = rest.first(where: { !$0.hasPrefix("-") }) ?? paths.home.appendingPathComponent("Desktop").path
         let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
         try runPlan(ClutterFinder().screenshots(under: root), apply: flag("--apply", in: rest))
+
+    case "trash":
+        try runPlan(TrashFinder().find(), apply: flag("--apply", in: rest))
+
+    case "downloads":
+        let path = rest.first(where: { !$0.hasPrefix("-") }) ?? paths.home.appendingPathComponent("Downloads").path
+        let days = Int(option("--min-age", in: rest) ?? "30") ?? 30
+        let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        try runPlan(ClutterFinder().oldDownloads(under: root, olderThanDays: days), apply: flag("--apply", in: rest))
+
+    case "mail":
+        let root = paths.home.appendingPathComponent("Library/Mail")
+        try runPlan(ClutterFinder().mailAttachments(under: root), apply: flag("--apply", in: rest))
+
+    case "photos":
+        let path = rest.first(where: { !$0.hasPrefix("-") }) ?? paths.home.appendingPathComponent("Pictures").path
+        let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        let files = (try? Scanner().scanFiles(under: root, pruning: [], includingHidden: false)) ?? []
+        let finder = SimilarImageFinder()
+        let groups = finder.find(in: files)
+        if groups.isEmpty { print("No similar images found under \(root.path)."); break }
+        print("\(groups.count) group(s) of similar images:")
+        for (i, g) in groups.prefix(20).enumerated() {
+            print("  Group \(i + 1): keep \(g[0].url.lastPathComponent) (\(fmtBytes(g[0].size)))")
+            for e in g.dropFirst() { print("     ~ \(e.url.lastPathComponent) (\(fmtBytes(e.size)))") }
+        }
+        let plan = finder.plan(in: files)
+        if flag("--apply", in: rest) {
+            let result = try CleanupExecutor(vault: vault, audit: audit).execute(plan, apply: true)
+            print("\nMoved \(result.movedCount) extra image(s) → vault session \(result.sessionId ?? "?"). Undo: kestrel vault undo \(result.sessionId ?? "")")
+        } else if !plan.items.isEmpty {
+            print("\nReclaimable: \(fmtBytes(plan.totalBytes)) (keeps the largest in each group). Re-run with --apply.")
+        }
 
     case "secrets":
         guard let path = rest.first(where: { !$0.hasPrefix("-") }) else { print("Usage: kestrel secrets <path>"); exit(2) }

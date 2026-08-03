@@ -28,25 +28,72 @@ func categoryFilter(_ name: String?) -> Set<KestrelCore.Category>? {
     }
 }
 
-func buildPlan(at path: String, category: String?) throws -> CleanupPlan {
-    let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
-    let scanner = Scanner()
-    let classifier = RuleClassifier()
-    let planner = Planner()
-    let entries = try scanner.scanChildren(of: root)
-    let classified = entries.map(classifier.classify)
-    return planner.plan(classified, categories: categoryFilter(category))
+func categoryLabel(_ c: KestrelCore.Category) -> String {
+    switch c {
+    case .safeCache: return "cache"
+    case .logs: return "logs"
+    case .devArtifact: return "dev artifact"
+    case .duplicate: return "duplicate"
+    case .largeOld: return "large & old"
+    case .appLeftover: return "app leftover"
+    case .trash: return "trash"
+    case .unknown: return "unknown"
+    }
 }
 
-func printPlan(_ plan: CleanupPlan) {
+func scanOptions(from args: [String]) -> ScanOptions {
+    let minSizeMB = Int64(option("--min-size", in: args) ?? "") ?? (LargeOldClassifier.defaultMinSize / (1024 * 1024))
+    let minAgeDays = Double(option("--min-age", in: args) ?? "") ?? (LargeOldClassifier.defaultMinAge / 86400)
+    return ScanOptions(
+        includeDuplicates: !flag("--no-dupes", in: args),
+        includeLargeOld: !flag("--no-large", in: args),
+        largeOld: LargeOldClassifier(minSize: minSizeMB * 1024 * 1024, minAge: minAgeDays * 86400)
+    )
+}
+
+func classify(at path: String, args: [String]) throws -> [ClassifiedEntry] {
+    let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+    return try ScanCoordinator().scan(root: root, options: scanOptions(from: args))
+}
+
+/// Per-category totals, largest first.
+func printBreakdown(_ plan: CleanupPlan) {
+    let byCat = plan.bytesByCategory
+    let counts = Dictionary(grouping: plan.items, by: { $0.category }).mapValues(\.count)
+    for (cat, bytes) in byCat.sorted(by: { $0.value > $1.value }) {
+        let label = categoryLabel(cat).padding(toLength: 14, withPad: " ", startingAt: 0)
+        print("  \(label)\(fmtBytes(bytes).padding(toLength: 12, withPad: " ", startingAt: 0))(\(counts[cat] ?? 0))")
+    }
+}
+
+func printPlan(_ plan: CleanupPlan, limit: Int = 25) {
     if plan.items.isEmpty {
         print("Nothing to clean. ✅")
         return
     }
     print("Reclaimable: \(fmtBytes(plan.totalBytes)) across \(plan.count) item(s)\n")
-    for item in plan.items.sorted(by: { $0.entry.size > $1.entry.size }) {
+    printBreakdown(plan)
+    print("")
+    let sorted = plan.items.sorted(by: { $0.entry.size > $1.entry.size })
+    for item in sorted.prefix(limit) {
         print("  \(fmtBytes(item.entry.size).padding(toLength: 10, withPad: " ", startingAt: 0))  \(item.entry.url.path)")
         print("             ↳ \(item.reason)")
+    }
+    if sorted.count > limit {
+        print("  … and \(sorted.count - limit) more")
+    }
+}
+
+/// Duplicates and large & old files are opt-in; surface them so the user knows they
+/// exist without ever including them in a default cleanup.
+func printReviewHints(_ classified: [ClassifiedEntry]) {
+    let review: [(KestrelCore.Category, String)] = [(.duplicate, "dupes"), (.largeOld, "large")]
+    var printedHeader = false
+    for (cat, flagName) in review {
+        let plan = Planner().plan(classified, categories: [cat])
+        guard !plan.items.isEmpty else { continue }
+        if !printedHeader { print("\nReview (opt-in — not cleaned automatically):"); printedHeader = true }
+        print("  \(categoryLabel(cat).padding(toLength: 14, withPad: " ", startingAt: 0))\(fmtBytes(plan.totalBytes).padding(toLength: 12, withPad: " ", startingAt: 0))(\(plan.count))   → kestrel clean <path> --category \(flagName)")
     }
 }
 
@@ -61,15 +108,24 @@ func flag(_ name: String, in args: [String]) -> Bool { args.contains(name) }
 
 func usage() {
     print("""
-    kestrel — honest macOS maintenance (Phase 0)
+    kestrel — honest macOS maintenance
 
     USAGE:
-      kestrel scan <path> [--category all|cache|logs|dev|dupes|large]
-      kestrel clean <path> [--category ...] [--apply]     (default: dry-run)
+      kestrel scan <path> [--category all|cache|logs|dev|dupes|large] [scan opts]
+      kestrel clean <path> [--category ...] [--apply] [scan opts]   (default: dry-run)
       kestrel vault list
       kestrel vault undo <session-id>
-      kestrel vault purge [--days N]                       (default: 14)
+      kestrel vault purge [--days N]                                (default: 14)
       kestrel audit tail [N]
+
+    SCAN OPTS:
+      --min-size <MB>   large & old threshold size   (default: 100)
+      --min-age <days>  large & old threshold age    (default: 180)
+      --no-dupes        skip duplicate detection
+      --no-large        skip large & old detection
+
+    Categories 'dupes' and 'large' are opt-in: they are surfaced for review but
+    never cleaned unless named explicitly with --category.
 
     Safety: clean is a dry-run unless --apply is passed. Even with --apply,
     files are moved to ~/.kestrel/vault (never deleted) and can be undone.
@@ -86,13 +142,16 @@ do {
     switch command {
     case "scan":
         guard let path = rest.first(where: { !$0.hasPrefix("-") }) else { usage(); exit(2) }
-        let plan = try buildPlan(at: path, category: option("--category", in: rest))
+        let classified = try classify(at: path, args: rest)
+        let plan = Planner().plan(classified, categories: categoryFilter(option("--category", in: rest)))
         printPlan(plan)
+        if option("--category", in: rest) == nil { printReviewHints(classified) }
 
     case "clean":
         guard let path = rest.first(where: { !$0.hasPrefix("-") }) else { usage(); exit(2) }
         let apply = flag("--apply", in: rest)
-        let plan = try buildPlan(at: path, category: option("--category", in: rest))
+        let classified = try classify(at: path, args: rest)
+        let plan = Planner().plan(classified, categories: categoryFilter(option("--category", in: rest)))
         printPlan(plan)
         guard apply else {
             print("\nDRY-RUN — nothing moved. Re-run with --apply to move these to the vault.")

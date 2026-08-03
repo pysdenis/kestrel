@@ -243,6 +243,41 @@ check(classifyPath("/Users/x/.npm/_logs/2026.log").category == .logs, "npm log")
 check(classifyPath("/Users/x/proj/debug.log").category == .unknown, "stray project log left alone")
 check(classifyPath("/Users/x/proj/src/main.swift").category == .unknown, "source left alone")
 
+// MARK: - Recursive scanner
+
+section("Scanner.scanFiles: prunes dev artifacts and protected trees")
+withTempDir { tmp in
+    makeFile(tmp.appendingPathComponent("keep.txt"), "a")
+    let sub = makeDir(tmp.appendingPathComponent("src"))
+    makeFile(sub.appendingPathComponent("nested.txt"), "b")
+    let nm = makeDir(tmp.appendingPathComponent("node_modules"))
+    makeFile(nm.appendingPathComponent("dep.js"), "c")
+    let git = makeDir(tmp.appendingPathComponent(".git"))
+    makeFile(git.appendingPathComponent("HEAD"), "ref")
+
+    let files = try Scanner().scanFiles(under: tmp).map { $0.url.lastPathComponent }
+    check(files.contains("keep.txt") && files.contains("nested.txt"), "loose files found")
+    check(!files.contains("dep.js"), "node_modules not descended into")
+    check(!files.contains("HEAD"), ".git tree skipped")
+}
+
+// MARK: - Large & old classifier
+
+section("LargeOld: only large AND old files, review-only")
+withTempDir { tmp in
+    let bigOld = FileEntry(url: tmp.appendingPathComponent("movie.mov"), size: 500_000_000, modified: Date(timeIntervalSinceNow: -400 * 86400), isDirectory: false)
+    let bigNew = FileEntry(url: tmp.appendingPathComponent("fresh.iso"), size: 500_000_000, modified: Date(), isDirectory: false)
+    let smallOld = FileEntry(url: tmp.appendingPathComponent("note.txt"), size: 10, modified: Date(timeIntervalSinceNow: -400 * 86400), isDirectory: false)
+    let clf = LargeOldClassifier()
+    check(clf.classify(bigOld).category == .largeOld, "big + old flagged")
+    check(clf.classify(bigNew).category == .unknown, "big but recent skipped")
+    check(clf.classify(smallOld).category == .unknown, "old but small skipped")
+
+    let hit = clf.classify(bigOld)
+    check(Planner().plan([hit]).items.isEmpty, "largeOld excluded from 'all' plan")
+    check(Planner().plan([hit], categories: [.largeOld]).count == 1, "included when named explicitly")
+}
+
 // MARK: - Safety guard
 
 section("SafetyGuard: protects credentials, VCS, system and libraries")

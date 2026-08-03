@@ -913,6 +913,23 @@ do {
     check(httpErr, "non-200 surfaces as http error")
 }
 
+// MARK: - System extensions
+
+section("SystemExtensionAuditor: parses systemextensionsctl output")
+do {
+    let sample = """
+    1 extension(s)
+    --- com.apple.system_extension.endpoint_security
+    enabled\tactive\tteamID\tbundleID (version)\tname\t[state]
+    *\t*\tSKMME9E2Y8\tcom.crowdstrike.falcon.Agent (7.11/123)\tFalcon\t[activated enabled]
+    """
+    let exts = SystemExtensionAuditor.parse(sample)
+    check(exts.count == 1, "one extension parsed (got \(exts.count))")
+    check(exts.first?.identifier == "com.crowdstrike.falcon.Agent", "identifier parsed")
+    check(exts.first?.state == "activated enabled", "state parsed")
+    check(exts.first?.name == "Falcon", "name parsed")
+}
+
 // MARK: - Trash / Downloads / Mail
 
 section("TrashFinder: lists trash contents as a trash-category plan")

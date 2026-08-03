@@ -236,6 +236,7 @@ func usage() {
       kestrel installers [path] [--apply]       (old .dmg/.pkg/.iso; default: Downloads)
       kestrel screenshots [path] [--apply]      (screenshots; default: Desktop)
       kestrel login-items                       (background / login launch items)
+      kestrel sysext                            (installed third-party system extensions)
       kestrel trash [--apply]                   (contents of all Trash bins → vault)
       kestrel downloads [path] [--apply]        (old files in Downloads)
       kestrel mail [--apply]                    (locally cached Mail attachments)
@@ -595,6 +596,12 @@ do {
         let path = rest.first(where: { !$0.hasPrefix("-") }) ?? paths.home.appendingPathComponent("Desktop").path
         let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
         try runPlan(ClutterFinder().screenshots(under: root), apply: flag("--apply", in: rest))
+
+    case "sysext", "system-extensions":
+        let exts = SystemExtensionAuditor().list()
+        if exts.isEmpty { print("No third-party system extensions installed. ✅"); break }
+        print("\(exts.count) system extension(s):")
+        for e in exts { print("  \(e.identifier)\(e.name.isEmpty ? "" : " (\(e.name))")  [\(e.state)]") }
 
     case "login-items", "background-items":
         let items = LaunchAgentAuditor().audit()

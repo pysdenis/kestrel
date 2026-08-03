@@ -507,6 +507,9 @@ do {
             print("\(e.timestamp)  \(e.action)  \(e.result)  \(fmtBytes(e.bytes))  \(e.paths.joined(separator: ", "))")
         }
 
+    case "version", "--version", "-v":
+        print("kestrel \(Kestrel.version)")
+
     case "help", "-h", "--help":
         usage()
 

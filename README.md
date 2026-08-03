@@ -128,17 +128,65 @@ testovatelné, znovupoužitelné, snadné na code review. Detaily v `docs/ARCHIT
 
 ---
 
-## Roadmap (fáze)
+## Instalace a použití (CLI)
 
-- **Fáze 0** — skeleton, `KestrelCore`, audit log, vault, dry-run infra.
-- **Fáze 1** — čisticí jádro + CLI (cache, dev-junk, duplicity, velké soubory).
-- **Fáze 2** — přehled místa (treemap, snímky, trend).
-- **Fáze 3** — menubar GUI s živými dlaždicemi.
-- **Fáze 4** — antivirus (ClamAV + YARA + heuristika).
-- **Fáze 5** — extra: power auditor, rules engine, automatizace.
-- **Fáze 6** — branding, notarizace, GitHub release / prodej.
+Vyžaduje Swift 5.9+ (Command Line Tools stačí, Xcode netřeba).
 
-Podrobně viz `docs/ROADMAP.md`.
+```bash
+swift build                        # sestaví KestrelCore + kestrel (CLI) + KestrelApp (GUI)
+swift run kestrel-tests            # spustí testovou sadu (dependency-free runner)
+swift run kestrel help             # přehled příkazů
+```
+
+Vše je **dry-run defaultně** — `clean`/`uninstall`/`orphans`/`installers` nic nesmažou
+bez `--apply`, a i pak jdou soubory do `~/.kestrel/vault/` (vratné přes `vault undo`).
+
+```bash
+kestrel scan ~/Developer                     # co lze uklidit (+ opt-in review sekce)
+kestrel clean ~/Developer --category dev      # náhled jen dev-artefaktů
+kestrel clean ~/Developer --category dev --apply
+kestrel uninstall Slack                        # appka + zbytky → vault
+kestrel orphans                                # data po odinstalovaných appkách
+kestrel map ~/Library --depth 2                # treemap v terminálu
+kestrel snapshot; kestrel trend; kestrel diff  # vývoj místa v čase
+kestrel stats                                  # Mac Health + disk/mem/cpu/battery/net
+kestrel av scan ~/Downloads                    # čestný sken (EICAR + heuristika)
+kestrel av status                              # Gatekeeper + XProtect
+kestrel secrets ~/myproject                    # uniklé API klíče/tokeny (redigované)
+kestrel smartscan                              # jednotlačítkový přehled
+kestrel docker; kestrel brew                   # reclaimable místo (advisory)
+kestrel power; kestrel localsnapshots          # co brání spánku / lokální snapshoty
+kestrel activity                               # kolik místa Kestrel reálně uvolnil
+```
+
+### Menubar app
+```bash
+./scripts/build-app.sh             # → dist/Kestrel.app (ad-hoc podpis, běží lokálně)
+open dist/Kestrel.app
+```
+
+## Stav / Roadmap (fáze)
+
+- **Fáze 0** ✅ — `KestrelCore`, audit log, vault, dry-run infra.
+- **Fáze 1** ✅ — čisticí jádro + CLI (cache/logy, dev-junk s project-markery, duplicity
+  size→partial→full hash, velké/staré, app uninstaller).
+- **Fáze 2** ✅ — přehled místa (treemap, denní snímky, trend, předpověď, diff).
+- **Fáze 3** ✅ — StatsCollector (veřejná API) + Mac Health + SwiftUI menubar app.
+- **Fáze 4** 🟡 — čestný on-demand antivirus (EICAR + heuristika, Gatekeeper/XProtect,
+  quarantine, osiřelí agenti). Zbývá: bundling ClamAV+YARA, on-access watcher.
+- **Fáze 5** 🟡 — SmartScan, maintenance, orphaned data, privacy cleaner, activity.
+  Zbývá: Cloud Cleanup.
+- **Fáze 6** 🟡 — secrets scanner, power auditor, local snapshots, installers/screenshots,
+  shredder. Zbývá: rules engine, bandwidth monitor, perceptual-hash fotky.
+- **Fáze 7** 🟡 — MIT LICENSE, app bundle skript, release/notarizace postup
+  (`docs/RELEASE.md`). Zbývá: Developer ID podpis + notarizace, vlastní ikona.
+
+Podrobné checklisty (co hotovo / co zbývá) viz `docs/ROADMAP.md`.
+154 testů zelených (`swift run kestrel-tests`).
+
+> Advisory funkce (Docker/brew/ClamAV prune, maintenance) Kestrel **sám neprovádí** —
+> ukáže reclaimable místo a přesný příkaz. Jejich úložiště nejde do vaultu, tak by to
+> porušilo „karanténa místo rm". Skutečné provedení = explicitní krok uživatele.
 
 ---
 
@@ -174,4 +222,6 @@ Terminálem kdykoli: `swift build`, `swift run kestrel-tests`, `swift run kestre
 
 ---
 
-*Stav: 📐 návrh připravený k vývoji. Zatím žádný kód — jen plán.*
+*Stav: 🛠️ Fáze 0–7 z podstatné části hotové — funkční CLI + kompilovatelná menubar app,
+154 testů zelených. Zbývá dotáhnout advisory→reálné provedení, ClamAV/YARA bundling,
+on-access sken, Cloud Cleanup a Developer ID podpis/notarizaci.*

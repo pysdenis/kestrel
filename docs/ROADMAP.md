@@ -62,26 +62,27 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 - [x] Privacy cleaner (browser cache/history/cookies, review-only) — `PrivacyClassifier`.
 - [x] My Activity view nad AuditLog + statistiky úspor (`ActivityReporter`, `kestrel activity`).
 
-## Fáze 6 — Extra & killer funkce 🚀
-- [ ] Power & Wake auditor (pmset assertions, wake reasons).
-- [ ] Login items & LaunchAgent auditor (+ osiřelí agenti).
+## Fáze 6 — Extra & killer funkce 🚀 (většina ✅)
+- [x] Power & Wake auditor (`PowerAuditor`, `pmset` assertions) — `kestrel power`.
+- [x] Login items & LaunchAgent auditor + osiřelí agenti (`LaunchAgentAuditor`, `kestrel av agents`).
 - [ ] Rules engine + `launchd` automatizace.
 - [ ] Bandwidth monitor per-app.
-- [ ] **APFS local snapshots & Time Machine local cleanup** (`tmutil`).
-- [ ] **Secrets/credential scanner** pro projekty.
+- [x] **APFS local snapshots & Time Machine local cleanup** (`LocalSnapshotAuditor`, `tmutil`).
+- [x] **Secrets/credential scanner** pro projekty (`SecretsScanner`, `kestrel secrets`).
 - [ ] **Apple Shortcuts integrace** (vystavené akce).
-- [ ] **Homebrew maintenance.**
-- [ ] Duplicitní & podobné fotky (perceptual hash) + Screenshoty.
-- [ ] Old installers/.dmg/.pkg, broken items finder.
+- [x] **Homebrew maintenance** (advisory `HomebrewAdapter` + `AppUpdater` outdated casks).
+- [ ] Duplicitní & podobné fotky (perceptual hash) — zbývá; Screenshoty ✅ (`ClutterFinder`).
+- [x] Old installers/.dmg/.pkg finder (`ClutterFinder`, `kestrel installers`).
 - [ ] Config profile / kernel & system extensions audit.
-- [ ] Sensitive file shredder (FileVault-aware).
+- [x] Sensitive file shredder (`Shredder`, `kestrel shred`, honest o SSD/FileVault).
 - [ ] Weekly digest (lokální), menu bar quick actions, „Explain this".
 
-## Fáze 7 — Vydání 📦
-- [ ] Vlastní branding + ikony (NE od CleanMyMac).
-- [ ] Developer ID podpis + notarizace + stapling.
-- [ ] Sparkle auto-update (open-source) NEBO GitHub Releases.
-- [ ] LICENSE, README pro veřejnost, screenshoty.
+## Fáze 7 — Vydání 📦 (rozpracováno)
+- [ ] Vlastní branding + ikony (NE od CleanMyMac) — zatím SF Symbol `bird.fill`.
+- [ ] Developer ID podpis + notarizace + stapling — postup v `docs/RELEASE.md`.
+- [x] App bundle skript (`scripts/build-app.sh` → `dist/Kestrel.app`, ad-hoc podpis, LSUIElement).
+- [ ] Sparkle auto-update NEBO GitHub Releases — `AppUpdater.sparkleFeed` už čte `SUFeedURL`.
+- [x] LICENSE (MIT), README pro veřejnost s reálným použitím. Zbývají screenshoty.
 - [ ] Rozhodnout model: čistě OSS / OSS + placené buildy / donationware.
 
 ---

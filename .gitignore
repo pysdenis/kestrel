@@ -24,3 +24,6 @@ Resources/yara-rules/*.compiled
 *.p12
 *.provisionprofile
 notarize-credentials*
+
+# Packaged app bundle
+dist/

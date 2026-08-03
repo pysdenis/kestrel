@@ -62,6 +62,9 @@ final class AppModel: ObservableObject {
     let paths = KestrelPaths()
     private let stats = StatsCollector()
     private let cpuSampler = CPUUsageSampler()
+    lazy var cpuBrand: String = stats.cpuBrand()
+    var uptimeDays: Int { Int(ProcessInfo.processInfo.systemUptime / 86400) }
+    func volumes() -> [VolumeInfo] { stats.volumes() }
     private lazy var energyLog = EnergyLog(url: paths.energyLog)
     private var timer: Timer?
     private var energyTimer: Timer?

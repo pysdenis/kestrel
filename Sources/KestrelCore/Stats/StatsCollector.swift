@@ -58,10 +58,11 @@ public struct BatteryStats: Sendable, Equatable {
     public let chargemAh: Int?
     public let capacitymAh: Int?
     public let amperagemA: Int?
+    public let temperatureC: Double?
 
     public init(percent: Int, isCharging: Bool, cycleCount: Int?, healthPercent: Int?,
                 timeToFullMinutes: Int? = nil, timeToEmptyMinutes: Int? = nil,
-                chargemAh: Int? = nil, capacitymAh: Int? = nil, amperagemA: Int? = nil) {
+                chargemAh: Int? = nil, capacitymAh: Int? = nil, amperagemA: Int? = nil, temperatureC: Double? = nil) {
         self.percent = percent
         self.isCharging = isCharging
         self.cycleCount = cycleCount
@@ -71,6 +72,7 @@ public struct BatteryStats: Sendable, Equatable {
         self.chargemAh = chargemAh
         self.capacitymAh = capacitymAh
         self.amperagemA = amperagemA
+        self.temperatureC = temperatureC
     }
 }
 
@@ -175,7 +177,8 @@ public struct StatsCollector {
                 percent: percent, isCharging: charging, cycleCount: detail.cycles, healthPercent: detail.health,
                 timeToFullMinutes: detail.toFull ?? iopsFull,
                 timeToEmptyMinutes: detail.toEmpty ?? iopsEmpty,
-                chargemAh: detail.charge, capacitymAh: detail.maxCap, amperagemA: detail.amperage
+                chargemAh: detail.charge, capacitymAh: detail.maxCap, amperagemA: detail.amperage,
+                temperatureC: detail.temperature
             )
         }
         return nil
@@ -184,9 +187,9 @@ public struct StatsCollector {
     /// Reads AppleSmartBattery for health/cycles, the raw charge/capacity/current, and a
     /// single-reading instantaneous time estimate.
     private func batteryDetail(isCharging: Bool)
-        -> (cycles: Int?, health: Int?, toEmpty: Int?, toFull: Int?, charge: Int?, maxCap: Int?, amperage: Int?) {
+        -> (cycles: Int?, health: Int?, toEmpty: Int?, toFull: Int?, charge: Int?, maxCap: Int?, amperage: Int?, temperature: Double?) {
         let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
-        guard service != 0 else { return (nil, nil, nil, nil, nil, nil, nil) }
+        guard service != 0 else { return (nil, nil, nil, nil, nil, nil, nil, nil) }
         defer { IOObjectRelease(service) }
         func intProp(_ key: String) -> Int? {
             IORegistryEntryCreateCFProperty(service, key as CFString, kCFAllocatorDefault, 0)?
@@ -198,6 +201,8 @@ public struct StatsCollector {
         let current = intProp("AppleRawCurrentCapacity") ?? intProp("CurrentCapacity")
         let amperage = intProp("InstantAmperage") ?? intProp("Amperage")   // mA, signed
         let health = design.flatMap { d in d > 0 ? maxCap.map { Int(Double($0) / Double(d) * 100) } : nil }
+        // AppleSmartBattery "Temperature" is in centi-°C.
+        let temperature = intProp("Temperature").map { Double($0) / 100 }.flatMap { (0...100).contains($0) ? $0 : nil }
 
         var toEmpty: Int?, toFull: Int?
         if let current, let amp = amperage, amp != 0 {
@@ -205,7 +210,17 @@ public struct StatsCollector {
             if isCharging, let maxCap, maxCap > current { toFull = Int(Double(maxCap - current) / rate * 60) }
             else if !isCharging { toEmpty = Int(Double(current) / rate * 60) }
         }
-        return (cycles, health, toEmpty, toFull, current, maxCap, amperage)
+        return (cycles, health, toEmpty, toFull, current, maxCap, amperage, temperature)
+    }
+
+    /// CPU brand string, e.g. "Apple M4". Best-effort.
+    public func cpuBrand() -> String {
+        var size = 0
+        sysctlbyname("machdep.cpu.brand_string", nil, &size, nil, 0)
+        guard size > 0 else { return "CPU" }
+        var buffer = [CChar](repeating: 0, count: size)
+        sysctlbyname("machdep.cpu.brand_string", &buffer, &size, nil, 0)
+        return String(cString: buffer)
     }
 
     // MARK: - Network (getifaddrs + CoreWLAN)

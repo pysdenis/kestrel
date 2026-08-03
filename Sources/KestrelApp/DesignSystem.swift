@@ -94,6 +94,29 @@ struct Card<Content: View>: View {
     }
 }
 
+/// A segmented ring gauge (battery detail) — ticks around a circle, filled by fraction.
+struct SegmentedRing: View {
+    let fraction: Double
+    var tint: Color = Palette.accent
+    var segments: Int = 44
+    var size: CGFloat = 150
+
+    var body: some View {
+        ZStack {
+            ForEach(0..<segments, id: \.self) { i in
+                let on = Double(i) / Double(segments) < min(1, max(0, fraction))
+                Capsule()
+                    .fill(on ? AnyShapeStyle(tint) : AnyShapeStyle(Color.primary.opacity(0.12)))
+                    .frame(width: max(2, size * 0.022), height: size * 0.1)
+                    .shadow(color: on ? tint.opacity(0.55) : .clear, radius: on ? 3 : 0)
+                    .offset(y: -size * 0.41)
+                    .rotationEffect(.degrees(Double(i) / Double(segments) * 360))
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
+
 /// Circular Mac Health gauge.
 struct HealthRing: View {
     let score: Int

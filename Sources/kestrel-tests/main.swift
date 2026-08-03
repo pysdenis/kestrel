@@ -1,6 +1,7 @@
 import Foundation
 import CoreGraphics
 import ImageIO
+import SQLite3
 import KestrelCore
 
 // Dependency-free test runner (no XCTest). Mirrors Tests/KestrelCoreTests so the
@@ -1045,6 +1046,44 @@ withTempDir { tmp in
     check(digest.reclaimedAllTime == 5000, "all-time savings")
     check(digest.dailyGrowthBytes == 20, "growth from snapshots")
     check(digest.recentChanges.first?.path == "/x", "what grew")
+}
+
+// MARK: - TCCReader
+
+section("TCCReader: reads grants from a TCC-shaped sqlite db (modern auth_value)")
+withTempDir { tmp in
+    let db = tmp.appendingPathComponent("TCC.db")
+    var handle: OpaquePointer?
+    check(sqlite3_open(db.path, &handle) == SQLITE_OK, "open temp db")
+    sqlite3_exec(handle, "CREATE TABLE access (service TEXT, client TEXT, auth_value INTEGER)", nil, nil, nil)
+    sqlite3_exec(handle, "INSERT INTO access VALUES ('kTCCServiceCamera','com.zoom.xos',2)", nil, nil, nil)
+    sqlite3_exec(handle, "INSERT INTO access VALUES ('kTCCServiceMicrophone','com.foo.bar',0)", nil, nil, nil)
+    sqlite3_close(handle)
+
+    let perms = TCCReader(dbPath: db.path).permissions()
+    check(perms.count == 2, "reads both rows")
+    check(perms.contains { $0.client == "com.zoom.xos" && $0.allowed }, "camera allowed for zoom")
+    check(perms.contains { $0.client == "com.foo.bar" && !$0.allowed }, "mic denied for foo")
+    check(TCCReader.friendlyService("kTCCServiceSystemPolicyAllFiles") == "Full Disk Access", "friendly service name")
+}
+
+section("TCCReader: missing db returns nothing, never crashes")
+withTempDir { tmp in
+    let perms = TCCReader(dbPath: tmp.appendingPathComponent("nope.db").path).permissions()
+    check(perms.isEmpty, "no db → empty, honest")
+}
+
+// MARK: - MemoryReliever
+
+section("MemoryReliever: invokes purge through the runner")
+do {
+    final class RecordingRunner: CommandRunner, @unchecked Sendable {
+        var tool = ""
+        func run(_ tool: String, _ arguments: [String]) throws -> String { self.tool = tool; return "" }
+    }
+    let runner = RecordingRunner()
+    check(MemoryReliever(runner: runner).freeInactiveMemory(), "reports success")
+    check(runner.tool == "purge", "runs purge")
 }
 
 // MARK: - Summary

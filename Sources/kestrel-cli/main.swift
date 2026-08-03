@@ -138,10 +138,18 @@ func fmtDays(_ days: Double) -> String {
 
 // MARK: - AI (Gemini, opt-in)
 
+func geminiKeyValue() -> String {
+    if let env = ProcessInfo.processInfo.environment["KESTREL_GEMINI_API_KEY"], !env.isEmpty { return env }
+    if let file = try? String(contentsOf: paths.geminiKey, encoding: .utf8) {
+        return file.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    return ""
+}
+
 func geminiAssistant() -> AIAssistant? {
-    let key = ProcessInfo.processInfo.environment["KESTREL_GEMINI_API_KEY"] ?? ""
+    let key = geminiKeyValue()
     guard !key.isEmpty else { return nil }
-    let model = ProcessInfo.processInfo.environment["KESTREL_GEMINI_MODEL"] ?? "gemini-2.5-flash"
+    let model = ProcessInfo.processInfo.environment["KESTREL_GEMINI_MODEL"] ?? "gemini-3.5-flash"
     return AIAssistant(client: GeminiClient(apiKey: key, model: model))
 }
 
@@ -149,7 +157,7 @@ let aiDisabledHelp = """
 AI is off. It is opt-in and sends only metadata (names, sizes, categories) to Google's
 Gemini — never file contents. Enable it by exporting your key:
   export KESTREL_GEMINI_API_KEY=your-key
-  (optional) export KESTREL_GEMINI_MODEL=gemini-2.5-flash
+  (optional) export KESTREL_GEMINI_MODEL=gemini-3.5-flash
 """
 
 func runAI(_ op: @escaping () async -> String?) -> String? {

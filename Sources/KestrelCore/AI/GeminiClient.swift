@@ -34,7 +34,7 @@ public struct GeminiClient {
     private let model: String
     private let http: HTTPClient
 
-    public init(apiKey: String, model: String = "gemini-2.5-flash", http: HTTPClient = URLSessionHTTP()) {
+    public init(apiKey: String, model: String = "gemini-3.5-flash", http: HTTPClient = URLSessionHTTP()) {
         self.apiKey = apiKey
         self.model = model
         self.http = http

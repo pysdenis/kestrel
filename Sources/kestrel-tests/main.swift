@@ -132,6 +132,7 @@ withTempDir { tmp in
 
 section("Pipeline: apply moves to vault and writes audit")
 withTempDir { tmp in
+    makeFile(tmp.appendingPathComponent("Cargo.toml"), "[package]") // confirms 'target'
     let dir = tmp.appendingPathComponent("target")
     try fm.createDirectory(at: dir, withIntermediateDirectories: true)
     makeFile(dir.appendingPathComponent("app"), "x")
@@ -156,6 +157,71 @@ withTempDir { tmp in
     let all = try log.readAll()
     check(all.count == 2, "two entries")
     check(all.last?.sessionId == "s1", "session id preserved")
+}
+
+// MARK: - Dev artifact classifier
+
+@discardableResult
+func makeDir(_ url: URL) -> URL {
+    try? fm.createDirectory(at: url, withIntermediateDirectories: true)
+    return url
+}
+
+func classifyDir(_ url: URL) -> ClassifiedEntry {
+    DevArtifactClassifier().classify(Scanner().makeEntry(url))
+}
+
+section("DevArtifact: node_modules next to package.json is high-confidence")
+withTempDir { tmp in
+    makeFile(tmp.appendingPathComponent("package.json"), "{}")
+    let nm = makeDir(tmp.appendingPathComponent("node_modules"))
+    let v = classifyDir(nm)
+    check(v.category == .devArtifact && v.confidence == .high, "node_modules confirmed high")
+}
+
+section("DevArtifact: ambiguous 'target' requires a project marker")
+withTempDir { tmp in
+    let bare = makeDir(tmp.appendingPathComponent("target"))
+    check(classifyDir(bare).category == .unknown, "bare 'target' left unknown")
+
+    let proj = makeDir(tmp.appendingPathComponent("rust"))
+    makeFile(proj.appendingPathComponent("Cargo.toml"), "[package]")
+    let t = makeDir(proj.appendingPathComponent("target"))
+    let v = classifyDir(t)
+    check(v.category == .devArtifact && v.confidence == .high, "target next to Cargo.toml confirmed")
+}
+
+section("DevArtifact: 'Pods' without a Podfile is left alone")
+withTempDir { tmp in
+    let pods = makeDir(tmp.appendingPathComponent("Pods"))
+    check(classifyDir(pods).category == .unknown, "Pods without Podfile is unknown")
+    makeFile(tmp.appendingPathComponent("Podfile"), "platform :ios")
+    check(classifyDir(pods).category == .devArtifact, "Pods with Podfile is a dev artifact")
+}
+
+section("DevArtifact: venv confirmed only by inner pyvenv.cfg")
+withTempDir { tmp in
+    let venv = makeDir(tmp.appendingPathComponent("venv"))
+    check(classifyDir(venv).category == .unknown, "empty 'venv' is unknown")
+    makeFile(venv.appendingPathComponent("pyvenv.cfg"), "home = /usr")
+    check(classifyDir(venv).category == .devArtifact, "venv with pyvenv.cfg is a dev artifact")
+}
+
+section("DevArtifact: distinctive names need no marker; generic ones do")
+withTempDir { tmp in
+    check(classifyDir(makeDir(tmp.appendingPathComponent("__pycache__"))).confidence == .high, "__pycache__ trusted by name")
+    let bareBuild = makeDir(tmp.appendingPathComponent("build"))
+    check(classifyDir(bareBuild).category == .unknown, "generic 'build' without marker is unknown")
+    makeFile(tmp.appendingPathComponent("package.json"), "{}")
+    let v = classifyDir(bareBuild)
+    check(v.category == .devArtifact && v.confidence == .medium, "'build' next to package.json is medium")
+}
+
+section("DevArtifact: source files and unrelated folders are never claimed")
+withTempDir { tmp in
+    let src = makeFile(tmp.appendingPathComponent("main.swift"), "print()")
+    check(DevArtifactClassifier().classify(Scanner().makeEntry(src)).category == .unknown, "source file untouched")
+    check(classifyDir(makeDir(tmp.appendingPathComponent("my-notes"))).category == .unknown, "random folder untouched")
 }
 
 // MARK: - Safety guard

@@ -97,7 +97,7 @@ Detaily viz brainstorm; AI je vždy opt-in a posílá jen metadata (invariant #7
 - [x] **AI asistent (Gemini)**: `GeminiClient` + `AIAssistant`, CLI `ask`/`explain`/`advise`, GUI Assistant sekce.
 - [x] **AI „druhý názor" před `apply`** (`AIAssistant.review`, CLI `clean --review`, GUI tlačítko).
 - [x] **AI vysvětlení bezpečnostního nálezu** (`AIAssistant.explainFinding`, `kestrel av explain`).
-- [ ] **Přirozený jazyk → rule** — „ukliď node_modules starší měsíce" → AI navrhne pravidlo (uživatel potvrdí, nemaže samo).
+- [x] **Přirozený jazyk → rule** (`AIAssistant.suggestRule`, `kestrel rules suggest`) — AI navrhne, uživatel potvrdí.
 - [x] **Weekly digest** (`DigestReporter`, `kestrel digest` — úspory + trend + co narostlo).
 - [x] **`launchd` automatizace** pro rules (`RulesScheduler`, `kestrel rules install-agent`).
 - [ ] **Perceptuální hash** na podobné fotky + seskupení screenshotů.

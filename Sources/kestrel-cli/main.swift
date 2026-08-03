@@ -724,6 +724,16 @@ do {
             guard !selected.isEmpty else { print("No matching rules."); break }
             let items = selected.flatMap { RulesEngine().evaluate($0).items }
             try runPlan(CleanupPlan(items: items), apply: flag("--apply", in: rest))
+        case "suggest":
+            guard let assistant = geminiAssistant() else { print(aiDisabledHelp); exit(2) }
+            let desc = rest.dropFirst().filter { !$0.hasPrefix("-") }.joined(separator: " ")
+            guard !desc.isEmpty else { print("Usage: kestrel rules suggest \"<description>\""); exit(2) }
+            print("(AI suggests a rule from your words — review it, then add to \(paths.rules.path))\n")
+            let json = runAI { try? await assistant.suggestRule(from: desc) } ?? "AI unavailable."
+            print(json)
+            if let data = json.data(using: .utf8), (try? JSONDecoder().decode(MaintenanceRule.self, from: data)) != nil {
+                print("\n✓ Valid rule. Add it (inside a JSON array) to \(paths.rules.path), then: kestrel rules run --apply")
+            }
         case "install-agent":
             let hours = Int(option("--every-hours", in: rest) ?? "24") ?? 24
             let exe = Bundle.main.executablePath ?? CommandLine.arguments[0]

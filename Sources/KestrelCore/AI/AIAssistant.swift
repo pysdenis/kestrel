@@ -87,6 +87,25 @@ public struct AIAssistant {
         return try await client.generate(prompt, system: Self.systemPrompt)
     }
 
+    /// Turn a plain-language cleanup request into a Kestrel rule as JSON. The user reviews
+    /// and adds it — the assistant only proposes, it never writes or deletes anything.
+    public func suggestRule(from description: String) async throws -> String {
+        let prompt = """
+        Convert this maintenance request into a single Kestrel rule as strict JSON only \
+        (no prose, no code fences). Schema:
+        {"name": string, "root": string (a folder path, ~ allowed),
+         "criteria": {"olderThanDays"?: int, "largerThanBytes"?: int, "nameContains"?: string, "extensions"?: [string]}}
+        Request: "\(description)"
+        Output only the JSON object.
+        """
+        let text = try await client.generate(prompt, system: Self.systemPrompt)
+        // Strip any accidental code fences.
+        return text
+            .replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Free-form question answered against a caller-provided metadata context.
     public func ask(_ question: String, context: String) async throws -> String {
         let prompt = """

@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ServiceManagement
 import KestrelCore
 
 // Scan state lives in these controllers (owned by AppModel), not in the section views.
@@ -254,15 +255,33 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var busy = false
     @Published var message: String?
 
+    /// Preferences. `launchAtLogin` mirrors the real login-item state (SMAppService);
+    /// `retentionDays` drives the vault purge window.
+    @Published var launchAtLogin = false
+    @Published var retentionDays = 14
+    let retentionOptions = [7, 14, 30, 90]
+
     private let paths: KestrelPaths
     init(paths: KestrelPaths) { self.paths = paths }
 
     func load() {
+        launchAtLogin = SMAppService.mainApp.status == .enabled
         let vaultURL = paths.vault
         Task.detached { [weak self] in
             let sessions = (try? VaultService(vaultRoot: vaultURL).listSessions()) ?? []
             await MainActor.run { self?.sessions = sessions }
         }
+    }
+
+    /// Register/unregister the login item, then snap the published value back to the real
+    /// OS state so the toggle can never drift from the truth.
+    func setLaunchAtLogin(_ on: Bool) {
+        do {
+            if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+        } catch {
+            message = "Couldn't change the login item — this needs the packaged app."
+        }
+        launchAtLogin = SMAppService.mainApp.status == .enabled
     }
 
     func undo(_ id: String) {

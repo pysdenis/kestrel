@@ -404,22 +404,7 @@ struct SpaceSection: View {
 
     var body: some View {
         SectionScaffold(title: "Space", subtitle: "Where your storage is going") {
-            if let d = model.disk {
-                Card {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("\(bytesString(d.used)) used").font(.headline)
-                            Spacer()
-                            Text("\(bytesString(d.available)) free").foregroundStyle(.secondary)
-                        }
-                        KestrelProgress(value: d.usedFraction, tint: fractionColor(d.usedFraction))
-                        if d.purgeable > 0 {
-                            Text("\(bytesString(d.purgeable)) purgeable (reclaimable on demand)")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
+            if let d = model.disk { capacityCard(d) }
 
             HStack {
                 SectionTitle("Storage map", icon: "square.grid.3x3.fill")
@@ -436,26 +421,93 @@ struct SpaceSection: View {
                                tint: Palette.blue)
             } else if let tree = controller.tree {
                 let current = controller.path.last ?? tree
-                HStack(spacing: 5) {
-                    Button("Home") { controller.path = [] }.buttonStyle(.plain).foregroundStyle(controller.path.isEmpty ? Color.primary : Palette.accent)
-                    ForEach(Array(controller.path.enumerated()), id: \.offset) { i, node in
-                        Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(.tertiary)
-                        Button(node.name) { controller.path = Array(controller.path.prefix(i + 1)) }
-                            .buttonStyle(.plain).foregroundStyle(i == controller.path.count - 1 ? Color.primary : Palette.accent).lineLimit(1)
-                    }
-                    Spacer()
-                    Text(bytesString(current.size)).foregroundStyle(.secondary)
-                }
-                .font(.caption)
+                breadcrumb(current)
                 Card(padding: 6) {
                     TreemapView(node: current) { child in controller.path.append(child) }
                         .frame(height: 340)
                 }
                 Text("Sized by real on-disk usage (allocated bytes), so sparse files like Docker.raw show their true footprint. Click a block to drill in.")
                     .font(.caption2).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
+                largestCard(current)
             } else {
-                Text("Scanning your Home folder reads Desktop, Documents, Downloads and Pictures, so macOS may ask for permission. Click Scan when you're ready.")
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Card {
+                    EmptyState(icon: "square.grid.3x3", title: "Scan your Home folder",
+                               caption: "This reads Desktop, Documents, Downloads and Pictures, so macOS may ask for permission. Click Scan Home when you're ready.",
+                               tint: Palette.accent)
+                }
+            }
+        }
+    }
+
+    private func capacityCard(_ d: DiskSpace) -> some View {
+        Card(elevated: true, tint: fractionColor(d.usedFraction)) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("\(bytesString(d.used)) used").font(.title3.weight(.bold))
+                    Spacer()
+                    Text("of \(bytesString(d.total))").font(.subheadline).foregroundStyle(.secondary)
+                }
+                KestrelProgress(value: d.usedFraction, tint: fractionColor(d.usedFraction), height: 10)
+                HStack(spacing: 16) {
+                    legendDot(fractionColor(d.usedFraction), "Used", bytesString(d.used))
+                    legendDot(.primary.opacity(0.2), "Free", bytesString(d.available))
+                    if d.purgeable > 0 { legendDot(Palette.warn, "Purgeable", bytesString(d.purgeable)) }
+                    Spacer()
+                }
+            }
+        }
+    }
+
+    private func legendDot(_ color: Color, _ label: String, _ value: String) -> some View {
+        HStack(spacing: 7) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            Text(value).font(.caption.monospacedDigit().weight(.medium))
+        }
+    }
+
+    private func breadcrumb(_ current: DirNode) -> some View {
+        HStack(spacing: 5) {
+            Button("Home") { controller.path = [] }.buttonStyle(.plain).foregroundStyle(controller.path.isEmpty ? Color.primary : Palette.accent)
+            ForEach(Array(controller.path.enumerated()), id: \.offset) { i, node in
+                Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(.tertiary)
+                Button(node.name) { controller.path = Array(controller.path.prefix(i + 1)) }
+                    .buttonStyle(.plain).foregroundStyle(i == controller.path.count - 1 ? Color.primary : Palette.accent).lineLimit(1)
+            }
+            Spacer()
+            Text(bytesString(current.size)).foregroundStyle(.secondary)
+        }
+        .font(.caption)
+    }
+
+    @ViewBuilder private func largestCard(_ current: DirNode) -> some View {
+        let top = current.children.sorted { $0.size > $1.size }.prefix(8)
+        if !top.isEmpty {
+            Card {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionTitle("Largest in \(current.name)", icon: "list.number")
+                    ForEach(Array(top.enumerated()), id: \.offset) { _, child in
+                        Button { if !child.children.isEmpty { controller.path.append(child) } } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: child.children.isEmpty ? "doc" : "folder.fill")
+                                    .foregroundStyle(child.children.isEmpty ? Color.secondary : Palette.accent2).imageScale(.small).frame(width: 18)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    HStack {
+                                        Text(child.name).font(.callout).lineLimit(1).truncationMode(.middle)
+                                        Spacer()
+                                        Text(bytesString(child.size)).font(.caption.monospacedDigit().weight(.medium)).foregroundStyle(.secondary)
+                                    }
+                                    MiniBar(fraction: current.size > 0 ? Double(child.size) / Double(current.size) : 0, tint: Palette.accent2)
+                                }
+                                if !child.children.isEmpty {
+                                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
         }
     }
@@ -471,19 +523,28 @@ struct ActivitySection: View {
     var body: some View {
         SectionScaffold(title: "Activity", subtitle: "What Kestrel has actually reclaimed — from the audit log") {
             let s = summary
-            Card {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(bytesString(s?.reclaimedBytes ?? 0)).font(.system(size: 34, weight: .bold, design: .rounded))
-                    Text("reclaimed across \(s?.totalActions ?? 0) action(s)")
-                        .font(.subheadline).foregroundStyle(.secondary)
+            Card(elevated: true, tint: Palette.good) {
+                HStack(spacing: 16) {
+                    ZStack {
+                        Circle().fill(Palette.good.opacity(0.14)).frame(width: 56, height: 56)
+                        Image(systemName: "arrow.up.bin.fill").font(.system(size: 24)).foregroundStyle(Palette.good)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(bytesString(s?.reclaimedBytes ?? 0)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                        Text("reclaimed across \(s?.totalActions ?? 0) action(s)").font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    Spacer()
                 }
             }
+
             if let byCat = s?.bytesByCategory, !byCat.isEmpty {
                 Card {
-                    VStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        SectionTitle("By category", icon: "chart.bar")
                         let total = max(1, byCat.values.reduce(0, +))
                         ForEach(byCat.sorted { $0.value > $1.value }, id: \.key) { key, bytes in
-                            LabeledBar(label: key, value: bytesString(bytes), fraction: Double(bytes) / Double(total), tint: Palette.good)
+                            LabeledBar(label: categoryLabel(key), value: bytesString(bytes),
+                                       fraction: Double(bytes) / Double(total), tint: categoryColor(key))
                         }
                     }
                 }
@@ -495,20 +556,26 @@ struct ActivitySection: View {
             }
 
             if let d = digest, (d.dailyGrowthBytes != nil || !d.recentChanges.isEmpty) {
-                SectionTitle("Storage trend", icon: "chart.line.uptrend.xyaxis")
                 Card {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        SectionTitle("Storage trend", icon: "chart.line.uptrend.xyaxis")
                         if let g = d.dailyGrowthBytes {
-                            Text("\(g >= 0 ? "+" : "-")\(bytesString(abs(g)))/day" + (d.daysUntilFull.map { " · full in ~\(Int($0)) days" } ?? ""))
-                                .font(.subheadline.weight(.medium))
+                            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                                Text("\(g >= 0 ? "+" : "−")\(bytesString(abs(g)))")
+                                    .font(.title3.weight(.bold)).foregroundStyle(g >= 0 ? Palette.warn : Palette.good)
+                                Text("/ day" + (d.daysUntilFull.map { " · full in ~\(Int($0)) days" } ?? ""))
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
                         }
-                        ForEach(Array(d.recentChanges.enumerated()), id: \.offset) { _, c in
+                        ForEach(Array(d.recentChanges.enumerated()), id: \.offset) { i, c in
+                            if i > 0 { Hairline() }
                             HStack {
                                 Text(c.path).font(.caption).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
                                 Spacer()
-                                Text("\(c.delta >= 0 ? "+" : "-")\(bytesString(abs(c.delta)))").font(.caption.monospacedDigit())
+                                Text("\(c.delta >= 0 ? "+" : "−")\(bytesString(abs(c.delta)))").font(.caption.monospacedDigit().weight(.medium))
                                     .foregroundStyle(c.delta >= 0 ? Palette.warn : Palette.good)
                             }
+                            .padding(.vertical, 2)
                         }
                     }
                 }
@@ -518,6 +585,13 @@ struct ActivitySection: View {
             summary = ActivityReporter(audit: AuditLog(url: model.paths.auditLog)).summary()
             digest = DigestReporter(audit: AuditLog(url: model.paths.auditLog), snapshots: SnapshotStore(directory: model.paths.snapshots)).generate()
         }
+    }
+
+    private func categoryColor(_ key: String) -> Color {
+        KestrelCore.Category(rawValue: key)?.display.color ?? Palette.good
+    }
+    private func categoryLabel(_ key: String) -> String {
+        KestrelCore.Category(rawValue: key)?.display.title ?? key.capitalized
     }
 }
 
@@ -530,9 +604,10 @@ struct SettingsSection: View {
     private var totalVaultBytes: Int64 { controller.sessions.reduce(0) { $0 + $1.totalBytes } }
 
     var body: some View {
-        SectionScaffold(title: "Settings", subtitle: "The vault, and where Kestrel stores things") {
+        SectionScaffold(title: "Settings", subtitle: "Preferences, the vault, and where Kestrel stores things") {
             if !model.fullDiskAccess { FullDiskAccessBanner() }
 
+            preferencesCard
             vaultCard
 
             Card {
@@ -548,7 +623,7 @@ struct SettingsSection: View {
                     .buttonStyle(.kestrel(.secondary))
                 }
             }
-            Card {
+            Card(tint: Palette.good) {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("Safety", systemImage: "checkmark.shield").font(.headline)
                     Text("Cleanups are dry-run by default. Nothing is deleted outright — items move to the vault and can be undone. Zero telemetry: nothing leaves this Mac.")
@@ -559,13 +634,39 @@ struct SettingsSection: View {
         .onAppear { controller.load() }
     }
 
+    private var preferencesCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionTitle("Preferences", icon: "slider.horizontal.3")
+                HStack {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Launch at login").font(.callout.weight(.medium))
+                        Text("Start Kestrel automatically when you log in.").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    KestrelToggle(isOn: Binding(get: { controller.launchAtLogin },
+                                                set: { controller.setLaunchAtLogin($0) }))
+                }
+                Hairline()
+                VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Vault retention").font(.callout.weight(.medium))
+                        Text("How long cleaned items stay restorable before they can be purged.").font(.caption).foregroundStyle(.secondary)
+                    }
+                    KestrelSelect(items: controller.retentionOptions, selection: $controller.retentionDays,
+                                  label: { "\($0) days" })
+                }
+            }
+        }
+    }
+
     private func confirmPurge() {
         model.requestConfirm(ConfirmRequest(
             icon: "trash", tint: Palette.crit,
             title: "Purge old vault sessions?",
-            message: "Permanently deletes everything in the vault older than 14 days. This can't be undone — restored items are unaffected.",
+            message: "Permanently deletes everything in the vault older than \(controller.retentionDays) days. This can't be undone — restored items are unaffected.",
             confirmLabel: "Purge", destructive: true,
-            onConfirm: { controller.purge(days: 14) }
+            onConfirm: { controller.purge(days: controller.retentionDays) }
         ))
     }
 

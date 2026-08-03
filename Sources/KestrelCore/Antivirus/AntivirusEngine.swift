@@ -21,18 +21,22 @@ public struct AntivirusEngine {
 
     public func scan(root: URL) -> ScanReport {
         let files = (try? Scanner().scanFiles(under: root, pruning: [], includingHidden: true)) ?? []
-        var findings: [ScanFinding] = []
-        for file in files {
-            findings.append(contentsOf: scanner.scanFile(file.url))
-            if fm.isExecutableFile(atPath: file.url.path), let info = quarantine.read(file.url) {
-                findings.append(ScanFinding(
-                    path: file.url.path,
-                    rule: "Quarantined executable",
-                    severity: .suspicious,
-                    evidence: "com.apple.quarantine" + (info.agent.map { " via \($0)" } ?? "")
-                ))
-            }
-        }
+        let findings = files.flatMap { scanFile($0.url) }
         return ScanReport(scanned: files.count, findings: findings)
+    }
+
+    /// Scan a single file: signature rules plus the quarantined-executable heuristic.
+    /// Shared by the on-demand walk and the on-access watcher.
+    public func scanFile(_ url: URL) -> [ScanFinding] {
+        var findings = scanner.scanFile(url)
+        if fm.isExecutableFile(atPath: url.path), let info = quarantine.read(url) {
+            findings.append(ScanFinding(
+                path: url.path,
+                rule: "Quarantined executable",
+                severity: .suspicious,
+                evidence: "com.apple.quarantine" + (info.agent.map { " via \($0)" } ?? "")
+            ))
+        }
+        return findings
     }
 }

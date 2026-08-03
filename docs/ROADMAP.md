@@ -51,8 +51,8 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 - [x] `RuleScanner` (EICAR test + string/SHA-256 pravidla) — čestný, jen reálné nálezy.
 - [x] Heuristika (quarantined executables, `LaunchAgentAuditor` osiřelí agenti).
 - [x] XProtect/Gatekeeper status reader (`SystemProtectionReader`), quarantine viewer (`QuarantineReader`).
-- [ ] On-access watcher (FSEvents na Downloads/Desktop).
-**DoD:** ✅ on-demand čestný report („čisto" když čisto, nález s důkazem). On-access zbývá.
+- [x] On-access watcher (FSEvents na Downloads/Desktop) — `OnAccessWatcher`, `kestrel av watch`.
+**DoD:** ✅ on-demand i on-access čestný report („čisto" když čisto, nález s důkazem).
 
 ## Fáze 5 — Zbytek CleanMyMac sekcí 🧩 (většina ✅)
 - [x] SmartScan (orchestrace health + clutter + review + AV) — `SmartScan`, `kestrel smartscan`.
@@ -65,7 +65,7 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 ## Fáze 6 — Extra & killer funkce 🚀 (většina ✅)
 - [x] Power & Wake auditor (`PowerAuditor`, `pmset` assertions) — `kestrel power`.
 - [x] Login items & LaunchAgent auditor + osiřelí agenti (`LaunchAgentAuditor`, `kestrel av agents`).
-- [ ] Rules engine + `launchd` automatizace.
+- [x] Rules engine (`RulesEngine`, `kestrel rules list/run`); `launchd` automatizace zbývá.
 - [ ] Bandwidth monitor per-app.
 - [x] **APFS local snapshots & Time Machine local cleanup** (`LocalSnapshotAuditor`, `tmutil`).
 - [x] **Secrets/credential scanner** pro projekty (`SecretsScanner`, `kestrel secrets`).

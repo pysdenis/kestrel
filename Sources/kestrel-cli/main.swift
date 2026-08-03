@@ -201,6 +201,7 @@ func usage() {
       kestrel updates                           (outdated Homebrew casks)
       kestrel activity                          (what Kestrel has reclaimed, from audit)
       kestrel av scan <path>                    (honest on-demand malware scan)
+      kestrel av watch [paths...]               (on-access scan; default: Downloads+Desktop)
       kestrel av status                         (Gatekeeper + XProtect status)
       kestrel av quarantine [path]              (files downloaded from the internet)
       kestrel av agents                         (orphaned launch agents)
@@ -419,6 +420,21 @@ do {
                     print("  [\(f.severity.rawValue)] \(f.rule)\n     ↳ \(f.path)\n       \(f.evidence)")
                 }
             }
+        case "watch":
+            let targets = Array(rest.dropFirst()).filter { !$0.hasPrefix("-") }
+            let dirs = targets.isEmpty
+                ? [paths.home.appendingPathComponent("Downloads"), paths.home.appendingPathComponent("Desktop")]
+                : targets.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
+            print("On-access scan — watching for new/changed files (Ctrl-C to stop):")
+            for d in dirs { print("  \(d.path)") }
+            let watcher = OnAccessWatcher(paths: dirs) { findings in
+                for f in findings {
+                    FileHandle.standardOutput.write(Data("⚠️  [\(f.severity.rawValue)] \(f.rule): \(f.path)\n".utf8))
+                }
+            }
+            watcher.start()
+            dispatchMain() // blocks; FSEvents are delivered on the watcher's own queue
+
         case "status":
             let s = SystemProtectionReader().status()
             let gk = s.assessmentsEnabled.map { $0 ? "enabled" : "DISABLED" } ?? "unknown"

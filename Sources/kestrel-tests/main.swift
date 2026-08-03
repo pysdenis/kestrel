@@ -399,6 +399,54 @@ withTempDir { tmp in
     check(Planner().plan([classified], categories: [.duplicate]).count == 1, "duplicates included when named")
 }
 
+// MARK: - External tool adapters
+
+struct StubRunner: CommandRunner {
+    let responses: [String: String]
+    func run(_ tool: String, _ arguments: [String]) throws -> String {
+        responses[([tool] + arguments).joined(separator: " ")] ?? ""
+    }
+}
+
+section("Docker adapter: parses reclaimable space, advisory only")
+do {
+    let runner = StubRunner(responses: [
+        "docker --version": "Docker version 25.0.3, build abc",
+        "docker system df --format {{.Type}}\t{{.Reclaimable}}":
+            "Images\t1.2GB (60%)\nContainers\t0B (0%)\nLocal Volumes\t300MB (100%)\nBuild Cache\t512MB (100%)",
+    ])
+    let p = DockerAdapter(runner: runner).preview()
+    check(p.available, "docker reported available")
+    check(p.reclaimableBytes == 2_012_000_000, "reclaimable summed (got \(p.reclaimableBytes))")
+    check(p.command == "docker system prune", "advisory command present")
+    check(p.details.count == 3, "zero-reclaimable rows omitted from details")
+}
+
+section("Docker adapter: absent tool is reported, not invented")
+check(!DockerAdapter(runner: StubRunner(responses: [:])).preview().available, "missing docker → unavailable")
+
+section("Homebrew adapter: parses 'would free approximately' total")
+do {
+    let runner = StubRunner(responses: [
+        "brew --version": "Homebrew 4.2.0",
+        "brew cleanup --dry-run": """
+        Would remove: /Users/x/Library/Caches/Homebrew/node--20.tar.gz (50MB)
+        Would remove: /opt/homebrew/Cellar/python/3.10 (200MB)
+        ==> This operation would free approximately 250MB of disk space.
+        """,
+    ])
+    let p = HomebrewAdapter(runner: runner).preview()
+    check(p.available && p.reclaimableBytes == 250_000_000, "brew reclaimable parsed (got \(p.reclaimableBytes))")
+    check(p.details.count == 2, "two removal lines captured")
+}
+
+section("parseHumanBytes: SI and binary suffixes")
+check(parseHumanBytes("1.2GB") == 1_200_000_000, "GB")
+check(parseHumanBytes("512MB") == 512_000_000, "MB")
+check(parseHumanBytes("1KiB") == 1024, "KiB")
+check(parseHumanBytes("0B") == 0, "0B")
+check(parseHumanBytes("nonsense") == nil, "garbage → nil")
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

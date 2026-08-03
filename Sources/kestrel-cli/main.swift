@@ -97,6 +97,21 @@ func printReviewHints(_ classified: [ClassifiedEntry]) {
     }
 }
 
+func printExternalPreview(_ p: ExternalCleanupPreview) {
+    guard p.available else {
+        print("\(p.tool): not found on PATH — nothing to report.")
+        return
+    }
+    if p.reclaimableBytes == 0 {
+        print("\(p.tool): nothing to reclaim. ✅")
+        return
+    }
+    print("\(p.tool): reclaimable \(fmtBytes(p.reclaimableBytes))\n")
+    for detail in p.details.prefix(25) { print("  \(detail)") }
+    if let command = p.command { print("\nRun to reclaim:  \(command)") }
+    if let note = p.note { print("(\(note))") }
+}
+
 // MARK: - Argument option helpers
 
 func option(_ name: String, in args: [String]) -> String? {
@@ -116,6 +131,8 @@ func usage() {
       kestrel vault list
       kestrel vault undo <session-id>
       kestrel vault purge [--days N]                                (default: 14)
+      kestrel docker                            (reclaimable Docker space, advisory)
+      kestrel brew                              (reclaimable Homebrew space, advisory)
       kestrel audit tail [N]
 
     SCAN OPTS:
@@ -186,6 +203,12 @@ do {
         default:
             print("Unknown vault subcommand '\(sub)'."); exit(2)
         }
+
+    case "docker":
+        printExternalPreview(DockerAdapter().preview())
+
+    case "brew", "homebrew":
+        printExternalPreview(HomebrewAdapter().preview())
 
     case "audit":
         let entries = try audit.readAll()

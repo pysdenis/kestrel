@@ -190,6 +190,7 @@ func usage() {
       kestrel power                             (what is keeping the Mac awake)
       kestrel localsnapshots                    (APFS/Time Machine local snapshots)
       kestrel shred <path> --apply              (secure permanent delete — no undo)
+      kestrel rules list | run [name] [--apply] (declarative maintenance rules)
       kestrel stats [all|disk|mem|cpu|battery|net|health]
       kestrel map <path> [--depth N]            (directory size tree)
       kestrel snapshot [path]                   (record disk usage; default: home)
@@ -463,6 +464,34 @@ do {
         print("\(matches.count) potential secret(s):\n")
         for m in matches.prefix(100) {
             print("  [\(m.rule)] \(m.path):\(m.line)\n     ↳ \(m.preview)")
+        }
+
+    case "rules":
+        let sub = rest.first ?? "list"
+        let stored = RulesEngine.load(from: paths.rules)
+        switch sub {
+        case "list":
+            if stored.isEmpty {
+                print("No rules defined. Create \(paths.rules.path), e.g.:\n")
+                print(#"  [{"name":"old downloads","root":"~/Downloads","criteria":{"olderThanDays":30}}]"#)
+                break
+            }
+            for r in stored {
+                var parts: [String] = []
+                if let d = r.criteria.olderThanDays { parts.append("older than \(d)d") }
+                if let b = r.criteria.largerThanBytes { parts.append("larger than \(fmtBytes(b))") }
+                if let n = r.criteria.nameContains { parts.append("name contains '\(n)'") }
+                if let e = r.criteria.extensions { parts.append("ext in [\(e.joined(separator: ","))]") }
+                print("  • \(r.name): \(r.root) — \(parts.joined(separator: ", "))")
+            }
+        case "run":
+            let named = rest.dropFirst().first(where: { !$0.hasPrefix("-") })
+            let selected = named.map { name in stored.filter { $0.name == name } } ?? stored
+            guard !selected.isEmpty else { print("No matching rules."); break }
+            let items = selected.flatMap { RulesEngine().evaluate($0).items }
+            try runPlan(CleanupPlan(items: items), apply: flag("--apply", in: rest))
+        default:
+            print("Unknown rules subcommand '\(sub)'. Use: list|run"); exit(2)
         }
 
     case "power":

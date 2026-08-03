@@ -20,4 +20,7 @@ public struct KestrelPaths: Sendable {
 
     /// Daily disk-usage snapshots (used later for trends/forecasts).
     public var snapshots: URL { root.appendingPathComponent("snapshots", isDirectory: true) }
+
+    /// User-defined maintenance rules (declarative, JSON).
+    public var rules: URL { root.appendingPathComponent("rules.json") }
 }

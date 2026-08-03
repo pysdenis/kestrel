@@ -789,6 +789,27 @@ withTempDir { tmp in
     catch { check((error as? Shredder.ShredError) == .missing(tmp.appendingPathComponent("nope").path), "missing throws") }
 }
 
+// MARK: - Rules engine
+
+section("RulesEngine: matches by age/extension, round-trips as JSON")
+withTempDir { tmp in
+    let old = makeFile(tmp.appendingPathComponent("old.zip"), "archive")
+    try? fm.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -60 * 86400)], ofItemAtPath: old.path)
+    makeFile(tmp.appendingPathComponent("fresh.zip"), "new")
+    makeFile(tmp.appendingPathComponent("keep.txt"), "keep")
+
+    let ageRule = MaintenanceRule(name: "old zips", root: tmp.path, criteria: RuleCriteria(olderThanDays: 30, extensions: ["zip"]))
+    let plan = RulesEngine().evaluate(ageRule)
+    check(plan.items.map { $0.entry.url.lastPathComponent } == ["old.zip"], "only old .zip matched")
+
+    let extRule = MaintenanceRule(name: "all zips", root: tmp.path, criteria: RuleCriteria(extensions: ["zip"]))
+    check(RulesEngine().evaluate(extRule).count == 2, "both zips matched by extension")
+
+    let store = tmp.appendingPathComponent("rules.json")
+    try RulesEngine.save([ageRule], to: store)
+    check(RulesEngine.load(from: store) == [ageRule], "rules JSON round-trips")
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

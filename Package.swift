@@ -7,6 +7,7 @@ let package = Package(
     products: [
         .library(name: "KestrelCore", targets: ["KestrelCore"]),
         .executable(name: "kestrel", targets: ["kestrel-cli"]),
+        .executable(name: "kestrel-app", targets: ["KestrelApp"]),
     ],
     targets: [
         .target(
@@ -18,6 +19,12 @@ let package = Package(
         ),
         .executableTarget(
             name: "kestrel-cli",
+            dependencies: ["KestrelCore"]
+        ),
+        // SwiftUI menu-bar app (Phase 3). Compiles against Core; proper packaging
+        // (LSUIElement bundle, signing, notarization) lands in Phase 7.
+        .executableTarget(
+            name: "KestrelApp",
             dependencies: ["KestrelCore"]
         ),
         // Dependency-free test runner that works with Command Line Tools only

@@ -401,6 +401,7 @@ struct SecuritySection: View {
     @State private var report: ScanReport?
     @State private var status: GatekeeperStatus?
     @State private var orphans: [LaunchItem] = []
+    @State private var extensions: [SystemExtension] = []
 
     var body: some View {
         SectionScaffold(title: "Security", subtitle: "Honest, evidence-based checks — no scare tactics") {
@@ -443,6 +444,21 @@ struct SecuritySection: View {
                 }
             }
 
+            if !extensions.isEmpty {
+                Card {
+                    VStack(alignment: .leading, spacing: 8) {
+                        SectionTitle("System extensions", icon: "puzzlepiece.extension")
+                        ForEach(Array(extensions.enumerated()), id: \.offset) { _, ext in
+                            HStack {
+                                Text(ext.name.isEmpty ? ext.identifier : ext.name).font(.callout).lineLimit(1)
+                                Spacer()
+                                Text(ext.state).font(.caption).foregroundStyle(ext.state.contains("enabled") ? Palette.good : .secondary)
+                            }
+                        }
+                    }
+                }
+            }
+
             if !orphans.isEmpty {
                 Card {
                     VStack(alignment: .leading, spacing: 8) {
@@ -456,7 +472,11 @@ struct SecuritySection: View {
         }
         .onAppear {
             status = SystemProtectionReader().status()
-            orphans = LaunchAgentAuditor().orphans()
+            Task.detached {
+                let orphaned = LaunchAgentAuditor().orphans()
+                let exts = SystemExtensionAuditor().list()
+                await MainActor.run { orphans = orphaned; extensions = exts }
+            }
         }
     }
 

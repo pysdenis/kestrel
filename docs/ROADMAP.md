@@ -242,6 +242,10 @@ Allocations, SwiftUI). Vše drží invarianty (žádné blokování main threadu
 - [ ] **Paměť** — uvolnit náhledy/ikony (foto thumbnaily, app ikony) mimo viditelnou oblast; cap velikostí cache.
 
 ### Při používání — plynulost
+- [x] **🔥 Zásadní fix idle CPU: 43 % → ~0 %.** Metric grid na dashboardu používal `LazyVGrid(.adaptive(minimum:))`;
+      obsah dlaždic (procenta, rychlosti sítě) mění šířku každé 4 s → adaptivní grid nekonečně přepočítával layout
+      (AppKit layout smyčka, `NSViewUpdateConstraintsForFrameChange`). Fixní `.flexible()` sloupce to úplně zabily.
+      Diagnostikováno přes `sample`/`ps` delta a binární vyřazování komponent.
 - [ ] **Profilace UI** — najít drahé re-rendery (velké `@Published` republish, těžké `body`),
       rozdělit velké view, `Equatable`/`@ViewBuilder` kde pomůže; líné gridy (`LazyVGrid`) už jsou.
 - [ ] **I/O mimo main** — všechny skeny/velikosti/hash už běží v `Task.detached`; doauditovat zbytek (ikony, plisty).

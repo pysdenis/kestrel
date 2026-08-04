@@ -243,7 +243,11 @@ struct DashboardSection: View {
     @EnvironmentObject private var model: AppModel
     @ObservedObject var controller: DashboardController
     @State private var detailKind: DetailKind?
-    private let columns = [GridItem(.adaptive(minimum: 150), spacing: 12)]
+    // Fixed flexible columns, NOT `.adaptive`: the metric tiles' text width changes on every
+    // stats tick (percentages, byte rates), which made an adaptive grid re-decide its column
+    // count and thrash AppKit layout continuously — ~40 % CPU while idle. Fixed columns fix it
+    // (idle drops to ~0 %). Five metrics (Disk/Memory/CPU/Battery/Network) fit the min window.
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 5)
 
     private var score: Int { model.health?.overall ?? 0 }
 

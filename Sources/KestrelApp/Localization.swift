@@ -307,6 +307,7 @@ enum Localization {
         ("Safe — just re-downloaded as you browse.", "Bezpečné — znovu se stáhne při prohlížení."),
         ("Clears your browsing history.", "Smaže tvou historii prohlížení."),
         ("Signs you out of websites.", "Odhlásí tě z webových stránek."),
+        ("Include this file", "Zahrnout tento soubor"),
         ("Exclusions", "Vyloučení"),
         ("Paths on this list are never moved or deleted — Kestrel's SafetyGuard treats them (and everything inside them) as off-limits across every module.", "Cesty na tomto seznamu se nikdy nepřesouvají ani nemažou — SafetyGuard je (i vše uvnitř) považuje za nedotknutelné napříč všemi moduly."),
         ("Nothing excluded yet. Add a folder or file you want Kestrel to always leave alone.", "Zatím nic vyloučeno. Přidej složku nebo soubor, kterých se má Kestrel vždy vyvarovat."),

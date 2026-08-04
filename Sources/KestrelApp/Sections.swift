@@ -101,7 +101,9 @@ struct CleanupSection: View {
                     ForEach(groups(plan), id: \.category) { group in
                         CleanupGroup(category: group.category, items: group.items,
                                      included: controller.isIncluded(group.category),
-                                     onToggle: { controller.toggle(group.category) })
+                                     onToggle: { controller.toggle(group.category) },
+                                     isItemIncluded: { controller.isItemIncluded($0) },
+                                     onToggleItem: { controller.toggleItem($0) })
                     }
                 }
             }
@@ -241,6 +243,8 @@ struct CleanupGroup: View {
     let items: [CleanupItem]
     var included: Bool = true
     var onToggle: () -> Void = {}
+    var isItemIncluded: (URL) -> Bool = { _ in true }
+    var onToggleItem: (URL) -> Void = { _ in }
     @State private var expanded = false
 
     private var subtotal: Int64 { items.reduce(0) { $0 + $1.entry.size } }
@@ -278,11 +282,18 @@ struct CleanupGroup: View {
                     Hairline().padding(.horizontal, 14)
                     VStack(spacing: 0) {
                         ForEach(Array(items.prefix(80).enumerated()), id: \.offset) { _, item in
+                            let itemOn = isItemIncluded(item.entry.url)
                             HStack(spacing: 12) {
+                                Button { onToggleItem(item.entry.url) } label: {
+                                    Image(systemName: itemOn ? "checkmark.circle.fill" : "circle")
+                                        .font(.callout).foregroundStyle(itemOn ? d.color : Color.secondary.opacity(0.5))
+                                }
+                                .buttonStyle(.plain).help(L("Include this file"))
                                 Text(bytesString(item.entry.size)).font(.caption.monospacedDigit().weight(.medium))
-                                    .frame(width: 72, alignment: .leading).foregroundStyle(.secondary)
+                                    .frame(width: 64, alignment: .leading).foregroundStyle(.secondary)
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(item.entry.url.lastPathComponent).font(.callout).lineLimit(1).truncationMode(.middle)
+                                        .strikethrough(!itemOn, color: .secondary)
                                     Text(item.entry.url.path).font(.caption2.monospaced()).foregroundStyle(.tertiary)
                                         .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
                                     Text(item.reason).font(.caption2).foregroundStyle(.secondary.opacity(0.7)).lineLimit(1)
@@ -291,9 +302,10 @@ struct CleanupGroup: View {
                                 Button { NSWorkspace.shared.activateFileViewerSelecting([item.entry.url]) } label: {
                                     Image(systemName: "magnifyingglass").font(.caption2)
                                 }
-                                .buttonStyle(.kestrel(.subtle, size: .small)).help("Reveal in Finder")
+                                .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Reveal in Finder"))
                             }
                             .padding(.horizontal, 14).padding(.vertical, 6)
+                            .opacity(itemOn ? 1 : 0.5)
                         }
                         if items.count > 80 {
                             Text("+ \(items.count - 80) more item(s) — all included when you clean")

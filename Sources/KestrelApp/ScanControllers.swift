@@ -23,6 +23,8 @@ import KestrelCore
 
     /// Categories the user has unchecked — excluded from the apply. Empty = clean everything.
     @Published var excluded: Set<KestrelCore.Category> = []
+    /// Individual files the user has unchecked within an otherwise-included category.
+    @Published var excludedItems: Set<URL> = []
 
     private let paths: KestrelPaths
     init(paths: KestrelPaths) { self.paths = paths }
@@ -32,9 +34,14 @@ import KestrelCore
     }
     func isIncluded(_ category: KestrelCore.Category) -> Bool { !excluded.contains(category) }
 
-    /// The plan filtered to the currently-included categories.
+    func toggleItem(_ url: URL) {
+        if excludedItems.contains(url) { excludedItems.remove(url) } else { excludedItems.insert(url) }
+    }
+    func isItemIncluded(_ url: URL) -> Bool { !excludedItems.contains(url) }
+
+    /// The plan filtered to the currently-included categories and individual files.
     func selectedPlan(_ plan: CleanupPlan) -> CleanupPlan {
-        CleanupPlan(items: plan.items.filter { !excluded.contains($0.category) })
+        CleanupPlan(items: plan.items.filter { !excluded.contains($0.category) && !excludedItems.contains($0.entry.url) })
     }
 
     func pickFolder() {
@@ -47,7 +54,7 @@ import KestrelCore
 
     func scan() {
         guard !scanning else { return }
-        scanning = true; plan = nil; message = nil; messageIsError = false; aiReview = nil; scanStatus = ""; excluded = []
+        scanning = true; plan = nil; message = nil; messageIsError = false; aiReview = nil; scanStatus = ""; excluded = []; excludedItems = []
         let root = self.root
         let categories = choice.categories
         Task.detached { [weak self] in

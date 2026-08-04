@@ -186,7 +186,9 @@ Diferenciátory — většina už hotová, tady jako přehled + zbytek.
 - [x] Command palette (⌘K, klávesová navigace), [x] Lokální notifikace, [x] Free up RAM, [x] App Permissions (TCC),
       [x] Login Items viewer, [x] Drag&drop sken složky, [x] **Bandwidth monitor per-app** (`BandwidthMonitor`, nettop),
       [x] **Batch uninstall** (multi-select + kombinovaný review), [x] „Explain this" (security nálezy),
-      [ ] Weekly digest (GUI), [ ] Apple Shortcuts integrace.
+      [x] **Weekly digest (GUI)** — copyable text summary v Activity,
+      [~] **Apple Shortcuts** — App Intents hotové (`KestrelShortcuts`: Mac Health / Free Space / Dev Junk,
+      read-only/dry-run); plná registrace do Shortcuts vyžaduje Xcode „Extract App Intents Metadata" (Fáze 7).
 
 ## Fáze 13 — Hloubková code review & audit 🔍 (průběžně)
 Cíl: nekompromisní audit celého projektu (frontend `KestrelApp` / doména `KestrelCore` /

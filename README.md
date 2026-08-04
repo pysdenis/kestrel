@@ -50,7 +50,7 @@ Vlastní „Precision" design — žádné výchozí Apple ovládací prvky. 15 
 - **Permissions** — **mapa expozice** appek (kamera/mik/FDA…), reverzní pohled „podle oprávnění", one-hop revoke.
 - **Tools** — Trash, App Leftovers, Old Installers, Screenshots, **Similar Images** (náhledy), **Duplicate Files** (+ APFS dedupe), **Developer caches**, **Privacy**, Cloud Cleanup (iCloud offload), Secrets scanner, Login items, Maintenance.
 - **Automation** — deklarativní pravidla (náhled, přes trezor, plánované přes launchd).
-- **Assistant** — čestný AI chat; **on-device** (Apple Foundation Models, offline) nebo Gemini.
+- **Assistant** — čestný AI chat; **on-device** (Apple Foundation Models, offline), **Ollama** (lokální, zdarma) nebo Gemini.
 - **Time Machine** — procházatelná, reverzibilní historie každého úklidu; obnov celou relaci i jediný soubor.
 - **My Activity** — co Kestrel udělal (z audit logu), export reportu (.md).
 - **Settings** — jazyk (CZ/EN), auto-update, allowlist, správa trezoru.
@@ -66,6 +66,29 @@ Vlastní „Precision" design — žádné výchozí Apple ovládací prvky. 15 
 Plus: dev-mode úklid, trezor+undo, storage forecast, power/wake auditor, login-item auditor,
 rules engine, plně skriptovatelné CLI, bandwidth monitor, „explain this", perceptual-hash fotky,
 secrets scanner, system-extensions audit, self-update přes GitHub Releases.
+
+---
+
+## Lokální AI zdarma (Ollama) 🧠
+
+Asistent umí běžet **plně offline a zdarma** přes [Ollama](https://ollama.com) — model běží na tvém
+Macu, žádný API klíč, žádná data neopustí zařízení. Kestrel Ollamu **detekuje sám**; jakmile běží
+s nějakým modelem, badge u asistenta se přepne na `Ollama · <model>`.
+
+```bash
+brew install ollama            # nebo stáhni z ollama.com
+brew services start ollama     # server na localhost:11434 (naběhne i po restartu)
+ollama pull llama3.2:3b        # ~2 GB, rychlý model pro asistenta Kestrelu
+```
+
+Kestrel si sám vybere **malý rychlý model** (llama3.2, phi, gemma…) — odpovědi na metadata jsou tak
+svižné. Těžké coder/reasoning modely nechává na tvoje vlastní použití.
+
+**Pořadí backendů:** on-device (Apple Foundation Models) → Ollama → Gemini. První dostupný vyhrává.
+
+> Doporučení podle RAM: **8 GB** → `llama3.2:3b` / `phi3.5`; **16 GB** → navíc `qwen2.5-coder:14b`
+> na kód a logiku; **32 GB+** → `qwen2.5-coder:32b`. Velký model na malé RAM začne swapovat a bude
+> pomalý — Kestrel proto pro sebe volí ten malý.
 
 ---
 

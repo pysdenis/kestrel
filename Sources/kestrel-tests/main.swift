@@ -302,6 +302,14 @@ withTempDir { tmp in
     check(dupes.allSatisfy { $0.category == .duplicate && $0.confidence == .high }, "high-confidence duplicates")
     let flaggedPaths = Set(dupes.map { $0.entry.url.path })
     check(flaggedPaths.count == 2, "the kept original is not flagged")
+
+    // Grouped view: one group, original + two copies, reclaimable = 2 copies.
+    let groups = DuplicateFinder().findGroups(in: entries)
+    check(groups.count == 1, "one duplicate group")
+    check(groups.first?.copies.count == 2, "group has two copies (original kept)")
+    check(groups.first?.all.count == 3, "group's all = original + copies")
+    check(groups.first?.reclaimable == Int64("same content here".utf8.count) * 2, "reclaimable = two copies' bytes")
+    check(!flaggedPaths.contains(groups.first!.original.url.path), "the group original is the kept file")
 }
 
 section("Duplicates: same size but different content are not duplicates")

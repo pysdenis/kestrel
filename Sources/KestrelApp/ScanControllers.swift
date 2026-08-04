@@ -535,6 +535,13 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var photoApplying = false
     @Published var photoMessage: String?
     @Published var photoRemoval: Set<URL> = []
+    // Duplicate files (any chosen folder): groups of byte-identical files + which copies to remove.
+    @Published var dupFolder = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
+    @Published var dupGroups: [DuplicateGroup] = []
+    @Published var dupScanning = false
+    @Published var dupApplying = false
+    @Published var dupMessage: String?
+    @Published var dupRemoval: Set<URL> = []
     private var states: [String: ToolRunState] = [:]
     private var loadedMeta = false
 
@@ -630,6 +637,63 @@ struct ChatMessage: Identifiable, Equatable {
                 self.photoGroups = self.photoGroups.map { $0.filter { !removed.contains($0.url) } }.filter { $0.count > 1 }
                 self.photoRemoval = []
                 self.photoApplying = false
+            }
+        }
+    }
+
+    func pickDupFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true; panel.canChooseFiles = false
+        panel.directoryURL = dupFolder
+        if panel.runModal() == .OK, let url = panel.url { dupFolder = url; dupGroups = []; dupMessage = nil }
+    }
+
+    /// Find byte-identical duplicates in the chosen folder, grouped. Every copy (but never the
+    /// kept original) is preselected for removal; the user unticks any they want to keep.
+    func scanDuplicates() {
+        guard !dupScanning else { return }
+        dupScanning = true; dupMessage = nil; dupGroups = []; dupRemoval = []
+        let root = dupFolder
+        Task.detached { [weak self] in
+            let files = (try? Scanner().scanFiles(under: root, pruning: [], includingHidden: false)) ?? []
+            let groups = DuplicateFinder().findGroups(in: files)
+            let removal = Set(groups.flatMap { $0.copies.map(\.url) })
+            await MainActor.run { [weak self] in
+                self?.dupGroups = groups
+                self?.dupRemoval = removal
+                self?.dupScanning = false
+                if groups.isEmpty { self?.dupMessage = "No duplicate files found." }
+            }
+        }
+    }
+
+    func toggleDup(_ url: URL) {
+        if dupRemoval.contains(url) { dupRemoval.remove(url) } else { dupRemoval.insert(url) }
+    }
+
+    var dupRemovalBytes: Int64 {
+        let sizes = Dictionary(dupGroups.flatMap { $0.all }.map { ($0.url, $0.size) }, uniquingKeysWith: { a, _ in a })
+        return dupRemoval.reduce(0) { $0 + (sizes[$1] ?? 0) }
+    }
+
+    func applyDuplicates() {
+        guard !dupRemoval.isEmpty, !dupApplying else { return }
+        dupApplying = true
+        let entries = dupGroups.flatMap { $0.copies }.filter { dupRemoval.contains($0.url) }
+        let plan = CleanupPlan(items: entries.map { CleanupItem(entry: $0, category: .duplicate, reason: "Duplicate file") })
+        let vaultURL = paths.vault, auditURL = paths.auditLog
+        Task.detached { [weak self] in
+            let result = try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
+            let removed = Set(entries.map(\.url))
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.dupMessage = result.map { "Moved \($0.movedCount) file(s), \(bytesString($0.movedBytes)) → vault\($0.failureSuffix)" } ?? "Failed"
+                self.dupGroups = self.dupGroups.compactMap { g in
+                    let copies = g.copies.filter { !removed.contains($0.url) }
+                    return copies.isEmpty ? nil : DuplicateGroup(original: g.original, copies: copies)
+                }
+                self.dupRemoval = []
+                self.dupApplying = false
             }
         }
     }

@@ -1099,6 +1099,7 @@ struct ToolsSection: View {
             }
 
             photosCard
+            duplicatesCard
             secretsCard
             cloudCard
             loginItemsCard
@@ -1182,6 +1183,88 @@ struct ToolsSection: View {
             }
             .padding(.vertical, 2)
         }
+    }
+
+    private var duplicatesCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    SectionTitle("Duplicate Files", icon: "doc.on.doc")
+                    Spacer()
+                    Button { controller.scanDuplicates() } label: {
+                        Label(controller.dupScanning ? L("Scanning…") : L("Scan"), systemImage: "magnifyingglass")
+                    }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).disabled(controller.dupScanning)
+                }
+                Text(L("Byte-identical files in a folder you pick. One copy is kept; tap any file to change what moves to the vault.")).font(.caption).foregroundStyle(.secondary)
+                FolderChip(url: controller.dupFolder) { controller.pickDupFolder() }
+                if let m = controller.dupMessage {
+                    Label(m, systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(Palette.good)
+                }
+                if controller.dupScanning {
+                    HStack(spacing: 10) { ScanRadar(tint: Palette.violet, size: 24); Text(L("Hashing files…")).foregroundStyle(.secondary).font(.callout) }
+                } else if controller.dupGroups.isEmpty {
+                    Text(L("Scan the folder to find exact duplicates you can remove.")).font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    HStack {
+                        Text("\(controller.dupGroups.count) \(L("group(s)")) · \(controller.dupRemoval.count) \(L("selected")) · \(bytesString(controller.dupRemovalBytes))")
+                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        Spacer()
+                        Button { controller.applyDuplicates() } label: {
+                            Label(controller.dupApplying ? L("Moving…") : L("Move to Vault"), systemImage: "tray.and.arrow.down")
+                        }
+                        .buttonStyle(.kestrel(.prominent, size: .small))
+                        .disabled(controller.dupRemoval.isEmpty || controller.dupApplying)
+                    }
+                    ForEach(Array(controller.dupGroups.prefix(20))) { group in
+                        dupGroupRow(group)
+                    }
+                    if controller.dupGroups.count > 20 {
+                        Text("+\(controller.dupGroups.count - 20) \(L("more group(s)"))").font(.caption2).foregroundStyle(.tertiary)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private func dupGroupRow(_ group: DuplicateGroup) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Hairline()
+            dupFileRow(group.original, isOriginal: true)
+            ForEach(Array(group.copies.enumerated()), id: \.offset) { _, copy in
+                dupFileRow(copy, isOriginal: false)
+            }
+        }
+    }
+
+    @ViewBuilder private func dupFileRow(_ file: FileEntry, isOriginal: Bool) -> some View {
+        let removing = !isOriginal && controller.dupRemoval.contains(file.url)
+        HStack(spacing: 10) {
+            if isOriginal {
+                Image(systemName: "lock.circle.fill").font(.callout).foregroundStyle(Palette.good)
+            } else {
+                Button { controller.toggleDup(file.url) } label: {
+                    Image(systemName: removing ? "checkmark.circle.fill" : "circle")
+                        .font(.callout).foregroundStyle(removing ? Palette.crit : .secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(file.url.lastPathComponent).font(.callout).lineLimit(1).truncationMode(.middle)
+                Text(file.url.deletingLastPathComponent().path).font(.caption2.monospaced())
+                    .foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
+            }
+            Spacer()
+            if isOriginal {
+                Text(L("Keep")).font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                    .padding(.horizontal, 4).padding(.vertical, 1).background(Palette.good, in: Capsule())
+            }
+            Text(bytesString(file.size)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            Button { NSWorkspace.shared.activateFileViewerSelecting([file.url]) } label: { Image(systemName: "magnifyingglass") }
+                .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Reveal in Finder"))
+        }
+        .padding(.vertical, 2)
+        .opacity(isOriginal || removing ? 1 : 0.6)
     }
 
     private var cloudCard: some View {

@@ -27,6 +27,23 @@ struct SmartCareSection: View {
         controller.run(home: home, downloads: home.appendingPathComponent("Downloads"))
     }
 
+    /// A selectable chip for one Smart Care step — fills with the accent when included.
+    private func stepToggle(_ step: SmartCareController.Step) -> some View {
+        let on = controller.isStepOn(step)
+        return Button { controller.toggleStep(step) } label: {
+            HStack(spacing: 7) {
+                Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.caption)
+                Image(systemName: step.icon).font(.caption)
+                Text(L(step.title)).font(.caption.weight(.medium))
+            }
+            .padding(.horizontal, 11).padding(.vertical, 7)
+            .foregroundStyle(on ? Color.white : Color.secondary)
+            .background(on ? AnyShapeStyle(Palette.accent) : AnyShapeStyle(.quaternary), in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: run / progress
 
     private var runCard: some View {
@@ -47,24 +64,33 @@ struct SmartCareSection: View {
                         SmartStepRow(label: L("Reclaimable space"), state: controller.cleanupStep, tint: Palette.accent)
                         SmartStepRow(label: L("macOS protection"), state: controller.protectionStep, tint: Palette.good)
                         SmartStepRow(label: L("Downloads malware scan"), state: controller.malwareStep, tint: Palette.violet)
+                        SmartStepRow(label: L("App updates"), state: controller.updatesStep, tint: Palette.accent2)
                     }
                 }
             } else {
-                HStack(spacing: 16) {
-                    ZStack {
-                        Circle().fill(Palette.accent.opacity(0.14)).frame(width: 60, height: 60)
-                        Image(systemName: "wand.and.stars").font(.system(size: 26)).foregroundStyle(Palette.accent)
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(spacing: 16) {
+                        ZStack {
+                            Circle().fill(Palette.accent.opacity(0.14)).frame(width: 60, height: 60)
+                            Image(systemName: "wand.and.stars").font(.system(size: 26)).foregroundStyle(Palette.accent)
+                        }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(controller.finished ? L("Smart Care complete") : L("Run Smart Care")).font(.title2.weight(.bold))
+                            Text(controller.finished
+                                 ? L("Here's what it found — nothing was deleted.")
+                                 : L("Pick the checks below, then run them in one honest pass."))
+                                .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer()
+                        Button(action: start) { Label(controller.finished ? L("Run again") : L("Run"), systemImage: "play.fill") }
+                            .buttonStyle(.kestrel(.prominent))
+                            .disabled(controller.enabledSteps.isEmpty)
                     }
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(controller.finished ? L("Smart Care complete") : L("Run Smart Care")).font(.title2.weight(.bold))
-                        Text(controller.finished
-                             ? L("Here's what it found — nothing was deleted.")
-                             : L("Reclaimable space, macOS protection and a Downloads malware scan, in one honest pass."))
-                            .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    FlowLayout(spacing: 8, lineSpacing: 8) {
+                        ForEach(SmartCareController.Step.allCases) { step in
+                            stepToggle(step)
+                        }
                     }
-                    Spacer()
-                    Button(action: start) { Label(controller.finished ? L("Run again") : L("Run"), systemImage: "play.fill") }
-                        .buttonStyle(.kestrel(.prominent))
                 }
             }
         }
@@ -91,9 +117,40 @@ struct SmartCareSection: View {
                            subtitle: r.isClean ? "\(L("Downloads")) · \(r.scanned) \(L("files"))" : L("finding(s) with evidence"),
                            tint: r.isClean ? Palette.good : Palette.crit)
             }
+            if controller.updatesStep == .done {
+                let n = controller.updates.count
+                resultTile(icon: n == 0 ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath.circle.fill", title: L("App updates"),
+                           value: n == 0 ? L("Up to date") : "\(n)",
+                           subtitle: n == 0 ? L("Every Homebrew app is current") : L("app(s) have a newer version"),
+                           tint: n == 0 ? Palette.good : Palette.accent2)
+            }
         }
 
+        if controller.updatesStep == .done, !controller.updates.isEmpty { updatesResult }
         cleanupResult
+    }
+
+    @ViewBuilder private var updatesResult: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionTitle("App updates", icon: "arrow.triangle.2.circlepath")
+                    Spacer()
+                    Button { model.section = .applications } label: { Label(L("Review"), systemImage: "arrow.right") }
+                        .buttonStyle(.kestrel(.subtle, size: .small))
+                }
+                ForEach(Array(controller.updates.prefix(8).enumerated()), id: \.offset) { i, u in
+                    if i > 0 { Hairline() }
+                    HStack(spacing: 10) {
+                        Image(systemName: "shippingbox").font(.caption).foregroundStyle(Palette.accent2)
+                        Text(u.name).font(.callout).lineLimit(1)
+                        Spacer()
+                        Text("\(u.current) → \(u.latest)").font(.caption.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
     }
 
     private func resultTile(icon: String, title: String, value: String, subtitle: String, tint: Color) -> some View {
@@ -171,6 +228,8 @@ struct SmartStepRow: View {
             KestrelSpinner(tint: tint, size: 18)
         case .done:
             Image(systemName: "checkmark.circle.fill").font(.system(size: 18)).foregroundStyle(Palette.good)
+        case .skipped:
+            Image(systemName: "minus.circle").font(.system(size: 18)).foregroundStyle(.tertiary)
         }
     }
 
@@ -179,6 +238,7 @@ struct SmartStepRow: View {
         case .pending: return "Waiting"
         case .running: return "Scanning…"
         case .done: return "Done"
+        case .skipped: return "Skipped"
         }
     }
 }

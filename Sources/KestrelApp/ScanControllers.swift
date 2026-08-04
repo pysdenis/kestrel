@@ -107,55 +107,92 @@ import KestrelCore
 // MARK: - Smart Care (one honest orchestrated pass)
 
 @MainActor final class SmartCareController: ObservableObject {
-    enum StepState { case pending, running, done }
+    enum StepState { case pending, running, done, skipped }
+    enum Step: String, CaseIterable, Identifiable {
+        case cleanup, protection, malware, updates
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .cleanup: return "Reclaimable space"
+            case .protection: return "macOS protection"
+            case .malware: return "Malware scan"
+            case .updates: return "App updates"
+            }
+        }
+        var icon: String {
+            switch self {
+            case .cleanup: return "sparkles"; case .protection: return "checkmark.shield"
+            case .malware: return "shield.checkerboard"; case .updates: return "arrow.triangle.2.circlepath"
+            }
+        }
+    }
 
     @Published var running = false
     @Published var finished = false
     @Published var cleanupStep: StepState = .pending
     @Published var protectionStep: StepState = .pending
     @Published var malwareStep: StepState = .pending
+    @Published var updatesStep: StepState = .pending
     @Published var status = ""
+    /// Which steps to run. All on by default; the user can trim the pass before starting.
+    @Published var enabledSteps: Set<Step> = Set(Step.allCases)
 
     @Published var plan: CleanupPlan?
     @Published var protection: GatekeeperStatus?
     @Published var report: ScanReport?
+    @Published var updates: [OutdatedCask] = []
     @Published var applying = false
     @Published var message: String?
 
     private let paths: KestrelPaths
     init(paths: KestrelPaths) { self.paths = paths }
 
-    /// Runs three honest checks in sequence — reclaimable space (safe categories only),
-    /// macOS protection status, and a malware scan of Downloads — reporting live progress.
-    /// Nothing is deleted; the cleanup plan is inert until the user applies it.
-    func run(home: URL, downloads: URL) {
+    func isStepOn(_ s: Step) -> Bool { enabledSteps.contains(s) }
+    func toggleStep(_ s: Step) {
         guard !running else { return }
+        if enabledSteps.contains(s) { enabledSteps.remove(s) } else { enabledSteps.insert(s) }
+    }
+
+    /// Runs the chosen honest checks in sequence — reclaimable space (safe categories only),
+    /// macOS protection status, a Downloads malware scan, and outdated apps — reporting live
+    /// progress. Nothing is deleted; the cleanup plan is inert until the user applies it.
+    func run(home: URL, downloads: URL) {
+        guard !running, !enabledSteps.isEmpty else { return }
         running = true; finished = false; message = nil
-        cleanupStep = .running; protectionStep = .pending; malwareStep = .pending
-        plan = nil; protection = nil; report = nil
-        status = "Scanning for reclaimable space…"
+        plan = nil; protection = nil; report = nil; updates = []
+        let steps = enabledSteps
+        cleanupStep = steps.contains(.cleanup) ? .running : .skipped
+        protectionStep = steps.contains(.protection) ? .pending : .skipped
+        malwareStep = steps.contains(.malware) ? .pending : .skipped
+        updatesStep = steps.contains(.updates) ? .pending : .skipped
+        status = steps.contains(.cleanup) ? "Scanning for reclaimable space…" : "Starting…"
 
         Task.detached { [weak self] in
-            let classified = (try? ScanCoordinator().scan(root: home) { count, url in
-                Task { @MainActor in self?.status = "Scanned \(count) files · \(url.lastPathComponent)" }
-            }) ?? []
-            let plan = Planner().plan(classified)
-            await MainActor.run { [weak self] in
-                self?.plan = plan; self?.cleanupStep = .done
-                self?.protectionStep = .running; self?.status = "Checking macOS protection…"
+            if steps.contains(.cleanup) {
+                let classified = (try? ScanCoordinator().scan(root: home) { count, url in
+                    Task { @MainActor in self?.status = "Scanned \(count) files · \(url.lastPathComponent)" }
+                }) ?? []
+                let plan = Planner().plan(classified)
+                await MainActor.run { [weak self] in self?.plan = plan; self?.cleanupStep = .done }
             }
-
-            let protection = SystemProtectionReader().status()
-            await MainActor.run { [weak self] in
-                self?.protection = protection; self?.protectionStep = .done
-                self?.malwareStep = .running; self?.status = "Scanning Downloads for malware…"
+            if steps.contains(.protection) {
+                await MainActor.run { [weak self] in self?.protectionStep = .running; self?.status = "Checking macOS protection…" }
+                let protection = SystemProtectionReader().status()
+                await MainActor.run { [weak self] in self?.protection = protection; self?.protectionStep = .done }
             }
-
-            let report = AntivirusEngine().scan(root: downloads) { done, total, url in
-                Task { @MainActor in self?.status = "Malware scan \(done)/\(total) · \(url.lastPathComponent)" }
+            if steps.contains(.malware) {
+                await MainActor.run { [weak self] in self?.malwareStep = .running; self?.status = "Scanning Downloads for malware…" }
+                let report = AntivirusEngine().scan(root: downloads) { done, total, url in
+                    Task { @MainActor in self?.status = "Malware scan \(done)/\(total) · \(url.lastPathComponent)" }
+                }
+                await MainActor.run { [weak self] in self?.report = report; self?.malwareStep = .done }
+            }
+            if steps.contains(.updates) {
+                await MainActor.run { [weak self] in self?.updatesStep = .running; self?.status = "Checking for app updates…" }
+                let updates = AppUpdater().outdatedCasks()
+                await MainActor.run { [weak self] in self?.updates = updates; self?.updatesStep = .done }
             }
             await MainActor.run { [weak self] in
-                self?.report = report; self?.malwareStep = .done
                 self?.running = false; self?.finished = true; self?.status = ""
             }
         }

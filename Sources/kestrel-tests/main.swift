@@ -1359,6 +1359,9 @@ check((try? OllamaClient.parseChat(Data("nope".utf8))) == nil, "garbage → erro
 let tagsJSON = Data(#"{"models":[{"name":"llama3.2:latest"},{"name":"qwen2.5:7b"}]}"#.utf8)
 check(OllamaClient.parseModels(tagsJSON) == ["llama3.2:latest", "qwen2.5:7b"], "lists installed models")
 check(OllamaClient.parseModels(Data("{}".utf8)).isEmpty, "no models key → empty")
+check(OllamaClient.preferredModel(from: ["qwen2.5-coder:14b", "llama3.2:3b"]) == "llama3.2:3b", "prefers the fast general model over the heavy coder")
+check(OllamaClient.preferredModel(from: ["qwen2.5-coder:14b"]) == "qwen2.5-coder:14b", "falls back to the only model even if heavy")
+check(OllamaClient.preferredModel(from: []) == nil, "no models → nil")
 
 // MARK: - Summary
 

@@ -52,13 +52,29 @@ public struct OllamaClient: LLMBackend {
         return models.compactMap { $0["name"] as? String }
     }
 
-    /// The first installed model, or nil if Ollama isn't reachable / has no models. Quick timeout
-    /// so a missing server never stalls the UI.
+    /// A good model for Kestrel's quick, honest metadata Q&A, or nil if Ollama isn't reachable /
+    /// has no models. Prefers a small, fast, general-purpose model so insights come back snappily —
+    /// a big coder/reasoning model would be slow and is overkill for this. Quick timeout so a
+    /// missing server never stalls the UI.
     public static func firstAvailableModel(host: URL = URL(string: "http://localhost:11434")!) async -> String? {
         var request = URLRequest(url: host.appendingPathComponent("api/tags"))
         request.timeoutInterval = 2
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
-        return parseModels(data).first
+        return preferredModel(from: parseModels(data))
+    }
+
+    /// Pick a snappy general model over a heavy coder/reasoning one. Pure — unit-testable.
+    public static func preferredModel(from names: [String]) -> String? {
+        guard !names.isEmpty else { return nil }
+        // Fast, general-purpose families first (in rough preference order).
+        let fast = ["llama3.2", "qwen2.5:3b", "phi3.5", "phi3", "gemma2:2b", "gemma2", "llama3.1:8b", "qwen2.5:7b", "mistral", "llama3"]
+        for family in fast {
+            if let match = names.first(where: { $0.hasPrefix(family) }) { return match }
+        }
+        // Otherwise avoid the obviously-heavy models (big coders / 14B+).
+        let heavy = ["coder", "70b", "72b", "34b", "32b", "14b", "deepseek-r1"]
+        if let light = names.first(where: { name in !heavy.contains(where: name.contains) }) { return light }
+        return names.first
     }
 }

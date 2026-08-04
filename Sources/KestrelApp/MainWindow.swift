@@ -247,6 +247,7 @@ struct DashboardSection: View {
     var body: some View {
         SectionScaffold(title: "Dashboard", subtitle: "Live health, storage forecast and protection at a glance") {
             heroCard
+            healthBreakdownCard
             if model.aiConfigured { aiInsightCard }
             metricGrid
             HStack(alignment: .top, spacing: 12) {
@@ -292,6 +293,68 @@ struct DashboardSection: View {
                 }
                 Spacer(minLength: 0)
             }
+        }
+    }
+
+    // MARK: actionable health breakdown
+
+    /// The components dragging the score down, ordered by how much each costs (weight × gap).
+    private var draggingComponents: [HealthComponent] {
+        (model.health?.components ?? [])
+            .filter { $0.score < 75 }
+            .sorted { Double(100 - $0.score) * $0.weight > Double(100 - $1.score) * $1.weight }
+    }
+
+    @ViewBuilder private var healthBreakdownCard: some View {
+        if !draggingComponents.isEmpty {
+            Card {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionTitle("What's affecting your score", icon: "list.bullet.below.rectangle")
+                    ForEach(Array(draggingComponents.enumerated()), id: \.offset) { i, c in
+                        if i > 0 { Hairline() }
+                        HStack(spacing: 12) {
+                            Image(systemName: componentIcon(c.name)).foregroundStyle(healthColor(c.score)).frame(width: 22)
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack {
+                                    Text(model.t(c.name)).font(.callout.weight(.medium))
+                                    Spacer()
+                                    Text("\(c.score)/100").font(.caption.monospacedDigit().weight(.semibold)).foregroundStyle(healthColor(c.score))
+                                }
+                                MiniBar(fraction: Double(c.score) / 100, tint: healthColor(c.score))
+                                Text(c.detail).font(.caption2).foregroundStyle(.secondary)
+                            }
+                            if let fix = fixAction(for: c.name) {
+                                Button(action: fix.run) {
+                                    if fix.busy { KestrelSpinner(tint: Palette.accent, size: 13) } else { Text(fix.label) }
+                                }
+                                .buttonStyle(.kestrel(.secondary, size: .small)).disabled(fix.busy)
+                            }
+                        }
+                        .padding(.vertical, 3)
+                    }
+                }
+            }
+        }
+    }
+
+    private func componentIcon(_ name: String) -> String {
+        switch name {
+        case "Disk": return "internaldrive"
+        case "Memory": return "memorychip"
+        case "CPU": return "cpu"
+        case "Battery": return "battery.25"
+        default: return "gauge"
+        }
+    }
+
+    private struct FixAction { let label: String; let busy: Bool; let run: () -> Void }
+
+    private func fixAction(for name: String) -> FixAction? {
+        switch name {
+        case "Disk": return FixAction(label: L("Free space"), busy: false) { model.section = .cleanup }
+        case "Memory": return FixAction(label: L("Free RAM"), busy: model.freeingMemory) { model.freeMemory() }
+        case "CPU": return FixAction(label: L("See Energy"), busy: false) { model.section = .energy }
+        default: return nil   // Battery: informational only — nothing safe to "fix" from here
         }
     }
 

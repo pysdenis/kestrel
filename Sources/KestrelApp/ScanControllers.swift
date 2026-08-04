@@ -542,6 +542,10 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var dupApplying = false
     @Published var dupMessage: String?
     @Published var dupRemoval: Set<URL> = []
+    // Developer package-manager caches (all regeneratable).
+    @Published var devCaches: [PackageCache] = []
+    @Published var devCachesLoading = false
+    @Published var devCachesMessage: String?
     private var states: [String: ToolRunState] = [:]
     private var loadedMeta = false
 
@@ -637,6 +641,35 @@ struct ChatMessage: Identifiable, Equatable {
                 self.photoGroups = self.photoGroups.map { $0.filter { !removed.contains($0.url) } }.filter { $0.count > 1 }
                 self.photoRemoval = []
                 self.photoApplying = false
+            }
+        }
+    }
+
+    /// Scan for global package-manager caches (npm, pip, Gradle, DerivedData…) with their sizes.
+    func loadDevCaches() {
+        guard !devCachesLoading else { return }
+        devCachesLoading = true; devCachesMessage = nil
+        Task.detached { [weak self] in
+            let caches = PackageCacheFinder().find()
+            await MainActor.run { [weak self] in
+                self?.devCaches = caches
+                self?.devCachesLoading = false
+                if caches.isEmpty { self?.devCachesMessage = "No developer caches found." }
+            }
+        }
+    }
+
+    /// Move a cache directory to the vault (undoable). It's regeneratable, so tools rebuild it.
+    func clearDevCache(_ cache: PackageCache) {
+        devCachesMessage = nil
+        let entry = FileEntry(url: cache.url, size: cache.size, modified: Date(), isDirectory: true)
+        let plan = CleanupPlan(items: [CleanupItem(entry: entry, category: .devArtifact, reason: "\(cache.tool) cache")])
+        let vaultURL = paths.vault, auditURL = paths.auditLog, tool = cache.tool, url = cache.url
+        Task.detached { [weak self] in
+            let result = try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
+            await MainActor.run { [weak self] in
+                self?.devCachesMessage = (result?.movedCount ?? 0) > 0 ? "Cleared \(tool) cache → vault (undoable)." : "Couldn't clear \(tool) cache."
+                self?.devCaches.removeAll { $0.url == url }
             }
         }
     }

@@ -1221,6 +1221,27 @@ let fwOff = SecurityPostureReader.firewallStates(from: ["globalstate": 0])
 check(fwOff.state == .off && fwOff.stealth == .unknown, "firewall off; missing stealth → unknown")
 check(SecurityPostureReader.firewallStates(from: nil).state == .unknown, "no plist → unknown (never invents)")
 
+// MARK: - PackageCacheFinder (dev caches)
+
+section("PackageCacheFinder: finds known regeneratable caches, ignores source")
+withTempDir { home in
+    // A real cache location with content.
+    let npm = home.appendingPathComponent(".npm/_cacache")
+    try? FileManager.default.createDirectory(at: npm, withIntermediateDirectories: true)
+    _ = makeFile(npm.appendingPathComponent("blob.bin"), "cached bytes")
+    // A path NOT in the candidate list (a source project) must never be picked up.
+    let src = home.appendingPathComponent("code/myapp/src")
+    try? FileManager.default.createDirectory(at: src, withIntermediateDirectories: true)
+    _ = makeFile(src.appendingPathComponent("main.swift"), "let x = 1")
+
+    let caches = PackageCacheFinder().find(home: home)
+    check(caches.contains { $0.tool == "npm" }, "finds the npm cache")
+    check(caches.allSatisfy { $0.size > 0 }, "only lists non-empty caches")
+    check(!caches.contains { $0.url.path.contains("/code/myapp") }, "never lists a source folder")
+}
+check(PackageCacheFinder.candidatePaths.contains { $0.tool == "Gradle" && $0.path == ".gradle/caches" },
+      "candidate list is data-driven and auditable")
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

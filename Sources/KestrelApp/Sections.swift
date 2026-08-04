@@ -1100,6 +1100,7 @@ struct ToolsSection: View {
 
             photosCard
             duplicatesCard
+            devCachesCard
             secretsCard
             cloudCard
             loginItemsCard
@@ -1265,6 +1266,51 @@ struct ToolsSection: View {
         }
         .padding(.vertical, 2)
         .opacity(isOriginal || removing ? 1 : 0.6)
+    }
+
+    private var devCachesCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionTitle("Developer caches", icon: "hammer")
+                    Spacer()
+                    Button { controller.loadDevCaches() } label: {
+                        Label(controller.devCachesLoading ? L("Scanning…") : L("Scan"), systemImage: "magnifyingglass")
+                    }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).disabled(controller.devCachesLoading)
+                }
+                Text(L("Global caches of npm, pip, Homebrew, Gradle, Cargo, Go, CocoaPods, DerivedData and more — all rebuilt on demand, so clearing them only costs a re-download.")).font(.caption).foregroundStyle(.secondary)
+                if let m = controller.devCachesMessage {
+                    Label(m, systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(Palette.good)
+                }
+                if controller.devCachesLoading {
+                    HStack(spacing: 10) { ScanRadar(tint: Palette.accent, size: 24); Text(L("Measuring developer caches…")).foregroundStyle(.secondary).font(.callout) }
+                } else if controller.devCaches.isEmpty {
+                    Text(L("Scan to size up your package-manager and build caches.")).font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    HStack {
+                        Text("\(controller.devCaches.count) \(L("cache(s)")) · \(bytesString(controller.devCaches.reduce(0) { $0 + $1.size }))")
+                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                    ForEach(controller.devCaches) { cache in
+                        if cache.id != controller.devCaches.first?.id { Hairline() }
+                        HStack(spacing: 10) {
+                            Image(systemName: "shippingbox.fill").font(.caption).foregroundStyle(Palette.accent)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(cache.tool).font(.callout.weight(.medium))
+                                Text(cache.url.path).font(.caption2.monospaced()).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
+                            }
+                            Spacer()
+                            Text(bytesString(cache.size)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            Button { controller.clearDevCache(cache) } label: { Label(L("Move to Vault"), systemImage: "tray.and.arrow.down") }
+                                .buttonStyle(.kestrel(.secondary, size: .small))
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+        }
     }
 
     private var cloudCard: some View {

@@ -260,20 +260,27 @@ struct CleanupGroup: View {
                 if expanded {
                     Hairline().padding(.horizontal, 14)
                     VStack(spacing: 0) {
-                        ForEach(Array(items.prefix(50).enumerated()), id: \.offset) { _, item in
+                        ForEach(Array(items.prefix(80).enumerated()), id: \.offset) { _, item in
                             HStack(spacing: 12) {
                                 Text(bytesString(item.entry.size)).font(.caption.monospacedDigit().weight(.medium))
                                     .frame(width: 72, alignment: .leading).foregroundStyle(.secondary)
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(item.entry.url.lastPathComponent).font(.callout).lineLimit(1).truncationMode(.middle)
-                                    Text(item.reason).font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                                    Text(item.entry.url.path).font(.caption2.monospaced()).foregroundStyle(.tertiary)
+                                        .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+                                    Text(item.reason).font(.caption2).foregroundStyle(.secondary.opacity(0.7)).lineLimit(1)
                                 }
                                 Spacer()
+                                Button { NSWorkspace.shared.activateFileViewerSelecting([item.entry.url]) } label: {
+                                    Image(systemName: "magnifyingglass").font(.caption2)
+                                }
+                                .buttonStyle(.kestrel(.subtle, size: .small)).help("Reveal in Finder")
                             }
                             .padding(.horizontal, 14).padding(.vertical, 6)
                         }
-                        if items.count > 50 {
-                            Text("+ \(items.count - 50) more").font(.caption).foregroundStyle(.tertiary)
+                        if items.count > 80 {
+                            Text("+ \(items.count - 80) more item(s) — all included when you clean")
+                                .font(.caption).foregroundStyle(.tertiary)
                                 .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 14).padding(.vertical, 6)
                         }
                     }

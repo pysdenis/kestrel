@@ -746,17 +746,7 @@ struct SettingsSection: View {
                                caption: "Cleaned items will appear here, restorable until you purge.", tint: Palette.accent)
                 } else {
                     ForEach(controller.sessions, id: \.id) { session in
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(session.createdAt.formatted(date: .abbreviated, time: .shortened)).font(.callout.weight(.medium))
-                                Text("\(session.count) item(s) · \(bytesString(session.totalBytes))").font(.caption).foregroundStyle(.secondary).monospacedDigit()
-                            }
-                            Spacer()
-                            Button { controller.undo(session.id) } label: { Label("Restore", systemImage: "arrow.uturn.backward") }
-                                .buttonStyle(.kestrel(.secondary, size: .small))
-                                .disabled(controller.busy)
-                        }
-                        .padding(.vertical, 2)
+                        VaultSessionRow(session: session, busy: controller.busy) { controller.undo(session.id) }
                         Hairline()
                     }
                     HStack {
@@ -777,5 +767,59 @@ struct SettingsSection: View {
             Spacer()
         }
         .font(.callout)
+    }
+}
+
+/// One vault session in Settings — the date and totals, expandable to show exactly which
+/// files it holds (their original locations and sizes) so the user can see precisely what
+/// was removed, plus a Restore action.
+struct VaultSessionRow: View {
+    let session: VaultSession
+    let busy: Bool
+    let onRestore: () -> Void
+    @State private var expanded = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Button { withAnimation(.easeOut(duration: 0.2)) { expanded.toggle() } } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
+                            .rotationEffect(.degrees(expanded ? 90 : 0))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(session.createdAt.formatted(date: .abbreviated, time: .shortened)).font(.callout.weight(.medium))
+                            Text("\(session.count) item(s) · \(bytesString(session.totalBytes))").font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                Spacer()
+                Button(action: onRestore) { Label("Restore", systemImage: "arrow.uturn.backward") }
+                    .buttonStyle(.kestrel(.secondary, size: .small))
+                    .disabled(busy)
+            }
+            .padding(.vertical, 2)
+
+            if expanded {
+                VStack(spacing: 0) {
+                    ForEach(Array(session.records.sorted { $0.size > $1.size }.prefix(60).enumerated()), id: \.offset) { _, record in
+                        HStack(spacing: 10) {
+                            Text(bytesString(record.size)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                                .frame(width: 62, alignment: .leading)
+                            Text(record.originalPath).font(.caption2.monospaced()).foregroundStyle(.tertiary)
+                                .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+                            Spacer()
+                        }
+                        .padding(.vertical, 3)
+                    }
+                    if session.records.count > 60 {
+                        Text("+ \(session.records.count - 60) more").font(.caption2).foregroundStyle(.tertiary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.top, 6).padding(.leading, 20)
+            }
+        }
     }
 }

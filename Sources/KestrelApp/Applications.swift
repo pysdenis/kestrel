@@ -72,39 +72,47 @@ struct AppInfo: Identifiable {
         apps = apps.map { var a = $0; a.size = sizes[$0.url.path]; return a }
     }
 
-    /// Uninstall: move the bundle plus its leftovers to the vault (undoable). Never `rm`.
-    func uninstall(_ app: AppInfo) {
-        guard !busy else { return }
-        busy = true; message = nil
-        let url = app.url, name = app.name
-        let vaultURL = paths.vault, auditURL = paths.auditLog
+    /// A prepared, itemized plan awaiting the user's confirmation — so they see exactly
+    /// which bundle and leftover files will move to the vault before anything happens.
+    struct Pending: Identifiable {
+        let id = UUID()
+        let app: AppInfo
+        let plan: CleanupPlan
+        let reset: Bool
+    }
+    @Published var pending: Pending?
+    @Published var preparing = false
+
+    func prepareUninstall(_ app: AppInfo) { prepare(app, reset: false) }
+    func prepareReset(_ app: AppInfo) { prepare(app, reset: true) }
+    func cancelPending() { pending = nil }
+
+    private func prepare(_ app: AppInfo, reset: Bool) {
+        guard !preparing, !busy else { return }
+        preparing = true; message = nil
+        let url = app.url
         Task.detached { [weak self] in
-            let plan = (try? AppUninstaller().plan(for: url)) ?? CleanupPlan(items: [])
-            let result: ExecutionResult? = plan.items.isEmpty ? nil
-                : try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
-            await MainActor.run {
-                self?.message = result.map { "Uninstalled \(name) — moved \($0.movedCount) item(s), \(bytesString($0.movedBytes)) to the vault (undoable)." }
-                    ?? "Couldn't uninstall \(name)."
-                self?.busy = false
-                self?.load()
-            }
+            let plan = (try? (reset ? AppUninstaller().resetPlan(for: url) : AppUninstaller().plan(for: url))) ?? CleanupPlan(items: [])
+            await MainActor.run { self?.pending = Pending(app: app, plan: plan, reset: reset); self?.preparing = false }
         }
     }
 
-    /// Reset: move an app's data (caches, prefs, containers…) to the vault but keep the app.
-    func reset(_ app: AppInfo) {
-        guard !busy else { return }
-        busy = true; message = nil
-        let url = app.url, name = app.name
+    /// Execute the reviewed plan: move everything it lists to the vault (undoable, audited).
+    func confirmPending() {
+        guard let pending, !busy else { return }
+        self.pending = nil
+        busy = true
+        let plan = pending.plan, name = pending.app.name, reset = pending.reset
         let vaultURL = paths.vault, auditURL = paths.auditLog
         Task.detached { [weak self] in
-            let plan = (try? AppUninstaller().resetPlan(for: url)) ?? CleanupPlan(items: [])
             let result: ExecutionResult? = plan.items.isEmpty ? nil
                 : try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
             await MainActor.run {
-                self?.message = plan.items.isEmpty ? "\(name) had no resettable data."
-                    : (result.map { "Reset \(name) — moved \($0.movedCount) item(s), \(bytesString($0.movedBytes)) to the vault." } ?? "Couldn't reset \(name).")
+                let verb = reset ? "Reset" : "Uninstalled"
+                self?.message = plan.items.isEmpty ? "\(name) had nothing to \(reset ? "reset" : "remove")."
+                    : (result.map { "\(verb) \(name) — moved \($0.movedCount) item(s), \(bytesString($0.movedBytes)) to the vault (undoable)." } ?? "Couldn't \(reset ? "reset" : "uninstall") \(name).")
                 self?.busy = false
+                if !reset { self?.load() }
             }
         }
     }
@@ -146,12 +154,30 @@ struct ApplicationsSection: View {
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 12)], spacing: 12) {
                     ForEach(controller.filtered) { app in
-                        AppCard(app: app, icon: controller.icons[app.url.path], busy: controller.busy,
-                                onUninstall: { confirmUninstall(app) }, onReset: { confirmReset(app) })
+                        AppCard(app: app, icon: controller.icons[app.url.path], busy: controller.busy || controller.preparing,
+                                onUninstall: { controller.prepareUninstall(app) }, onReset: { controller.prepareReset(app) })
                     }
                 }
             }
         }
+        .overlay {
+            if let pending = controller.pending {
+                PlanReviewModal(
+                    icon: pending.reset ? "arrow.counterclockwise" : "trash",
+                    tint: pending.reset ? Palette.warn : Palette.crit,
+                    title: "\(pending.reset ? "Reset" : "Uninstall") \(pending.app.name)?",
+                    subtitle: pending.plan.items.isEmpty
+                        ? "Nothing was found to \(pending.reset ? "reset" : "remove")."
+                        : "These \(pending.plan.count) item(s) — \(bytesString(pending.plan.totalBytes)) — will move to the vault. Undoable.",
+                    plan: pending.plan,
+                    confirmLabel: pending.plan.items.isEmpty ? "Close" : (pending.reset ? "Reset" : "Uninstall"),
+                    onConfirm: { controller.confirmPending() },
+                    onCancel: { controller.cancelPending() }
+                )
+                .zIndex(10)
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: controller.pending?.id)
         .onAppear { controller.load() }
     }
 
@@ -189,24 +215,76 @@ struct ApplicationsSection: View {
         }
     }
 
-    private func confirmUninstall(_ app: AppInfo) {
-        model.requestConfirm(ConfirmRequest(
-            icon: "trash", tint: Palette.crit,
-            title: "Uninstall \(app.name)?",
-            message: "Moves the app and the support files, caches and preferences it left behind to the vault. Undoable — nothing is permanently deleted until you purge.",
-            confirmLabel: "Uninstall", destructive: true,
-            onConfirm: { controller.uninstall(app) }
-        ))
-    }
+}
 
-    private func confirmReset(_ app: AppInfo) {
-        model.requestConfirm(ConfirmRequest(
-            icon: "arrow.counterclockwise", tint: Palette.warn,
-            title: "Reset \(app.name)?",
-            message: "Moves the app's data (caches, preferences, containers, saved state) to the vault but keeps the app itself. Undoable.",
-            confirmLabel: "Reset", destructive: false,
-            onConfirm: { controller.reset(app) }
-        ))
+/// A modal that lists exactly which files a destructive action will move to the vault —
+/// full paths, sizes and reasons — so the user sees precisely what will be removed before
+/// confirming. Reused by the uninstaller (and available to other plan-based actions).
+struct PlanReviewModal: View {
+    let icon: String
+    let tint: Color
+    let title: String
+    let subtitle: String
+    let plan: CleanupPlan
+    let confirmLabel: String
+    let onConfirm: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.4).ignoresSafeArea().contentShape(Rectangle()).onTapGesture(perform: onCancel)
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    Image(systemName: icon).font(.system(size: 20, weight: .semibold)).foregroundStyle(tint)
+                        .frame(width: 44, height: 44).background(tint.opacity(0.14), in: Circle())
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title).font(.headline)
+                        Text(subtitle).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                }
+                .padding(16)
+                Hairline()
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(Array(plan.items.sorted { $0.entry.size > $1.entry.size }.enumerated()), id: \.offset) { i, item in
+                            if i > 0 { Hairline() }
+                            HStack(spacing: 12) {
+                                Text(bytesString(item.entry.size)).font(.caption.monospacedDigit().weight(.medium))
+                                    .frame(width: 70, alignment: .leading).foregroundStyle(.secondary)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(item.entry.url.lastPathComponent).font(.callout).lineLimit(1).truncationMode(.middle)
+                                    Text(item.entry.url.path).font(.caption2.monospaced()).foregroundStyle(.tertiary)
+                                        .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+                                    Text(item.reason).font(.caption2).foregroundStyle(.secondary.opacity(0.7)).lineLimit(1)
+                                }
+                                Spacer()
+                            }
+                            .padding(.horizontal, 16).padding(.vertical, 8)
+                        }
+                        if plan.items.isEmpty {
+                            EmptyState(icon: "checkmark.circle", title: "Nothing to remove", tint: Palette.good).padding(.vertical, 10)
+                        }
+                    }
+                }
+                .frame(maxHeight: 320)
+                Hairline()
+                HStack {
+                    if !plan.items.isEmpty {
+                        Text("\(plan.count) item(s) · \(bytesString(plan.totalBytes))").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Cancel", action: onCancel).buttonStyle(.kestrel(.subtle))
+                    Button(confirmLabel, action: onConfirm).buttonStyle(.kestrel(.prominent, tint: tint))
+                }
+                .padding(14)
+            }
+            .frame(width: 560)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(.white.opacity(0.12)))
+            .shadow(color: .black.opacity(0.35), radius: 34, y: 14)
+            .transition(.scale(scale: 0.94).combined(with: .opacity))
+        }
     }
 }
 

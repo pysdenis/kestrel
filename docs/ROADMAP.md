@@ -225,6 +225,29 @@ Diferenciátory — většina už hotová, tady jako přehled + zbytek.
       [~] **Apple Shortcuts** — App Intents hotové (`KestrelShortcuts`: Mac Health / Free Space / Dev Junk,
       read-only/dry-run); plná registrace do Shortcuts vyžaduje Xcode „Extract App Intents Metadata" (Fáze 7).
 
+## Fáze 14 — Výkon & plynulost ⚡ (priorita)
+Cíl: appka **nesmí sekat**, jede plynule (60 fps UI), a je **šetrná ke zdrojům** — jak na
+pozadí (idle), tak při aktivním používání. Měřit, ne hádat (Instruments: Time Profiler,
+Allocations, SwiftUI). Vše drží invarianty (žádné blokování main threadu už je pravidlo).
+
+### Na pozadí (idle) — co nejméně CPU a paměti
+- [ ] **Audit timerů/monitorů** — když je okno zavřené, pozastavit polling (stats, CPU/RAM/síť
+      sparkliny, bandwidth `nettop`, FSEvents on-access). Menu-bar gauge obnovovat řídce (např. 5–10 s).
+- [ ] **Líné kontrolery** — nespouštět skeny/monitory, dokud sekce není zobrazená; zastavit při odchodu.
+- [ ] **Frekvence vzorkování** — sladit intervaly (1 s vs 2 s vs 5 s) podle viditelnosti; při `surfaceDisappeared` stáhnout na minimum.
+- [ ] **Paměť** — uvolnit náhledy/ikony (foto thumbnaily, app ikony) mimo viditelnou oblast; cap velikostí cache.
+
+### Při používání — plynulost
+- [ ] **Profilace UI** — najít drahé re-rendery (velké `@Published` republish, těžké `body`),
+      rozdělit velké view, `Equatable`/`@ViewBuilder` kde pomůže; líné gridy (`LazyVGrid`) už jsou.
+- [ ] **I/O mimo main** — všechny skeny/velikosti/hash už běží v `Task.detached`; doauditovat zbytek (ikony, plisty).
+- [ ] **Throttle živých dat** — sparkliny/gauge animace omezit, respektovat Reduce Motion; batchovat `@Published` update.
+- [ ] **Startup** — měřit čas do prvního snímku; odložit nenutnou práci (snapshoty, audit read) za první render.
+
+### Měření & regrese
+- [ ] Baseline v Instruments (idle CPU %, RSS paměť, fps při scrollování gridů); zapsat čísla do `docs/`.
+- [ ] Lehký in-app „perf mód" pro dev (log intervalů/aktivních monitorů), ať jde regrese poznat.
+
 ## Fáze 13 — Hloubková code review & audit 🔍 (průběžně)
 Cíl: nekompromisní audit celého projektu (frontend `KestrelApp` / doména `KestrelCore` /
 „DB" manifesty+audit log+SQLite / cloud = žádný, offline-first) — modul po modulu, funkce

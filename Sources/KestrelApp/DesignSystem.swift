@@ -711,17 +711,23 @@ struct HeroGauge: View {
         ZStack {
             Circle().fill(color.opacity(0.16)).blur(radius: size * 0.13)
                 .frame(width: size * 0.72, height: size * 0.72)
-            Circle().stroke(Color.primary.opacity(0.07), lineWidth: size * 0.085)
-            Circle()
-                .trim(from: 0, to: frac)
-                .stroke(
-                    AngularGradient(colors: [color.opacity(0.45), color, color.opacity(0.85)],
-                                    center: .center, startAngle: .degrees(-90), endAngle: .degrees(270)),
-                    style: StrokeStyle(lineWidth: size * 0.085, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .shadow(color: color.opacity(0.55), radius: size * 0.045)
-                .animation(.easeOut(duration: 0.75), value: score)
+            // The stroked ring + its glow are inset so the whole gauge fits inside `size`;
+            // otherwise the outer half of the stroke (and the glow) spills past the frame and
+            // gets clipped by an ancestor's viewport (the section ScrollView).
+            Group {
+                Circle().stroke(Color.primary.opacity(0.07), lineWidth: size * 0.085)
+                Circle()
+                    .trim(from: 0, to: frac)
+                    .stroke(
+                        AngularGradient(colors: [color.opacity(0.45), color, color.opacity(0.85)],
+                                        center: .center, startAngle: .degrees(-90), endAngle: .degrees(270)),
+                        style: StrokeStyle(lineWidth: size * 0.085, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .shadow(color: color.opacity(0.55), radius: size * 0.045)
+                    .animation(.easeOut(duration: 0.75), value: score)
+            }
+            .padding(size * 0.09)
             VStack(spacing: size * 0.01) {
                 Text("\(score)").font(.system(size: size * 0.3, weight: .bold, design: .rounded)).monospacedDigit()
                 Text(L("HEALTH")).font(.system(size: size * 0.072, weight: .bold)).kerning(1.6).foregroundStyle(.secondary)

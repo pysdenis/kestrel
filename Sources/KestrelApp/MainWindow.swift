@@ -255,8 +255,11 @@ struct DashboardSection: View {
             metricGrid
             HStack(alignment: .top, spacing: 12) {
                 ForecastCard(trend: controller.trend, series: controller.usedSeries)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 ProtectionCard(status: controller.protection) { model.section = .security }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .fixedSize(horizontal: false, vertical: true)   // both cards match the taller one — no uneven jump
             SpeedTestCard()
         }
         .sheet(item: $detailKind) { kind in

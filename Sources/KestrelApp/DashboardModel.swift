@@ -390,6 +390,35 @@ final class AppModel: ObservableObject {
         openMainWindow(open)
     }
 
+    /// Menu-bar quick action: empty every Trash through the vault (undoable), off the main
+    /// thread. Sets a short status the popover can show.
+    @Published var quickActionMessage: String?
+    @Published var quickBusy = false
+
+    func emptyTrashQuick() {
+        guard !quickBusy else { return }
+        quickBusy = true; quickActionMessage = nil
+        let vaultURL = paths.vault, auditURL = paths.auditLog
+        Task.detached { [weak self] in
+            let plan = TrashFinder().find()
+            let result = plan.items.isEmpty ? nil
+                : try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
+            await MainActor.run { [weak self] in
+                self?.quickBusy = false
+                self?.quickActionMessage = plan.items.isEmpty ? L("Trash is already empty.")
+                    : (result.map { "\(L("Emptied Trash —")) \(bytesString($0.movedBytes)) → \(L("vault"))" } ?? L("Couldn't empty the Trash."))
+                self?.refresh()
+            }
+        }
+    }
+
+    /// Menu-bar quick action: jump to Smart Care in the window and run it.
+    func runSmartCare(_ open: OpenWindowAction) {
+        section = .smartcare
+        smartcare.run(home: paths.home, downloads: paths.home.appendingPathComponent("Downloads"))
+        openMainWindow(open)
+    }
+
     /// Bring up the full window and give the app a Dock presence while it is open.
     func openMainWindow(_ open: OpenWindowAction) {
         NSApp.setActivationPolicy(.regular)

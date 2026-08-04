@@ -115,8 +115,32 @@ struct MenuBarView: View {
                         .buttonStyle(.kestrel(.secondary, size: .small))
                     Spacer()
                 }
+                Hairline().opacity(0.6)
+                HStack(spacing: 8) {
+                    quickAction(L("Free RAM"), "memorychip", Palette.violet, busy: model.freeingMemory) { model.freeMemory() }
+                    quickAction(L("Empty Trash"), "trash", Palette.good, busy: model.quickBusy) { model.emptyTrashQuick() }
+                    quickAction(L("Smart Care"), "sparkles", Palette.accent) { model.runSmartCare(openWindow) }
+                }
+                if let msg = model.quickActionMessage {
+                    Text(msg).font(.caption2).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
+    }
+
+    private func quickAction(_ title: String, _ icon: String, _ tint: Color, busy: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 5) {
+                if busy { KestrelSpinner(tint: tint, size: 15) }
+                else { Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundStyle(tint) }
+                Text(title).font(.caption2.weight(.medium)).foregroundStyle(.primary)
+            }
+            .frame(maxWidth: .infinity).padding(.vertical, 9)
+            .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
     }
 
     private var speedRow: some View {

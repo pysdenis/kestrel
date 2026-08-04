@@ -1106,15 +1106,14 @@ withTempDir { tmp in
 
 // MARK: - MemoryReliever
 
-section("MemoryReliever: invokes purge through the runner")
+section("MemoryReliever: locates purge without prompting")
 do {
-    final class RecordingRunner: CommandRunner, @unchecked Sendable {
-        var tool = ""
-        func run(_ tool: String, _ arguments: [String]) throws -> String { self.tool = tool; return "" }
-    }
-    let runner = RecordingRunner()
-    check(MemoryReliever(runner: runner).freeInactiveMemory(), "reports success")
-    check(runner.tool == "purge", "runs purge")
+    // purge ships with macOS; the finder should locate it (and returns nil if it's absent).
+    check(MemoryReliever.purgePath() == "/usr/sbin/purge" || MemoryReliever.purgePath() == nil,
+          "finds the real purge tool or honestly reports it missing")
+    let fm = FileManager.default
+    check(MemoryReliever.purgePath(fm: fm) != nil || !fm.isExecutableFile(atPath: "/usr/sbin/purge"),
+          "purgePath is nil only when purge really isn't executable")
 }
 
 // MARK: - AppUpdater

@@ -377,7 +377,7 @@ struct PlanToolCard: View {
                 if let message = state.message {
                     Text(message).font(.caption).foregroundStyle(Palette.good)
                 } else if state.scanning {
-                    Text("Scanning…").font(.caption).foregroundStyle(.secondary)
+                    Text(L("Scanning…")).font(.caption).foregroundStyle(.secondary)
                 } else if let plan = state.plan {
                     Text(plan.items.isEmpty ? "Nothing to clean ✓" : "\(bytesString(plan.totalBytes)) · \(plan.count) items")
                         .font(.caption.weight(.medium)).foregroundStyle(plan.items.isEmpty ? .secondary : .primary)
@@ -392,7 +392,7 @@ struct PlanToolCard: View {
 
                     if let plan = state.plan, !plan.items.isEmpty {
                         Button { model.tools.applyTool(id) } label: {
-                            if state.applying { KestrelSpinner(tint: .white, size: 14) } else { Text("Clean") }
+                            if state.applying { KestrelSpinner(tint: .white, size: 14) } else { Text(L("Clean")) }
                         }
                         .buttonStyle(.kestrel(.prominent, size: .small))
                         .disabled(state.applying)

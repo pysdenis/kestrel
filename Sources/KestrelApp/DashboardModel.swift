@@ -314,14 +314,28 @@ final class AppModel: ObservableObject {
 
     @Published var freeingMemory = false
 
-    /// Run macOS `purge` to free inactive memory (non-destructive), then refresh so the
-    /// user sees the change. Opt-in — only when they press the button.
+    /// Run macOS `purge` to free inactive memory (non-destructive), then refresh so the user
+    /// sees the change. `purge` needs root, so it prompts for authorization; we report the real
+    /// freed amount (or an honest note if it did little / was declined). Opt-in only.
     func freeMemory() {
         guard !freeingMemory else { return }
-        freeingMemory = true
+        freeingMemory = true; quickActionMessage = nil
         Task.detached { [weak self] in
-            _ = MemoryReliever().freeInactiveMemory()
-            await MainActor.run { [weak self] in self?.freeingMemory = false; self?.refresh() }
+            let before = StatsCollector().memory().free
+            let ran = MemoryReliever().freeInactiveMemory()
+            let after = StatsCollector().memory().free
+            let freed = after - before
+            await MainActor.run { [weak self] in
+                self?.freeingMemory = false
+                if !ran {
+                    self?.quickActionMessage = L("Couldn't free memory — it needs your permission.")
+                } else if freed > 100_000_000 {
+                    self?.quickActionMessage = "\(L("Freed")) \(bytesString(freed)) \(L("of memory"))"
+                } else {
+                    self?.quickActionMessage = L("Memory is already lean — little to free right now.")
+                }
+                self?.refresh()
+            }
         }
     }
 

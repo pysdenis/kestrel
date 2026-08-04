@@ -53,8 +53,8 @@ struct SmartCareSection: View {
                     HStack(spacing: 12) {
                         ScanRadar(tint: Palette.accent, size: 30)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("Running Smart Care…").font(.title3.weight(.bold))
-                            Text(controller.status.isEmpty ? "Working…" : controller.status)
+                            Text(L("Running Smart Care…")).font(.title3.weight(.bold))
+                            Text(controller.status.isEmpty ? L("Working…") : controller.status)
                                 .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                                 .animation(nil, value: controller.status)
                         }

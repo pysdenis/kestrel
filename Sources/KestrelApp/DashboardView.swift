@@ -131,11 +131,20 @@ struct MenuBarView: View {
     private func quickAction(_ title: String, _ icon: String, _ tint: Color, busy: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 5) {
-                if busy { KestrelSpinner(tint: tint, size: 15) }
-                else { Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundStyle(tint) }
+                // Normalise every glyph to the same square so SF Symbols with different
+                // intrinsic sizes (memorychip vs sparkles) don't look uneven in the grid.
+                ZStack {
+                    if busy { KestrelSpinner(tint: tint, size: 18) }
+                    else {
+                        Image(systemName: icon).resizable().aspectRatio(contentMode: .fit)
+                            .foregroundStyle(tint)
+                    }
+                }
+                .frame(width: 18, height: 18)
                 Text(title).font(.caption2.weight(.medium)).foregroundStyle(.primary)
+                    .lineLimit(1).minimumScaleFactor(0.85)
             }
-            .frame(maxWidth: .infinity).padding(.vertical, 9)
+            .frame(maxWidth: .infinity).padding(.vertical, 10)
             .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
             .contentShape(Rectangle())
         }
@@ -271,7 +280,7 @@ struct MemoryDetailView: View {
                     }
                 }
             }
-        } else { Text("Memory unavailable.").foregroundStyle(.secondary) }
+        } else { Text(L("Memory unavailable.")).foregroundStyle(.secondary) }
     }
 }
 
@@ -308,7 +317,7 @@ struct BatteryDetailView: View {
                              note: "Within its normal working range.")
                 }
             }
-        } else { Text("No battery.").foregroundStyle(.secondary) }
+        } else { Text(L("No battery.")).foregroundStyle(.secondary) }
     }
 
     private func infoCard(icon: String, tint: Color, title: String, value: String, note: String) -> some View {
@@ -338,18 +347,18 @@ struct CPUDetailView: View {
                 if model.cpuHistory.count > 1 {
                     Card(padding: 12) {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Recent load").font(.caption).foregroundStyle(.secondary)
+                            Text(L("Recent load")).font(.caption).foregroundStyle(.secondary)
                             Sparkline(values: model.cpuHistory, tint: Palette.warn).frame(height: 34)
                         }
                     }
                 }
                 Card(padding: 12) {
-                    HStack { Image(systemName: "clock").foregroundStyle(Palette.warn); Text("Uptime").font(.subheadline.weight(.medium)); Spacer(); Text("\(model.uptimeDays)d").font(.subheadline.weight(.semibold)) }
+                    HStack { Image(systemName: "clock").foregroundStyle(Palette.warn); Text(L("Uptime")).font(.subheadline.weight(.medium)); Spacer(); Text("\(model.uptimeDays)d").font(.subheadline.weight(.semibold)) }
                 }
             }
-            Text("Top Consumers").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            Text(L("Top Consumers")).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
             if model.energyNow.isEmpty {
-                HStack(spacing: 8) { KestrelSpinner(tint: Palette.warn, size: 14); Text("Reading…").foregroundStyle(.secondary).font(.caption) }
+                HStack(spacing: 8) { KestrelSpinner(tint: Palette.warn, size: 14); Text(L("Reading…")).foregroundStyle(.secondary).font(.caption) }
             } else {
                 ForEach(model.energyNow.prefix(6)) { proc in
                     HStack {
@@ -376,7 +385,7 @@ struct NetworkDetailView: View {
                     Image(systemName: "wifi").font(.title2).foregroundStyle(Palette.accent)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(n.ssid ?? "Network").font(.headline)
-                        Text("Wi-Fi connection").font(.caption).foregroundStyle(.secondary)
+                        Text(L("Wi-Fi connection")).font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
@@ -389,7 +398,7 @@ struct NetworkDetailView: View {
                 HStack(spacing: 14) {
                     SpeedGauge(mbps: model.speedDisplay, testing: model.speedTesting, size: 84)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Test your connection").font(.subheadline.weight(.semibold))
+                        Text(L("Test your connection")).font(.subheadline.weight(.semibold))
                         if let s = model.speed, !model.speedTesting {
                             Text(String(format: "%.0f Mbps · %.0f ms", s.downloadMbps, s.latencyMs)).font(.caption).foregroundStyle(.secondary)
                         }
@@ -447,7 +456,7 @@ struct StorageDetailView: View {
             // the Space section, where you navigate to it deliberately.
             let volumes = model.volumes()
             if !volumes.isEmpty {
-                Text("Volumes").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                Text(L("Volumes")).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                 ForEach(volumes, id: \.name) { v in
                     LabeledBar(label: v.name, value: "\(bytesString(v.space.used)) / \(bytesString(v.space.total))",
                                fraction: v.space.usedFraction, tint: Palette.accent)

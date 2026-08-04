@@ -4,18 +4,32 @@ import Foundation
 /// and compacts caches so more RAM shows as free; it never touches user data. Advisory
 /// and opt-in (the user presses a button); Kestrel doesn't do it silently.
 public struct MemoryReliever {
-    private let runner: CommandRunner
+    static let candidates = ["/usr/sbin/purge", "/usr/bin/purge"]
 
-    public init(runner: CommandRunner = ProcessRunner()) {
-        self.runner = runner
+    public init() {}
+
+    /// Where `purge` lives, if it's installed. Split out so it's testable without prompting.
+    public static func purgePath(fm: FileManager = .default) -> String? {
+        candidates.first { fm.isExecutableFile(atPath: $0) }
     }
 
-    /// Runs `purge`. Returns true only when the tool is actually present and the command
-    /// ran without throwing — so the UI never claims success when nothing happened.
+    /// Runs `purge`. It requires root on modern macOS, so this asks for authorization via a
+    /// standard admin prompt. Returns `true` only when it actually ran (exit 0) — so the UI
+    /// never claims success when the user cancelled or the tool is missing. Never fakes it.
     @discardableResult
     public func freeInactiveMemory() -> Bool {
-        let candidates = ["/usr/sbin/purge", "/usr/bin/purge"]
-        guard candidates.contains(where: { FileManager.default.isExecutableFile(atPath: $0) }) else { return false }
-        return (try? runner.run("purge", [])) != nil
+        guard let tool = Self.purgePath() else { return false }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", "do shell script \"\(tool)\" with administrator privileges"]
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        do {
+            try process.run()
+            process.waitUntilExit()
+            return process.terminationStatus == 0
+        } catch {
+            return false
+        }
     }
 }

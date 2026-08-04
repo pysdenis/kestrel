@@ -780,7 +780,7 @@ struct ActivitySection: View {
                 HealthRing(score: score, size: 100)
                 VStack(alignment: .leading, spacing: 10) {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Mac Health").font(.subheadline).foregroundStyle(.secondary)
+                        Text(L("Mac Health")).font(.subheadline).foregroundStyle(.secondary)
                         Text(healthWord(score)).font(.system(size: 30, weight: .bold)).foregroundStyle(healthColor(score))
                     }
                     if let d = model.disk {
@@ -818,7 +818,7 @@ struct ActivitySection: View {
                         SegmentBar.Segment(color: categoryColor($0.key), value: Double($0.value), label: categoryLabel($0.key))
                     }).padding(.top, 2)
                 } else {
-                    Text("Run a cleanup and what you free up appears here.").font(.caption).foregroundStyle(.tertiary)
+                    Text(L("Run a cleanup and what you free up appears here.")).font(.caption).foregroundStyle(.tertiary)
                 }
             }
         }
@@ -848,7 +848,7 @@ struct ActivitySection: View {
                         .padding(.vertical, 2)
                     }
                 } else {
-                    Text("A daily snapshot builds this over a couple of days.").font(.caption).foregroundStyle(.tertiary)
+                    Text(L("A daily snapshot builds this over a couple of days.")).font(.caption).foregroundStyle(.tertiary)
                 }
             }
         }
@@ -883,14 +883,14 @@ struct ActivitySection: View {
             VStack(alignment: .leading, spacing: 10) {
                 SectionTitle("Vault", icon: "tray.full")
                 if sessions.isEmpty {
-                    Text("Empty — cleaned items land here, restorable until you purge.").font(.caption).foregroundStyle(.tertiary)
+                    Text(L("Empty — cleaned items land here, restorable until you purge.")).font(.caption).foregroundStyle(.tertiary)
                 } else {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text("\(sessions.count)").font(.system(size: 30, weight: .bold, design: .rounded)).monospacedDigit()
                         Text("session(s) · \(bytesString(totalVaultBytes)) restorable").font(.caption).foregroundStyle(.secondary)
                     }
                 }
-                Button { model.section = .settings } label: { Label("Manage vault", systemImage: "arrow.right") }
+                Button { model.section = .settings } label: { Label(L("Manage vault"), systemImage: "arrow.right") }
                     .buttonStyle(.kestrel(.subtle, size: .small))
             }
         }

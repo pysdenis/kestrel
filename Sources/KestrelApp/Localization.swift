@@ -296,6 +296,31 @@ enum Localization {
         ("Your Home folder is already tidy.", "Tvoje složka Home je už uklizená."),
         ("safe item(s) across caches, logs and dev artifacts.", "bezpečných položek napříč cache, logy a dev artefakty."),
 
+        // Space
+        ("Scan Home", "Naskenovat Home"),
+        ("Rescan", "Znovu skenovat"),
+        ("Reading top-level folders…", "Čtu složky nejvyšší úrovně…"),
+        ("Sized by real on-disk usage (allocated bytes), so sparse files like Docker.raw show their true footprint. Click a block to drill in.", "Velikost podle reálného využití disku (alokované bajty), takže řídké soubory jako Docker.raw ukazují skutečnou stopu. Klikni na blok pro zanoření."),
+        ("Used", "Využito"),
+        ("Purgeable", "Uvolnitelné"),
+        ("This reads Desktop, Documents, Downloads and Pictures, so macOS may ask for permission. Click Scan Home when you're ready.", "Čte Plochu, Dokumenty, Stažené a Obrázky, takže macOS může požádat o oprávnění. Klikni na Naskenovat Home, až budeš připraven."),
+
+        // Full Disk Access banner
+        ("Grant Full Disk Access", "Udělit plný přístup k disku"),
+        ("Without it, macOS hides the Trash, Mail and some caches — so tools like “Empty Trash” find nothing. Turn Kestrel on in Settings, then relaunch.", "Bez něj macOS skryje Koš, Mail a některé cache — takže nástroje jako Vysypat koš nic nenajdou. Zapni Kestrel v Nastavení a spusť znovu."),
+        ("Open Full Disk Access settings", "Otevřít nastavení plného přístupu k disku"),
+
+        // Settings
+        ("Audit log", "Auditní log"),
+        ("Reveal ~/.kestrel in Finder", "Zobrazit ~/.kestrel ve Finderu"),
+        ("Cleanups are dry-run by default. Nothing is deleted outright — items move to the vault and can be undone. Zero telemetry: nothing leaves this Mac.", "Úklidy jsou defaultně nanečisto. Nic se nemaže napřímo — položky jdou do trezoru a jdou vrátit. Nulová telemetrie: nic neopustí tento Mac."),
+        ("session(s)", "relací"),
+        ("Everything a cleanup removes is moved here first, so it can be restored. Purging is the only place data is really deleted.", "Vše, co úklid odstraní, jde nejdřív sem, aby to šlo obnovit. Protřídění je jediné místo, kde se data opravdu mažou."),
+        ("Cleaned items will appear here, restorable until you purge.", "Vyčištěné položky se objeví tady, obnovitelné dokud je neprotřídíš."),
+        ("Purge older than", "Protřídit starší než"),
+        ("Restore", "Obnovit"),
+        ("item(s)", "položek"),
+
         // Categories
         ("CATEGORY", "KATEGORIE"),
         ("Everything safe", "Vše bezpečné"),

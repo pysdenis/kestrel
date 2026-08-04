@@ -482,13 +482,13 @@ struct FullDiskAccessBanner: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "lock.shield").font(.title2).foregroundStyle(Palette.warn)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Grant Full Disk Access").font(.subheadline.weight(.semibold))
-                    Text("Without it, macOS hides the Trash, Mail and some caches — so tools like “Empty Trash” find nothing. Turn Kestrel on in Settings, then relaunch.")
+                    Text(L("Grant Full Disk Access")).font(.subheadline.weight(.semibold))
+                    Text(L("Without it, macOS hides the Trash, Mail and some caches — so tools like “Empty Trash” find nothing. Turn Kestrel on in Settings, then relaunch."))
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     Button {
                         if let url = URL(string: FullDiskAccess.settingsURL) { NSWorkspace.shared.open(url) }
                     } label: {
-                        Label("Open Full Disk Access settings", systemImage: "arrow.up.forward.app")
+                        Label(L("Open Full Disk Access settings"), systemImage: "arrow.up.forward.app")
                     }
                     .buttonStyle(.kestrel(.secondary, size: .small))
                     .padding(.top, 2)

@@ -452,14 +452,14 @@ struct SpaceSection: View {
             HStack {
                 SectionTitle("Storage map", icon: "square.grid.3x3.fill")
                 Spacer()
-                Button { controller.load() } label: { Label(controller.tree == nil ? "Scan Home" : "Rescan", systemImage: "arrow.clockwise") }
+                Button { controller.load() } label: { Label(controller.tree == nil ? L("Scan Home") : L("Rescan"), systemImage: "arrow.clockwise") }
                     .buttonStyle(.kestrel(controller.tree == nil ? .prominent : .subtle, size: .small))
                     .disabled(controller.loading)
             }
 
             if controller.loading {
                 ScanningBanner(title: "Measuring your Home folder…",
-                               detail: controller.scanStatus.isEmpty ? "Reading top-level folders…" : controller.scanStatus,
+                               detail: controller.scanStatus.isEmpty ? L("Reading top-level folders…") : controller.scanStatus,
                                progress: controller.scanTotal > 0 ? Double(controller.scanDone) / Double(controller.scanTotal) : nil,
                                tint: Palette.blue)
             } else if let tree = controller.tree {
@@ -469,7 +469,7 @@ struct SpaceSection: View {
                     TreemapView(node: current) { child in controller.path.append(child) }
                         .frame(height: 340)
                 }
-                Text("Sized by real on-disk usage (allocated bytes), so sparse files like Docker.raw show their true footprint. Click a block to drill in.")
+                Text(L("Sized by real on-disk usage (allocated bytes), so sparse files like Docker.raw show their true footprint. Click a block to drill in."))
                     .font(.caption2).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
                 largestCard(current)
             } else {
@@ -486,15 +486,15 @@ struct SpaceSection: View {
         Card(elevated: true, tint: fractionColor(d.usedFraction)) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("\(bytesString(d.used)) used").font(.title3.weight(.bold))
+                    Text("\(bytesString(d.used)) \(L("used"))").font(.title3.weight(.bold))
                     Spacer()
-                    Text("of \(bytesString(d.total))").font(.subheadline).foregroundStyle(.secondary)
+                    Text("\(L("of")) \(bytesString(d.total))").font(.subheadline).foregroundStyle(.secondary)
                 }
                 KestrelProgress(value: d.usedFraction, tint: fractionColor(d.usedFraction), height: 10)
                 HStack(spacing: 16) {
-                    legendDot(fractionColor(d.usedFraction), "Used", bytesString(d.used))
-                    legendDot(.primary.opacity(0.2), "Free", bytesString(d.available))
-                    if d.purgeable > 0 { legendDot(Palette.warn, "Purgeable", bytesString(d.purgeable)) }
+                    legendDot(fractionColor(d.usedFraction), L("Used"), bytesString(d.used))
+                    legendDot(.primary.opacity(0.2), L("Free"), bytesString(d.available))
+                    if d.purgeable > 0 { legendDot(Palette.warn, L("Purgeable"), bytesString(d.purgeable)) }
                     Spacer()
                 }
             }
@@ -785,21 +785,21 @@ struct SettingsSection: View {
 
             Card {
                 VStack(alignment: .leading, spacing: 10) {
-                    row("Version", Kestrel.version)
+                    row(L("Version"), Kestrel.version)
                     Hairline()
-                    row("Vault", model.paths.vault.path)
-                    row("Audit log", model.paths.auditLog.path)
+                    row(L("Vault"), model.paths.vault.path)
+                    row(L("Audit log"), model.paths.auditLog.path)
                     Hairline()
                     Button { NSWorkspace.shared.activateFileViewerSelecting([model.paths.root]) } label: {
-                        Label("Reveal ~/.kestrel in Finder", systemImage: "folder")
+                        Label(L("Reveal ~/.kestrel in Finder"), systemImage: "folder")
                     }
                     .buttonStyle(.kestrel(.secondary))
                 }
             }
             Card(tint: Palette.good) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Label("Safety", systemImage: "checkmark.shield").font(.headline)
-                    Text("Cleanups are dry-run by default. Nothing is deleted outright — items move to the vault and can be undone. Zero telemetry: nothing leaves this Mac.")
+                    Label(L("Safety"), systemImage: "checkmark.shield").font(.headline)
+                    Text(L("Cleanups are dry-run by default. Nothing is deleted outright — items move to the vault and can be undone. Zero telemetry: nothing leaves this Mac."))
                         .font(.callout).foregroundStyle(.secondary)
                 }
             }
@@ -869,11 +869,11 @@ struct SettingsSection: View {
                     SectionTitle("Vault", icon: "tray.full")
                     Spacer()
                     if !controller.sessions.isEmpty {
-                        Text("\(controller.sessions.count) session(s) · \(bytesString(totalVaultBytes))")
+                        Text("\(controller.sessions.count) \(L("session(s)")) · \(bytesString(totalVaultBytes))")
                             .font(.caption).foregroundStyle(.secondary).monospacedDigit()
                     }
                 }
-                Text("Everything a cleanup removes is moved here first, so it can be restored. Purging is the only place data is really deleted.")
+                Text(L("Everything a cleanup removes is moved here first, so it can be restored. Purging is the only place data is really deleted."))
                     .font(.caption).foregroundStyle(.secondary)
 
                 if let message = controller.message {
@@ -892,7 +892,7 @@ struct SettingsSection: View {
                     }
                     HStack {
                         Spacer()
-                        Button { confirmPurge() } label: { Label("Purge older than 14 days", systemImage: "trash") }
+                        Button { confirmPurge() } label: { Label("\(L("Purge older than")) \(controller.retentionDays) \(L("days"))", systemImage: "trash") }
                             .buttonStyle(.kestrel(.subtle, tint: Palette.crit, size: .small))
                             .disabled(controller.busy)
                     }
@@ -929,14 +929,14 @@ struct VaultSessionRow: View {
                             .rotationEffect(.degrees(expanded ? 90 : 0))
                         VStack(alignment: .leading, spacing: 1) {
                             Text(session.createdAt.formatted(date: .abbreviated, time: .shortened)).font(.callout.weight(.medium))
-                            Text("\(session.count) item(s) · \(bytesString(session.totalBytes))").font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                            Text("\(session.count) \(L("item(s)")) · \(bytesString(session.totalBytes))").font(.caption).foregroundStyle(.secondary).monospacedDigit()
                         }
                     }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 Spacer()
-                Button(action: onRestore) { Label("Restore", systemImage: "arrow.uturn.backward") }
+                Button(action: onRestore) { Label(L("Restore"), systemImage: "arrow.uturn.backward") }
                     .buttonStyle(.kestrel(.secondary, size: .small))
                     .disabled(busy)
             }

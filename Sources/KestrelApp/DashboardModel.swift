@@ -100,15 +100,13 @@ final class AppModel: ObservableObject {
 
     func setLanguage(_ l: AppLanguage) {
         language = l
+        Localization.setting = l
         UserDefaults.standard.set(l.rawValue, forKey: "kestrel.language")
     }
 
-    var effectiveLanguage: AppLanguage {
-        guard language == .system else { return language }
-        return Locale.current.language.languageCode?.identifier == "cs" ? .czech : .english
-    }
+    func t(_ en: String) -> String { L(en) }
 
-    func t(_ en: String) -> String { Localization.translate(en, to: effectiveLanguage) }
+    init() { Localization.setting = language }   // sync the persisted language on launch
 
     func setNotifications(_ on: Bool) {
         notificationsEnabled = on

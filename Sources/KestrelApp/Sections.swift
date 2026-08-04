@@ -121,11 +121,11 @@ struct CleanupSection: View {
 
                 HStack(spacing: 10) {
                     Button { controller.scan() } label: {
-                        Label(controller.scanning ? "Scanning…" : "Scan for reclaimable space", systemImage: "magnifyingglass")
+                        Label(controller.scanning ? L("Scanning…") : L("Scan for reclaimable space"), systemImage: "magnifyingglass")
                     }
                     .buttonStyle(.kestrel)
                     .disabled(controller.scanning || controller.applying)
-                    Label("or drop a folder anywhere here", systemImage: "arrow.down.doc")
+                    Label(L("or drop a folder anywhere here"), systemImage: "arrow.down.doc")
                         .font(.caption).foregroundStyle(.tertiary)
                 }
             }
@@ -140,13 +140,13 @@ struct CleanupSection: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(bytesString(plan.totalBytes)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
-                        Text("reclaimable · \(plan.count) item(s)").font(.subheadline).foregroundStyle(.secondary)
+                        Text("\(L("reclaimable")) · \(plan.count) \(L("items"))").font(.subheadline).foregroundStyle(.secondary)
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 8) {
                         Button { controller.apply() } label: {
                             if controller.applying { KestrelSpinner(tint: .white, size: 15) }
-                            else { Label("Move \(plan.count) to Vault", systemImage: "tray.and.arrow.down") }
+                            else { Label("\(L("Move to Vault")) (\(plan.count))", systemImage: "tray.and.arrow.down") }
                         }
                         .buttonStyle(.kestrel(.prominent))
                         .disabled(controller.applying)
@@ -154,7 +154,7 @@ struct CleanupSection: View {
                         if model.aiConfigured {
                             Button { controller.review(assistant: model.aiAssistant) } label: {
                                 if controller.reviewing { KestrelSpinner(tint: Palette.violet, size: 14) }
-                                else { Label("AI second opinion", systemImage: "sparkles") }
+                                else { Label(L("AI second opinion"), systemImage: "sparkles") }
                             }
                             .buttonStyle(.kestrel(.subtle, tint: Palette.violet, size: .small))
                             .disabled(controller.reviewing)

@@ -258,21 +258,21 @@ struct DashboardSection: View {
                     if let insight = controller.insight {
                         Text(insight).font(.callout).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
                     } else {
-                        Text("Get one quick, honest AI insight about your storage and health.")
+                        Text(L("Get one quick, honest AI insight about your storage and health."))
                             .font(.callout).foregroundStyle(.secondary)
                     }
                     HStack(spacing: 10) {
                         Button { controller.getInsight(assistant: model.aiAssistant, context: model.aiContext()) } label: {
                             if controller.insightLoading {
-                                HStack(spacing: 6) { KestrelSpinner(tint: Palette.violet, size: 13); Text("Thinking…") }
+                                HStack(spacing: 6) { KestrelSpinner(tint: Palette.violet, size: 13); Text(L("Thinking…")) }
                             } else {
-                                Label(controller.insight == nil ? "Get insight" : "Refresh", systemImage: "sparkles")
+                                Label(controller.insight == nil ? L("Get insight") : L("Refresh"), systemImage: "sparkles")
                             }
                         }
                         .buttonStyle(.kestrel(.secondary, tint: Palette.violet, size: .small))
                         .disabled(controller.insightLoading)
                         Spacer()
-                        Text("metadata only · never file contents").font(.caption2).foregroundStyle(.tertiary)
+                        Text(L("metadata only · never file contents")).font(.caption2).foregroundStyle(.tertiary)
                     }
                 }
             }
@@ -291,22 +291,22 @@ struct DashboardSection: View {
     private var metricGrid: some View {
         LazyVGrid(columns: columns, spacing: 12) {
             if let d = model.disk {
-                RadialMetricTile(icon: "internaldrive", title: "Disk", centerValue: "\(Int(d.usedFraction * 100))%",
+                RadialMetricTile(icon: "internaldrive", title: L("Disk"), centerValue: "\(Int(d.usedFraction * 100))%",
                                  fraction: d.usedFraction,
-                                 detail: "\(bytesString(d.available)) free", iconTint: Palette.blue, ringColor: fractionColor(d.usedFraction))
+                                 detail: "\(bytesString(d.available)) \(L("free"))", iconTint: Palette.blue, ringColor: fractionColor(d.usedFraction))
             }
             if let m = model.memory {
-                RadialMetricTile(icon: "memorychip", title: "Memory", centerValue: "\(Int(m.usedFraction * 100))%",
+                RadialMetricTile(icon: "memorychip", title: L("Memory"), centerValue: "\(Int(m.usedFraction * 100))%",
                                  fraction: m.usedFraction,
-                                 detail: "\(bytesString(m.used)) used", iconTint: Palette.violet, ringColor: fractionColor(m.usedFraction))
+                                 detail: "\(bytesString(m.used)) \(L("used"))", iconTint: Palette.violet, ringColor: fractionColor(m.usedFraction))
             }
             if let c = model.cpu {
-                RadialMetricTile(icon: "cpu", title: "CPU", centerValue: "\(Int(c.usagePercent.rounded()))%",
+                RadialMetricTile(icon: "cpu", title: L("CPU"), centerValue: "\(Int(c.usagePercent.rounded()))%",
                                  fraction: c.usagePercent / 100,
-                                 detail: "\(c.coreCount) cores", iconTint: Palette.warn, ringColor: fractionColor(c.usagePercent / 100))
+                                 detail: "\(c.coreCount) \(L("cores"))", iconTint: Palette.warn, ringColor: fractionColor(c.usagePercent / 100))
             }
             if let b = model.battery {
-                RadialMetricTile(icon: b.isCharging ? "battery.100.bolt" : "battery.75", title: "Battery", centerValue: "\(b.percent)%",
+                RadialMetricTile(icon: b.isCharging ? "battery.100.bolt" : "battery.75", title: L("Battery"), centerValue: "\(b.percent)%",
                                  fraction: Double(b.percent) / 100,
                                  detail: model.batteryCaptionText, iconTint: Palette.good, ringColor: b.percent > 20 ? Palette.good : Palette.crit)
             }
@@ -349,20 +349,20 @@ struct ForecastCard: View {
                         Text("\(t.dailyGrowthBytes > 0 ? "+" : "−")\(bytesString(abs(t.dailyGrowthBytes)))")
                             .font(.title3.weight(.bold))
                             .foregroundStyle(t.dailyGrowthBytes > 0 ? Palette.warn : Palette.good)
-                        Text("/ day").font(.caption).foregroundStyle(.secondary)
+                        Text(L("/ day")).font(.caption).foregroundStyle(.secondary)
                     }
                     if let days = t.daysUntilFull {
-                        Text("Full in about \(Int(days)) days at this rate").font(.caption).foregroundStyle(.secondary)
+                        Text("\(L("Full in about")) \(Int(days)) \(L("days at this rate"))").font(.caption).foregroundStyle(.secondary)
                     } else {
-                        Text("Freeing space overall — no fill date").font(.caption).foregroundStyle(Palette.good)
+                        Text(L("Freeing space overall — no fill date")).font(.caption).foregroundStyle(Palette.good)
                     }
                     if series.count > 1 {
                         Sparkline(values: series, tint: Palette.accent2).frame(height: 38).padding(.top, 2)
                     }
                 } else {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Building history").font(.subheadline.weight(.medium))
-                        Text("Kestrel records a daily snapshot. The forecast fills in after a couple of days.")
+                        Text(L("Building history")).font(.subheadline.weight(.medium))
+                        Text(L("Kestrel records a daily snapshot. The forecast fills in after a couple of days."))
                             .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -390,18 +390,18 @@ struct ProtectionCard: View {
                                 .font(.title3).foregroundStyle(ok ? Palette.good : Palette.warn)
                         }
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(ok ? "Protected" : "Check protection").font(.subheadline.weight(.semibold))
-                            Text(ok ? "Gatekeeper on · XProtect \(p.xprotectVersion ?? "—")" : "Gatekeeper assessments are off")
+                            Text(ok ? L("Protected") : L("Check protection")).font(.subheadline.weight(.semibold))
+                            Text(ok ? "\(L("Gatekeeper on")) · XProtect \(p.xprotectVersion ?? "—")" : L("Gatekeeper assessments are off"))
                                 .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                         }
                         Spacer()
                     }
-                    Button(action: openSecurity) { Label("Open Security", systemImage: "arrow.right") }
+                    Button(action: openSecurity) { Label(L("Open Security"), systemImage: "arrow.right") }
                         .buttonStyle(.kestrel(.subtle, size: .small))
                 } else {
                     HStack(spacing: 8) {
                         KestrelSpinner(size: 14)
-                        Text("Reading protection status…").font(.caption).foregroundStyle(.secondary)
+                        Text(L("Reading protection status…")).font(.caption).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 6)
                 }
@@ -417,17 +417,17 @@ struct SpeedTestCard: View {
             HStack(spacing: 18) {
                 SpeedGauge(mbps: model.speedDisplay, testing: model.speedTesting, size: 108)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Internet speed").font(.headline)
+                    Text(L("Internet speed")).font(.headline)
                     if let s = model.speed, !model.speedTesting {
                         Text(String(format: "%.0f Mbps download", s.downloadMbps)).font(.subheadline)
                         Text(String(format: "%.0f ms latency · via Cloudflare", s.latencyMs)).font(.caption).foregroundStyle(.secondary)
                     } else if model.speedTesting {
-                        Text("Measuring your connection…").font(.subheadline).foregroundStyle(.secondary)
+                        Text(L("Measuring your connection…")).font(.subheadline).foregroundStyle(.secondary)
                     } else {
-                        Text("Measure download speed and latency").font(.subheadline).foregroundStyle(.secondary)
+                        Text(L("Measure download speed and latency")).font(.subheadline).foregroundStyle(.secondary)
                     }
                     Button(action: model.runSpeedTest) {
-                        Label(model.speedTesting ? "Testing…" : "Run test", systemImage: "play.fill")
+                        Label(model.speedTesting ? L("Testing…") : L("Run test"), systemImage: "play.fill")
                     }
                     .buttonStyle(.kestrel(.prominent, tint: Palette.teal))
                     .disabled(model.speedTesting)

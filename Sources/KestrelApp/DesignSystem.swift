@@ -296,7 +296,7 @@ struct NetworkTile: View {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 6) {
                     Image(systemName: "wifi").foregroundStyle(Palette.teal).imageScale(.medium)
-                    Text("Network").font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
+                    Text(L("Network")).font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
                     Spacer()
                     if let ssid { Text(ssid).font(.caption).foregroundStyle(.tertiary).lineLimit(1) }
                 }
@@ -457,7 +457,7 @@ struct ScanningBanner: View {
             HStack(spacing: 13) {
                 ScanRadar(tint: tint)
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(title).font(.subheadline.weight(.semibold))
+                    Text(L(title)).font(.subheadline.weight(.semibold))
                     if !detail.isEmpty {
                         Text(detail)
                             .font(.caption).foregroundStyle(.secondary).monospacedDigit()
@@ -509,9 +509,9 @@ struct EmptyState: View {
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon).font(.system(size: 30, weight: .regular)).foregroundStyle(tint)
-            Text(title).font(.subheadline.weight(.semibold))
+            Text(L(title)).font(.subheadline.weight(.semibold))
             if !caption.isEmpty {
-                Text(caption).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                Text(L(caption)).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
         }
         .frame(maxWidth: .infinity)
@@ -605,7 +605,7 @@ struct SectionTitle: View {
     var body: some View {
         HStack(spacing: 6) {
             if let icon { Image(systemName: icon).foregroundStyle(.secondary) }
-            Text(text).font(.headline)
+            Text(L(text)).font(.headline)
             Spacer()
         }
     }

@@ -78,7 +78,7 @@ struct AppInfo: Identifiable {
         let plan: CleanupPlan
         let reset: Bool
         var batchCount: Int = 1
-        var title: String { batchCount > 1 ? "Uninstall \(batchCount) apps?" : "\(reset ? "Reset" : "Uninstall") \(app.name)?" }
+        var title: String { batchCount > 1 ? "\(L("Uninstall")) \(batchCount) \(L("apps"))?" : "\(reset ? L("Reset") : L("Uninstall")) \(app.name)?" }
     }
     @Published var pending: Pending?
     @Published var preparing = false
@@ -201,10 +201,10 @@ struct ApplicationsSection: View {
                     tint: pending.reset ? Palette.warn : Palette.crit,
                     title: pending.title,
                     subtitle: pending.plan.items.isEmpty
-                        ? "Nothing was found to \(pending.reset ? "reset" : "remove")."
-                        : "These \(pending.plan.count) item(s) — \(bytesString(pending.plan.totalBytes)) — will move to the vault. Undoable.",
+                        ? "\(L("Nothing was found to")) \(pending.reset ? L("reset") : L("remove"))."
+                        : "\(L("These")) \(pending.plan.count) \(L("item(s) —")) \(bytesString(pending.plan.totalBytes)) \(L("— will move to the vault. Undoable."))",
                     plan: pending.plan,
-                    confirmLabel: pending.plan.items.isEmpty ? "Close" : (pending.reset ? "Reset" : "Uninstall"),
+                    confirmLabel: pending.plan.items.isEmpty ? L("Close") : (pending.reset ? L("Reset") : L("Uninstall")),
                     onConfirm: { controller.confirmPending() },
                     onCancel: { controller.cancelPending() }
                 )
@@ -219,7 +219,7 @@ struct ApplicationsSection: View {
         Card(tint: Palette.accent2) {
             VStack(alignment: .leading, spacing: 10) {
                 SectionTitle("Updates available", icon: "arrow.up.circle")
-                Text("From Homebrew casks — advisory; Kestrel never updates silently.").font(.caption).foregroundStyle(.secondary)
+                Text(L("From Homebrew casks — advisory; Kestrel never updates silently.")).font(.caption).foregroundStyle(.secondary)
                 ForEach(Array(controller.updates.enumerated()), id: \.offset) { i, u in
                     if i > 0 { Hairline() }
                     HStack(spacing: 8) {
@@ -241,10 +241,10 @@ struct ApplicationsSection: View {
         Card(padding: 10) {
             HStack(spacing: 9) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Search applications…", text: $controller.query)
+                TextField(L("Search applications…"), text: $controller.query)
                     .textFieldStyle(.plain)
                 Spacer()
-                Text("\(controller.filtered.count) app(s)").font(.caption).foregroundStyle(.tertiary)
+                Text("\(controller.filtered.count) \(L("app(s)"))").font(.caption).foregroundStyle(.tertiary)
             }
         }
     }
@@ -253,12 +253,12 @@ struct ApplicationsSection: View {
         Card(padding: 10, tint: Palette.crit) {
             HStack(spacing: 10) {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Palette.crit)
-                Text("\(controller.selected.count) selected").font(.callout.weight(.medium))
+                Text("\(controller.selected.count) \(L("selected"))").font(.callout.weight(.medium))
                 Spacer()
-                Button("Clear") { controller.clearSelection() }.buttonStyle(.kestrel(.subtle, size: .small))
+                Button(L("Clear")) { controller.clearSelection() }.buttonStyle(.kestrel(.subtle, size: .small))
                 Button { controller.prepareUninstallSelected() } label: {
                     if controller.preparing { KestrelSpinner(tint: .white, size: 14) }
-                    else { Label("Uninstall \(controller.selected.count)", systemImage: "trash") }
+                    else { Label("\(L("Uninstall")) \(controller.selected.count)", systemImage: "trash") }
                 }
                 .buttonStyle(.kestrel(.prominent, tint: Palette.crit, size: .small))
                 .disabled(controller.preparing || controller.busy)
@@ -359,7 +359,7 @@ struct AppCard: View {
                         Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                             .font(.title3).foregroundStyle(selected ? Palette.crit : Color.secondary.opacity(0.5))
                     }
-                    .buttonStyle(.plain).help("Select for batch uninstall")
+                    .buttonStyle(.plain).help(L("Select for batch uninstall"))
                     Group {
                         if let icon { Image(nsImage: icon).resizable() }
                         else { Image(systemName: "app.fill").resizable().foregroundStyle(.tertiary) }
@@ -378,13 +378,13 @@ struct AppCard: View {
                     }
                 }
                 HStack(spacing: 8) {
-                    Button(action: onUninstall) { Label("Uninstall", systemImage: "trash") }
+                    Button(action: onUninstall) { Label(L("Uninstall"), systemImage: "trash") }
                         .buttonStyle(.kestrel(.secondary, tint: Palette.crit, size: .small)).disabled(busy)
-                    Button(action: onReset) { Label("Reset", systemImage: "arrow.counterclockwise") }
+                    Button(action: onReset) { Label(L("Reset"), systemImage: "arrow.counterclockwise") }
                         .buttonStyle(.kestrel(.subtle, size: .small)).disabled(busy)
                     Spacer()
                     Button { NSWorkspace.shared.activateFileViewerSelecting([app.url]) } label: { Image(systemName: "magnifyingglass") }
-                        .buttonStyle(.kestrel(.subtle, size: .small)).help("Reveal in Finder")
+                        .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Reveal in Finder"))
                 }
             }
         }

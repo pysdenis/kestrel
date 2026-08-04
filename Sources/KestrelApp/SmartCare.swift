@@ -44,9 +44,9 @@ struct SmartCareSection: View {
                         Spacer()
                     }
                     VStack(spacing: 8) {
-                        SmartStepRow(label: "Reclaimable space", state: controller.cleanupStep, tint: Palette.accent)
-                        SmartStepRow(label: "macOS protection", state: controller.protectionStep, tint: Palette.good)
-                        SmartStepRow(label: "Downloads malware scan", state: controller.malwareStep, tint: Palette.violet)
+                        SmartStepRow(label: L("Reclaimable space"), state: controller.cleanupStep, tint: Palette.accent)
+                        SmartStepRow(label: L("macOS protection"), state: controller.protectionStep, tint: Palette.good)
+                        SmartStepRow(label: L("Downloads malware scan"), state: controller.malwareStep, tint: Palette.violet)
                     }
                 }
             } else {
@@ -56,14 +56,14 @@ struct SmartCareSection: View {
                         Image(systemName: "wand.and.stars").font(.system(size: 26)).foregroundStyle(Palette.accent)
                     }
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(controller.finished ? "Smart Care complete" : "Run Smart Care").font(.title2.weight(.bold))
+                        Text(controller.finished ? L("Smart Care complete") : L("Run Smart Care")).font(.title2.weight(.bold))
                         Text(controller.finished
-                             ? "Here's what it found — nothing was deleted."
-                             : "Reclaimable space, macOS protection and a Downloads malware scan, in one honest pass.")
+                             ? L("Here's what it found — nothing was deleted.")
+                             : L("Reclaimable space, macOS protection and a Downloads malware scan, in one honest pass."))
                             .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
-                    Button(action: start) { Label(controller.finished ? "Run again" : "Run", systemImage: "play.fill") }
+                    Button(action: start) { Label(controller.finished ? L("Run again") : L("Run"), systemImage: "play.fill") }
                         .buttonStyle(.kestrel(.prominent))
                 }
             }
@@ -74,21 +74,21 @@ struct SmartCareSection: View {
 
     @ViewBuilder private var results: some View {
         LazyVGrid(columns: tiles, spacing: 12) {
-            resultTile(icon: "gauge.with.dots.needle.67percent", title: "Health",
+            resultTile(icon: "gauge.with.dots.needle.67percent", title: L("Health"),
                        value: "\(model.health?.overall ?? 0)",
-                       subtitle: healthVerdict(model.health?.overall ?? 0),
+                       subtitle: L(healthVerdict(model.health?.overall ?? 0)),
                        tint: healthColor(model.health?.overall ?? 0))
             if let p = controller.protection {
                 let ok = p.assessmentsEnabled == true && p.xprotectVersion != nil
-                resultTile(icon: ok ? "checkmark.shield.fill" : "exclamationmark.shield.fill", title: "Protection",
-                           value: ok ? "On" : "Check",
-                           subtitle: ok ? "Gatekeeper + XProtect active" : "A defense is off",
+                resultTile(icon: ok ? "checkmark.shield.fill" : "exclamationmark.shield.fill", title: L("Protection"),
+                           value: ok ? L("On") : L("Check"),
+                           subtitle: ok ? L("Gatekeeper + XProtect active") : L("A defense is off"),
                            tint: ok ? Palette.good : Palette.warn)
             }
             if let r = controller.report {
-                resultTile(icon: r.isClean ? "checkmark.seal.fill" : "xmark.octagon.fill", title: "Malware",
-                           value: r.isClean ? "Clean" : "\(r.findings.count)",
-                           subtitle: r.isClean ? "Downloads · \(r.scanned) files" : "finding(s) with evidence",
+                resultTile(icon: r.isClean ? "checkmark.seal.fill" : "xmark.octagon.fill", title: L("Malware"),
+                           value: r.isClean ? L("No threats") : "\(r.findings.count)",
+                           subtitle: r.isClean ? "\(L("Downloads")) · \(r.scanned) \(L("files"))" : L("finding(s) with evidence"),
                            tint: r.isClean ? Palette.good : Palette.crit)
             }
         }
@@ -121,21 +121,21 @@ struct SmartCareSection: View {
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         if plan.items.isEmpty {
-                            Text("Nothing to reclaim").font(.title3.weight(.bold))
-                            Text("Your Home folder is already tidy.").font(.subheadline).foregroundStyle(.secondary)
+                            Text(L("Nothing to reclaim")).font(.title3.weight(.bold))
+                            Text(L("Your Home folder is already tidy.")).font(.subheadline).foregroundStyle(.secondary)
                         } else {
-                            Text("\(bytesString(plan.totalBytes)) reclaimable").font(.title3.weight(.bold))
-                            Text("\(plan.count) safe item(s) across caches, logs and dev artifacts.").font(.subheadline).foregroundStyle(.secondary)
+                            Text("\(bytesString(plan.totalBytes)) \(L("reclaimable"))").font(.title3.weight(.bold))
+                            Text("\(plan.count) \(L("safe item(s) across caches, logs and dev artifacts."))").font(.subheadline).foregroundStyle(.secondary)
                         }
                     }
                     Spacer()
                     if !plan.items.isEmpty {
                         HStack(spacing: 8) {
-                            Button { model.section = .cleanup } label: { Text("Review") }
+                            Button { model.section = .cleanup } label: { Text(L("Review")) }
                                 .buttonStyle(.kestrel(.subtle, size: .small))
                             Button { controller.apply() } label: {
                                 if controller.applying { KestrelSpinner(tint: .white, size: 15) }
-                                else { Label("Move to Vault", systemImage: "tray.and.arrow.down") }
+                                else { Label(L("Move to Vault"), systemImage: "tray.and.arrow.down") }
                             }
                             .buttonStyle(.kestrel(.prominent))
                             .disabled(controller.applying)
@@ -158,7 +158,7 @@ struct SmartStepRow: View {
             glyph
             Text(label).font(.callout).foregroundStyle(state == .pending ? .secondary : .primary)
             Spacer()
-            Text(stateText).font(.caption).foregroundStyle(state == .done ? Palette.good : .secondary)
+            Text(L(stateText)).font(.caption).foregroundStyle(state == .done ? Palette.good : .secondary)
         }
         .padding(.vertical, 2)
     }

@@ -62,14 +62,14 @@ struct PermissionsSection: View {
             Card {
                 HStack(spacing: 12) {
                     Image(systemName: "hand.raised.fill").font(.title2).foregroundStyle(Palette.accent)
-                    Text("Per-user privacy grants, read-only from your TCC database. System-level ones like Full Disk Access and Accessibility live in a root-only database and may not all appear here — manage everything in System Settings.")
+                    Text(L("Per-user privacy grants, read-only from your TCC database. System-level ones like Full Disk Access and Accessibility live in a root-only database and may not all appear here — manage everything in System Settings."))
                         .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     Spacer()
                     Button {
                         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy") {
                             NSWorkspace.shared.open(url)
                         }
-                    } label: { Label("Open Privacy settings", systemImage: "arrow.up.forward.app") }
+                    } label: { Label(L("Open Privacy settings"), systemImage: "arrow.up.forward.app") }
                         .buttonStyle(.kestrel(.secondary, size: .small))
                 }
             }

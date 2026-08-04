@@ -542,17 +542,17 @@ struct EnergySection: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(b.isCharging ? "Charging" : "On battery").font(.title3.weight(.bold))
+                    Text(b.isCharging ? L("Charging") : L("On battery")).font(.title3.weight(.bold))
                     if let m = model.batteryTimeMinutes {
-                        Text(b.isCharging ? "About \(minutesString(m)) until full" : "About \(minutesString(m)) remaining")
+                        Text(b.isCharging ? "\(L("About")) \(minutesString(m)) \(L("until full"))" : "\(L("About")) \(minutesString(m)) \(L("remaining"))")
                             .font(.subheadline).foregroundStyle(.secondary)
                     }
                 }
                 Spacer()
                 FlowLayout(spacing: 10, lineSpacing: 10) {
-                    if let h = b.healthPercent { EnergyStat(icon: "heart.fill", label: "Health", value: "\(h)%", tint: Palette.pink) }
-                    if let cy = b.cycleCount { EnergyStat(icon: "arrow.triangle.2.circlepath", label: "Cycles", value: "\(cy)", tint: Palette.blue) }
-                    if let t = b.temperatureC { EnergyStat(icon: "thermometer.medium", label: "Temp", value: "\(Int(t.rounded()))°", tint: Palette.orange) }
+                    if let h = b.healthPercent { EnergyStat(icon: "heart.fill", label: L("Health"), value: "\(h)%", tint: Palette.pink) }
+                    if let cy = b.cycleCount { EnergyStat(icon: "arrow.triangle.2.circlepath", label: L("Cycles"), value: "\(cy)", tint: Palette.blue) }
+                    if let t = b.temperatureC { EnergyStat(icon: "thermometer.medium", label: L("Temp"), value: "\(Int(t.rounded()))°", tint: Palette.orange) }
                 }
             }
         }
@@ -567,23 +567,23 @@ struct EnergySection: View {
                     SectionTitle("Memory", icon: "memorychip")
                     Spacer()
                     Button { model.freeMemory() } label: {
-                        if model.freeingMemory { HStack(spacing: 6) { KestrelSpinner(size: 13); Text("Freeing…") } }
-                        else { Label("Free up memory", systemImage: "arrow.down.circle") }
+                        if model.freeingMemory { HStack(spacing: 6) { KestrelSpinner(size: 13); Text(L("Freeing…")) } }
+                        else { Label(L("Free up memory"), systemImage: "arrow.down.circle") }
                     }
                     .buttonStyle(.kestrel(.secondary, size: .small))
                     .disabled(model.freeingMemory)
-                    .help("Runs macOS purge to free inactive memory — non-destructive")
+                    .help(L("Runs macOS purge to free inactive memory — non-destructive"))
                 }
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("\(Int(m.usedFraction * 100))%").font(.title3.weight(.bold)).monospacedDigit()
-                    Text("\(bytesString(m.used)) of \(bytesString(m.total)) used").font(.caption).foregroundStyle(.secondary)
+                    Text("\(bytesString(m.used)) \(L("of")) \(bytesString(m.total)) \(L("used"))").font(.caption).foregroundStyle(.secondary)
                 }
                 KestrelProgress(value: m.usedFraction, tint: fractionColor(m.usedFraction), height: 9)
                 HStack(spacing: 16) {
-                    memLegend(Palette.violet, "App", m.active)
-                    memLegend(Palette.accent, "Wired", m.wired)
-                    memLegend(Palette.warn, "Compressed", m.compressed)
-                    memLegend(.primary.opacity(0.2), "Free", m.free)
+                    memLegend(Palette.violet, L("App"), m.active)
+                    memLegend(Palette.accent, L("Wired"), m.wired)
+                    memLegend(Palette.warn, L("Compressed"), m.compressed)
+                    memLegend(.primary.opacity(0.2), L("Free"), m.free)
                     Spacer()
                 }
             }
@@ -607,7 +607,7 @@ struct EnergySection: View {
                 if model.energyNow.isEmpty {
                     HStack(spacing: 10) {
                         ScanRadar(tint: Palette.orange, size: 24)
-                        Text("Reading energy usage…").foregroundStyle(.secondary).font(.callout)
+                        Text(L("Reading energy usage…")).foregroundStyle(.secondary).font(.callout)
                     }
                 } else {
                     ForEach(Array(model.energyNow.enumerated()), id: \.element.id) { i, proc in
@@ -626,7 +626,7 @@ struct EnergySection: View {
                 if model.bandwidth.isEmpty {
                     HStack(spacing: 10) {
                         ScanRadar(tint: Palette.accent2, size: 24)
-                        Text("Measuring per-app traffic…").foregroundStyle(.secondary).font(.callout)
+                        Text(L("Measuring per-app traffic…")).foregroundStyle(.secondary).font(.callout)
                     }
                 } else {
                     let maxTotal = max(1, model.bandwidth.map(\.total).max() ?? 1)
@@ -642,7 +642,7 @@ struct EnergySection: View {
                         }
                         .padding(.vertical, 2)
                     }
-                    Text("Cumulative traffic since each process started (via nettop). Read-only.")
+                    Text(L("Cumulative traffic since each process started (via nettop). Read-only."))
                         .font(.caption2).foregroundStyle(.tertiary)
                 }
             }
@@ -654,14 +654,14 @@ struct EnergySection: View {
             VStack(alignment: .leading, spacing: 12) {
                 SectionTitle("Most draining — last 24 hours", icon: "clock.arrow.circlepath")
                 if model.energy24h.count < 2 {
-                    Text("Building history… this fills in while Kestrel is running.").foregroundStyle(.secondary).font(.callout)
+                    Text(L("Building history… this fills in while Kestrel is running.")).foregroundStyle(.secondary).font(.callout)
                 } else {
                     ForEach(Array(model.energy24h.prefix(10))) { usage in
                         LabeledBar(label: usage.name, value: String(format: "%.0f", usage.total),
                                    fraction: usage.total / max24h, tint: Palette.orange)
                     }
                     if let start = model.energyStart {
-                        Text("Recorded since \(start.formatted(date: .abbreviated, time: .shortened)).")
+                        Text("\(L("Recorded since")) \(start.formatted(date: .abbreviated, time: .shortened)).")
                             .font(.caption2).foregroundStyle(.tertiary)
                     }
                 }
@@ -672,9 +672,9 @@ struct EnergySection: View {
     private func confirmQuit(_ proc: ProcessEnergy) {
         model.requestConfirm(ConfirmRequest(
             icon: "xmark.octagon", tint: Palette.crit,
-            title: "Quit \(proc.name)?",
-            message: "This asks the app to quit (SIGTERM). Unsaved work in that app may be lost.",
-            confirmLabel: "Quit \(proc.name)", destructive: true,
+            title: "\(L("Quit")) \(proc.name)?",
+            message: L("This asks the app to quit (SIGTERM). Unsaved work in that app may be lost."),
+            confirmLabel: "\(L("Quit")) \(proc.name)", destructive: true,
             onConfirm: { model.quitProcess(pid: proc.pid) }
         ))
     }
@@ -763,15 +763,15 @@ struct SecuritySection: View {
                             .font(.system(size: 25, weight: .semibold)).foregroundStyle(ok ? Palette.good : Palette.warn)
                     }
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(ok ? "macOS protection is on" : "Protection needs a look").font(.title3.weight(.bold))
-                        Text(ok ? "Gatekeeper and XProtect are active." : "One of macOS's built-in defenses is off.")
+                        Text(ok ? L("macOS protection is on") : L("Protection needs a look")).font(.title3.weight(.bold))
+                        Text(ok ? L("Gatekeeper and XProtect are active.") : L("One of macOS's built-in defenses is off."))
                             .font(.subheadline).foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
                 HStack(spacing: 10) {
                     StatusTile(icon: "lock.shield", label: "Gatekeeper",
-                               value: status.assessmentsEnabled == true ? "On" : (status.assessmentsEnabled == false ? "Off" : "Unknown"),
+                               value: status.assessmentsEnabled == true ? L("On") : (status.assessmentsEnabled == false ? L("Off") : L("Unknown")),
                                ok: status.assessmentsEnabled == true)
                     StatusTile(icon: "checkmark.seal", label: "XProtect",
                                value: status.xprotectVersion ?? "—", ok: status.xprotectVersion != nil)
@@ -788,20 +788,20 @@ struct SecuritySection: View {
                 SectionTitle("Scan for threats", icon: "magnifyingglass")
                 FolderChip(url: controller.root) { controller.pickFolder() }
                 Button { controller.scan() } label: {
-                    Label(controller.scanning ? "Scanning…" : "Scan for malware", systemImage: "shield.checkerboard")
+                    Label(controller.scanning ? L("Scanning…") : L("Scan for malware"), systemImage: "shield.checkerboard")
                 }
                 .buttonStyle(.kestrel).disabled(controller.scanning)
 
                 if controller.scanning {
                     ScanningBanner(title: "Scanning for threats…",
-                                   detail: controller.scanStatus.isEmpty ? "Reading files in \(controller.root.lastPathComponent)…" : controller.scanStatus,
+                                   detail: controller.scanStatus.isEmpty ? "\(L("Reading files in")) \(controller.root.lastPathComponent)…" : controller.scanStatus,
                                    progress: controller.scanProgress)
                 } else if let report = controller.report {
                     if report.isClean {
-                        EmptyState(icon: "checkmark.shield.fill", title: "Clean",
-                                   caption: "Scanned \(report.scanned) file(s) — no threats found. No scare tactics.")
+                        EmptyState(icon: "checkmark.shield.fill", title: "No threats",
+                                   caption: "\(L("Scanned")) \(report.scanned) \(L("file(s) — no threats found. No scare tactics."))")
                     } else {
-                        Label("\(report.findings.count) finding(s), each with evidence", systemImage: "exclamationmark.triangle.fill")
+                        Label("\(report.findings.count) \(L("finding(s), each with evidence"))", systemImage: "exclamationmark.triangle.fill")
                             .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.orange)
                         ForEach(Array(report.findings.enumerated()), id: \.offset) { _, f in
                             let key = SecurityController.findingKey(f)
@@ -840,7 +840,7 @@ struct SecuritySection: View {
         Card(tint: Palette.warn) {
             VStack(alignment: .leading, spacing: 10) {
                 SectionTitle("Orphaned launch agents", icon: "bolt.badge.xmark")
-                Text("These agents point at programs that no longer exist — usually safe to remove.")
+                Text(L("These agents point at programs that no longer exist — usually safe to remove."))
                     .font(.caption).foregroundStyle(.secondary)
                 ForEach(Array(controller.orphans.enumerated()), id: \.offset) { _, o in
                     HStack(spacing: 8) {
@@ -913,7 +913,7 @@ struct FindingRow: View {
                     if canExplain && explanation == nil {
                         Button(action: onExplain) {
                             if explaining { KestrelSpinner(tint: Palette.violet, size: 12) }
-                            else { Label("Explain", systemImage: "sparkles") }
+                            else { Label(L("Explain"), systemImage: "sparkles") }
                         }
                         .buttonStyle(.kestrel(.subtle, tint: Palette.violet, size: .small))
                         .disabled(explaining)
@@ -949,13 +949,13 @@ struct ToolsSection: View {
 
             SectionTitle("My Tools", icon: "wrench.and.screwdriver")
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
-                toolCard("Trash Bins", "Empty every Trash — undoable via the vault", "trash", Palette.good) { TrashFinder().find() }
-                toolCard("App Leftovers", "Data left behind by removed apps", "app.badge.checkmark", Palette.accent) { OrphanFinder().find() }
-                toolCard("Old Installers", ".dmg / .pkg / .iso in Downloads", "shippingbox", Palette.accent2) { ClutterFinder().oldInstallers(under: home.appendingPathComponent("Downloads")) }
-                toolCard("Screenshots", "Screenshots on the Desktop", "camera.viewfinder", Palette.accent) { ClutterFinder().screenshots(under: home.appendingPathComponent("Desktop")) }
-                toolCard("Downloads", "Files older than 30 days", "arrow.down.circle", Palette.accent2) { ClutterFinder().oldDownloads(under: home.appendingPathComponent("Downloads")) }
-                toolCard("Mail Attachments", "Locally cached, re-downloadable", "paperclip", Palette.accent) { ClutterFinder().mailAttachments(under: home.appendingPathComponent("Library/Mail")) }
-                toolCard("Similar Images", "Keep the best of each group", "photo.on.rectangle.angled", Palette.accent2) {
+                toolCard(L("Trash Bins"), L("Empty every Trash — undoable via the vault"), "trash", Palette.good) { TrashFinder().find() }
+                toolCard(L("App Leftovers"), L("Data left behind by removed apps"), "app.badge.checkmark", Palette.accent) { OrphanFinder().find() }
+                toolCard(L("Old Installers"), L(".dmg / .pkg / .iso in Downloads"), "shippingbox", Palette.accent2) { ClutterFinder().oldInstallers(under: home.appendingPathComponent("Downloads")) }
+                toolCard(L("Screenshots"), L("Screenshots on the Desktop"), "camera.viewfinder", Palette.accent) { ClutterFinder().screenshots(under: home.appendingPathComponent("Desktop")) }
+                toolCard(L("Downloads"), L("Files older than 30 days"), "arrow.down.circle", Palette.accent2) { ClutterFinder().oldDownloads(under: home.appendingPathComponent("Downloads")) }
+                toolCard(L("Mail Attachments"), L("Locally cached, re-downloadable"), "paperclip", Palette.accent) { ClutterFinder().mailAttachments(under: home.appendingPathComponent("Library/Mail")) }
+                toolCard(L("Similar Images"), L("Keep the best of each group"), "photo.on.rectangle.angled", Palette.accent2) {
                     let files = (try? Scanner().scanFiles(under: home.appendingPathComponent("Pictures"), pruning: [], includingHidden: false)) ?? []
                     return SimilarImageFinder().plan(in: files)
                 }
@@ -974,9 +974,9 @@ struct ToolsSection: View {
             VStack(alignment: .leading, spacing: 10) {
                 SectionTitle("Starts at login", icon: "person.badge.clock")
                 if controller.loginItems.isEmpty {
-                    Label("No launch agents found.", systemImage: "checkmark.circle").foregroundStyle(Palette.good).font(.callout)
+                    Label(L("No launch agents found."), systemImage: "checkmark.circle").foregroundStyle(Palette.good).font(.callout)
                 } else {
-                    Text("Launch agents that run when you log in. Ones pointing at a missing program are flagged.")
+                    Text(L("Launch agents that run when you log in. Ones pointing at a missing program are flagged."))
                         .font(.caption).foregroundStyle(.secondary)
                     ForEach(Array(controller.loginItems.enumerated()), id: \.offset) { i, item in
                         if i > 0 { Hairline() }
@@ -1007,19 +1007,19 @@ struct ToolsSection: View {
                 SectionTitle("Secrets scanner", icon: "key.horizontal")
                 FolderChip(url: controller.project) { controller.pickProject() }
                 Button { controller.scanSecrets() } label: {
-                    Label(controller.secretsScanning ? "Scanning…" : "Scan for leaked credentials", systemImage: "key.viewfinder")
+                    Label(controller.secretsScanning ? L("Scanning…") : L("Scan for leaked credentials"), systemImage: "key.viewfinder")
                 }
                 .buttonStyle(.kestrel).disabled(controller.secretsScanning)
 
                 if controller.secretsScanning {
                     ScanningBanner(title: "Scanning for leaked secrets…",
-                                   detail: "Reading \(controller.project.lastPathComponent)…", tint: Palette.kestrel)
+                                   detail: "\(L("Reading")) \(controller.project.lastPathComponent)…", tint: Palette.kestrel)
                 } else if let secrets = controller.secrets {
                     if secrets.isEmpty {
                         EmptyState(icon: "checkmark.circle.fill", title: "No leaked credentials",
-                                   caption: "No API keys, tokens or private keys found in \(controller.project.lastPathComponent).")
+                                   caption: "\(L("No API keys, tokens or private keys found in")) \(controller.project.lastPathComponent).")
                     } else {
-                        Label("\(secrets.count) potential secret(s)", systemImage: "exclamationmark.triangle.fill")
+                        Label("\(secrets.count) \(L("potential secret(s)"))", systemImage: "exclamationmark.triangle.fill")
                             .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.orange)
                         ForEach(Array(secrets.prefix(40).enumerated()), id: \.offset) { _, m in
                             HStack(spacing: 8) {
@@ -1041,7 +1041,7 @@ struct ToolsSection: View {
             VStack(alignment: .leading, spacing: 10) {
                 SectionTitle("Keeping the Mac awake", icon: "moon.zzz")
                 if controller.sleepers.isEmpty {
-                    Label("Nothing is preventing sleep.", systemImage: "checkmark.circle").foregroundStyle(Palette.good).font(.callout)
+                    Label(L("Nothing is preventing sleep."), systemImage: "checkmark.circle").foregroundStyle(Palette.good).font(.callout)
                 } else {
                     ForEach(Array(controller.sleepers.enumerated()), id: \.offset) { _, a in
                         HStack(spacing: 8) {
@@ -1060,7 +1060,7 @@ struct ToolsSection: View {
         Card {
             VStack(alignment: .leading, spacing: 10) {
                 SectionTitle("Maintenance", icon: "wrench.adjustable")
-                Text("Advisory — run these yourself; they change system state. Copy the command when you're ready.")
+                Text(L("Advisory — run these yourself; they change system state. Copy the command when you're ready."))
                     .font(.caption).foregroundStyle(.secondary)
                 ForEach(Array(controller.maintenance.enumerated()), id: \.offset) { i, t in
                     if i > 0 { Hairline() }

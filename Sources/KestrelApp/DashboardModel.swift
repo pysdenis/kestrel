@@ -84,6 +84,7 @@ final class AppModel: ObservableObject {
     lazy var energy = EnergyController()
     lazy var space = SpaceController(paths: paths)
     lazy var tools = ToolsController(paths: paths)
+    lazy var automation = AutomationController(paths: paths)
     lazy var assistant = AssistantController()
     lazy var settingsController = SettingsController(paths: paths)
 

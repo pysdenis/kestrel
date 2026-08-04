@@ -391,6 +391,23 @@ enum Localization {
         ("Download & latency", "Stahování a odezva"),
         ("Open Kestrel", "Otevřít Kestrel"),
 
+        // Automation
+        ("Declarative cleanup rules — previewed, vault-backed, undoable", "Deklarativní pravidla úklidu — s náhledem, přes trezor, vratné"),
+        ("Run rules on a schedule", "Spouštět pravidla na plán"),
+        ("Installs a LaunchAgent that runs your rules automatically (into the vault).", "Nainstaluje LaunchAgent, který spouští pravidla automaticky (do trezoru)."),
+        ("Every", "Každých"),
+        ("d", "d"),
+        ("Needs the kestrel CLI installed for the schedule to actually run.", "Pro reálné spouštění plánu je potřeba nainstalované kestrel CLI."),
+        ("New rule", "Nové pravidlo"),
+        ("Rule name (e.g. Old downloads)", "Název pravidla (např. Staré stažené)"),
+        ("Older than", "Starší než"),
+        ("older than", "starší než"),
+        ("Add rule", "Přidat pravidlo"),
+        ("No rules yet", "Zatím žádná pravidla"),
+        ("Add a rule above — e.g. Downloads older than 30 days.", "Přidej pravidlo výše — např. Stažené starší 30 dní."),
+        ("Nothing matches right now", "Teď nic neodpovídá"),
+        ("Run now", "Spustit teď"),
+
         // Categories
         ("CATEGORY", "KATEGORIE"),
         ("Everything safe", "Vše bezpečné"),

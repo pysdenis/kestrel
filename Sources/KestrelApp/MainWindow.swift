@@ -2,7 +2,7 @@ import SwiftUI
 import KestrelCore
 
 enum AppSection: String, CaseIterable, Identifiable, Hashable {
-    case smartcare, dashboard, cleanup, space, energy, security, applications, permissions, tools, assistant, activity, settings
+    case smartcare, dashboard, cleanup, space, energy, security, applications, permissions, tools, automation, assistant, activity, settings
     var id: String { rawValue }
 
     var title: String {
@@ -16,6 +16,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         case .applications: return "Applications"
         case .permissions: return "Permissions"
         case .tools: return "Tools"
+        case .automation: return "Automation"
         case .assistant: return "Assistant"
         case .activity: return "Activity"
         case .settings: return "Settings"
@@ -33,6 +34,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         case .applications: return "square.grid.2x2"
         case .permissions: return "hand.raised"
         case .tools: return "wrench.and.screwdriver"
+        case .automation: return "wand.and.rays"
         case .assistant: return "bubble.left.and.sparkles"
         case .activity: return "clock.arrow.circlepath"
         case .settings: return "gearshape"
@@ -51,7 +53,7 @@ struct SidebarView: View {
             group(nil, [.smartcare])
             group("Monitor", [.dashboard, .energy, .space])
             group("Maintain", [.cleanup, .security, .applications, .permissions, .tools])
-            group("Intelligence", [.assistant])
+            group("Intelligence", [.automation, .assistant])
             Spacer(minLength: 8)
             group(nil, [.activity, .settings])
             paletteHint
@@ -164,6 +166,7 @@ struct MainWindow: View {
         case .applications: ApplicationsSection(controller: model.apps)
         case .permissions: PermissionsSection(controller: model.permissions)
         case .tools: ToolsSection(controller: model.tools)
+        case .automation: AutomationSection(controller: model.automation)
         case .assistant: AssistantSection(controller: model.assistant)
         case .activity: ActivitySection()
         case .settings: SettingsSection(controller: model.settingsController)

@@ -187,6 +187,23 @@ Diferenciátory — většina už hotová, tady jako přehled + zbytek.
       [x] Login Items viewer, [x] Drag&drop sken složky, [ ] Weekly digest (GUI), [ ] Bandwidth monitor per-app,
       [ ] Apple Shortcuts integrace, [ ] „Explain this" všude.
 
+## Fáze 13 — Hloubková code review & audit 🔍 (průběžně)
+Cíl: nekompromisní audit celého projektu (frontend `KestrelApp` / doména `KestrelCore` /
+„DB" manifesty+audit log+SQLite / cloud = žádný, offline-first) — modul po modulu, funkce
+po funkci. Výstup je `docs/AUDIT.md` ve fixním formátu:
+**### [ZÁVAŽNOST] Název** → *Lokace* · *Popis* · *Riziko* · *Návrh řešení (s kódem)*.
+Závažnosti od nejnižší: **[NÍZKÁ/KOSMETICKÁ] → [STŘEDNÍ/REFAKTOR] → [VYSOKÁ/BUDOUCÍ BUG] → [KRITICKÁ]**,
+plus závěrečné **Architektonické zhodnocení**. Každý nález řešit v kontextu invariantů z `CLAUDE.md`.
+- [x] **1. kolo auditu** → `docs/AUDIT.md` (nálezy seřazené dle závažnosti).
+- [x] **Kritické/Vysoké opraveny v 1. kole:** vault restore data-loss (+ data-safety test),
+      tiché move failures, MenuBar popover Back dismiss, re-sken aplikací.
+- [ ] **Střední/refaktor:** Swift 6 concurrency (odstranit `self?` v detached tascích),
+      centralizace vystavování chyb místo `try?`, `MemoryReliever` reálný exit status,
+      líné načítání app ikon, notifikační autorizační race.
+- [ ] **Kosmetika:** aliasy palety, `id: \.offset` → stabilní klíče, sdílený message helper.
+- [ ] **2. kolo:** projít každý zbylý modul (Space/Energy/Assistant/Rules/AV) stejným
+      formátem, přidat regresní testy k nalezeným bugům, a udržovat `docs/AUDIT.md` živý.
+
 ---
 
 ## Návrh prvního sprintu (co říct Claudovi)

@@ -460,9 +460,21 @@ final class AppModel: ObservableObject {
         return ""
     }
 
-    var aiConfigured: Bool { !geminiKey().isEmpty }
+    /// Apple's on-device model, when the Mac has Apple Intelligence — zero network.
+    var onDeviceAIAvailable: Bool { OnDeviceLLM.isAvailable }
+
+    var aiConfigured: Bool { onDeviceAIAvailable || !geminiKey().isEmpty }
+
+    /// Which backend answers. Prefers the **on-device** model (offline, private) over Gemini,
+    /// matching Kestrel's zero-telemetry stance; falls back to Gemini only if it's the one set up.
+    var aiBackendLabel: String {
+        if onDeviceAIAvailable { return L("On-device (offline)") }
+        if !geminiKey().isEmpty { return L("Gemini (cloud)") }
+        return L("Off")
+    }
 
     var aiAssistant: AIAssistant? {
+        if onDeviceAIAvailable { return AIAssistant(client: OnDeviceLLM()) }
         let key = geminiKey()
         return key.isEmpty ? nil : AIAssistant(client: GeminiClient(apiKey: key))
     }

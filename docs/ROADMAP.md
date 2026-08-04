@@ -212,8 +212,10 @@ Diferenciátory — většina už hotová, tady jako přehled + zbytek.
 - [x] **Cleanup Time Machine** — procházatelná reverzibilní historie každého úklidu (modul, timeline relací, filtr věku, hledání,
       Restore-all + **per-file restore** přes nový `VaultService.restoreItem`). „Jediný cleaner, kterého nemůžeš litovat."
 - [x] **Security hardening + fix** — Posture → akční checklist (FileVault/firewall/auto-updaty/guest/Gatekeeper) s deep-link „Opravit". Offline & open Pareto.
-- [ ] **On-device AI (offline)** — asistent přes Apple Foundation Models (macOS 26), fallback Gemini. „AI, která nikdy nevolá domů."
-- [ ] **Mapa expozice appky** — co appka vidí (FDA/kamera/mik) + poslední přístup ke kameře/mikrofonu + one-click odebrat.
+- [x] **On-device AI (offline)** — `LLMBackend` protokol + `OnDeviceLLM` přes Apple Foundation Models (macOS 26), preferováno před Gemini,
+      graceful fallback. Assistant ukazuje aktivní backend („V zařízení (offline)" / „Gemini (cloud)"). „AI, která nikdy nevolá domů."
+- [x] **Mapa expozice appky** — Permissions „podle oprávnění" reverzní pohled, zvýraznění citlivých (`TCCReader.isSensitive`),
+      one-hop deep-link na revoke do přesného Privacy pane.
 - [ ] Duplicity → APFS klon/hardlink místo mazání; růst místa v čase (viník); ransomware kanárek; reverzibilní odinstalace.
 - [x] Command palette (⌘K, klávesová navigace), [x] Lokální notifikace, [x] Free up RAM, [x] App Permissions (TCC),
       [x] Login Items viewer, [x] Drag&drop sken složky, [x] **Bandwidth monitor per-app** (`BandwidthMonitor`, nettop),

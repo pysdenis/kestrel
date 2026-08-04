@@ -5,7 +5,7 @@ import Foundation
 /// contents of any file. The system instruction enforces Kestrel's honesty rule: no
 /// invented threats, no fake urgency.
 public struct AIAssistant {
-    private let client: GeminiClient
+    private let client: LLMBackend
 
     public static let systemPrompt = """
     You are Kestrel, an honest macOS maintenance assistant. Be concise and factual. \
@@ -14,7 +14,7 @@ public struct AIAssistant {
     something is safe to remove, say so and recommend keeping it. Prefer plain language.
     """
 
-    public init(client: GeminiClient) {
+    public init(client: LLMBackend) {
         self.client = client
     }
 

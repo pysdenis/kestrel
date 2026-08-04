@@ -22,7 +22,15 @@ public struct URLSessionHTTP: HTTPClient {
 /// This is the project's only path that sends data off the device, so it is strictly
 /// opt-in: nothing happens without an API key the user supplies, and callers send only
 /// metadata (names, sizes, categories) — never file contents (see `AIAssistant`).
-public struct GeminiClient {
+/// A pluggable large-language-model backend for the assistant. Lets Kestrel run the same
+/// honest prompts through a cloud model (Gemini) or a fully on-device one — without any of the
+/// assistant logic caring which. `system` carries the honesty system-prompt.
+public protocol LLMBackend: Sendable {
+    var isConfigured: Bool { get }
+    func generate(_ prompt: String, system: String?) async throws -> String
+}
+
+public struct GeminiClient: LLMBackend {
     public enum GeminiError: Error, Equatable {
         case noAPIKey
         case http(Int)

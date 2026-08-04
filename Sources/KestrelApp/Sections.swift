@@ -358,8 +358,17 @@ struct AssistantSection: View {
                 .background(LinearGradient(colors: [Palette.violet, Palette.accent2], startPoint: .topLeading, endPoint: .bottomTrailing),
                            in: RoundedRectangle(cornerRadius: 9, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
-                Text(L("Assistant")).font(.title3.weight(.bold))
-                Text(L("Honest AI help · sends metadata only")).font(.caption).foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Text(L("Assistant")).font(.title3.weight(.bold))
+                    if model.aiConfigured {
+                        Label(model.aiBackendLabel, systemImage: model.onDeviceAIAvailable ? "cpu" : "cloud")
+                            .font(.system(size: 10, weight: .bold)).foregroundStyle(model.onDeviceAIAvailable ? Palette.good : Palette.accent2)
+                            .padding(.horizontal, 7).padding(.vertical, 2)
+                            .background((model.onDeviceAIAvailable ? Palette.good : Palette.accent2).opacity(0.14), in: Capsule())
+                    }
+                }
+                Text(model.onDeviceAIAvailable ? L("Honest AI help · fully on-device, nothing leaves your Mac") : L("Honest AI help · sends metadata only"))
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
             if model.aiConfigured, !controller.messages.isEmpty {
@@ -465,7 +474,9 @@ struct AssistantSection: View {
         Card {
             VStack(alignment: .leading, spacing: 10) {
                 Label(L("Turn on the assistant"), systemImage: "key").font(.headline)
-                Text(L("The assistant is opt-in and off by default. To enable it, put your Google Gemini API key in a file:"))
+                Text(L("Best option: turn on Apple Intelligence in System Settings — Kestrel then runs the assistant fully on-device, with no key and nothing leaving your Mac."))
+                    .font(.callout).foregroundStyle(Palette.good).fixedSize(horizontal: false, vertical: true)
+                Text(L("Or, to use Google Gemini instead, put your API key in a file:"))
                     .font(.callout).foregroundStyle(.secondary)
                 Text(model.paths.geminiKey.path).font(.caption.monospaced()).textSelection(.enabled)
                 Text(L("It then sends only metadata (names, sizes, categories) — never file contents."))

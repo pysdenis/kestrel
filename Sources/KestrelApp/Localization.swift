@@ -350,6 +350,7 @@ enum Localization {
         ("Name", "Název"),
         ("Size", "Velikost"),
         ("Last used", "Naposledy použito"),
+        ("Oldest first", "Nejstarší první"),
         ("total", "celkem"),
         ("Sort", "Řadit"),
         ("apps unused for 90+ days", "aplikací nepoužitých 90+ dní"),

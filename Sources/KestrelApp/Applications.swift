@@ -28,7 +28,7 @@ enum AppSort: String, CaseIterable, Identifiable {
     case name, size, lastUsed
     var id: String { rawValue }
     var label: String {
-        switch self { case .name: return "Name"; case .size: return "Size"; case .lastUsed: return "Last used" }
+        switch self { case .name: return "Name"; case .size: return "Size"; case .lastUsed: return "Oldest first" }
     }
 }
 
@@ -56,7 +56,9 @@ enum AppSort: String, CaseIterable, Identifiable {
         switch sort {
         case .name: return matched.sorted { $0.name.lowercased() < $1.name.lowercased() }
         case .size: return matched.sorted { ($0.size ?? -1) > ($1.size ?? -1) }
-        case .lastUsed: return matched.sorted { ($0.lastUsed ?? .distantPast) > ($1.lastUsed ?? .distantPast) }
+        // Oldest / least-recently-used first (uninstall candidates on top); apps with an
+        // unknown last-used date sink to the bottom rather than masquerade as "oldest".
+        case .lastUsed: return matched.sorted { ($0.lastUsed ?? .distantFuture) < ($1.lastUsed ?? .distantFuture) }
         }
     }
 

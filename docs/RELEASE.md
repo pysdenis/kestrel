@@ -46,11 +46,31 @@ spctl -a -vvv --type exec dist/Kestrel.app   # → "accepted, source=Notarized D
 `kestrel` (CLI) se distribuuje samostatně (Homebrew tap / GitHub Release). Podepiš stejným
 Developer ID (`codesign --options runtime --timestamp`) a notarizuj jako samostatný archiv.
 
-## 6. Auto-update
-Dvě cesty:
-- **GitHub Releases** + jednoduchý „check latest tag" v appce (bez závislostí).
-- **Sparkle** (open-source) s vlastním appcastem — `AppUpdater.sparkleFeed(of:)` už umí
-  číst `SUFeedURL`, takže integrace je přímočará.
+## 6. Zdarma: GitHub Release + in-app auto-update — ✅ hotovo
+Pro osobní/OSS testovací distribuci **bez Apple účtu**. Artefakty jsou nepodepsané, takže
+po *stažení* je macOS uvrhne do karantény — kamarád otevře pravým klikem → Otevřít
+(nebo `xattr -dr com.apple.quarantine Kestrel.app`). Build ze zdroje Gatekeeper obchází úplně.
+
+**Vydání jednoho buildu:**
+```bash
+bash scripts/release-oss.sh            # → dist/Kestrel-<v>.dmg + .zip (nepodepsané)
+bash scripts/release-oss.sh --publish  # + vytvoří GitHub Release v<v> (potřebuje gh auth)
+```
+`--publish` je záměrně explicitní — bez něj skript jen sestaví artefakty a vypíše příkaz.
+
+**In-app auto-update** (`KestrelCore.SelfUpdate` + Settings → Aktualizace):
+- Čte `https://api.github.com/repos/pysdenis/kestrel/releases/latest`, porovná semver s
+  `Kestrel.version`. Read-only GET, **žádná data neodcházejí** (jen IP, jako u každého stažení).
+- Toggle „Automaticky kontrolovat aktualizace" (default zap., protože jde o osobní build) —
+  jediný automatický síťový požadavek v celé appce. Vypnutelný.
+- Novější verze → banner nad obsahem + karta v Settings: „Stáhnout" stáhne `.dmg`/`.zip` do
+  Stažených a odhalí ve Finderu (žádný in-place swap běžící appky). „Poznámky k vydání" otevře
+  stránku releasu.
+- Nová verze = zvedni `Kestrel.version` v `Sources/KestrelCore/Version.swift`, commitni,
+  `bash scripts/release-oss.sh --publish`.
+
+Pozn.: `AppUpdater.sparkleFeed(of:)` (čtení `SUFeedURL`) zůstává pro budoucí Sparkle cestu,
+až bude podpis (Sparkle vyžaduje EdDSA/Developer ID pro bezpečné auto-instalace).
 
 ## 7. Ikona / branding — ✅ hotovo
 Vlastní `Resources/AppIcon.icns` (teal→indigo squircle, bílý pták v health-gauge prstenci —

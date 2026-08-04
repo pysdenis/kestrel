@@ -111,7 +111,9 @@ Detaily viz brainstorm; AI je vždy opt-in a posílá jen metadata (invariant #7
 - [x] Release automation (`scripts/release.sh`): Developer ID podpis (hardened runtime) → notarizace → stapling → `.dmg`.
       Parametrizovaný přes `SIGN_IDENTITY`/`NOTARY_PROFILE`; bez nich nic neposílá. Zbývá jen dodat Apple cert a spustit.
 - [x] App bundle skript (`scripts/build-app.sh` → `dist/Kestrel.app`, vkládá ikonu, ad-hoc podpis).
-- [ ] Sparkle auto-update NEBO GitHub Releases — `AppUpdater.sparkleFeed` už čte `SUFeedURL`.
+- [x] **Bezplatná OSS distribuce** (`scripts/release-oss.sh`): nepodepsaný `.dmg`+`.zip`, `--publish` cutne GitHub Release.
+- [x] **In-app auto-update** (`KestrelCore.SelfUpdate`): čte GitHub `releases/latest`, semver porovnání, banner + Settings karta,
+      stažení do Downloads. Toggle „Automaticky kontrolovat" (default zap.). Read-only GET, žádná data neodcházejí (invariant #7).
 - [x] LICENSE (MIT), README pro veřejnost s reálným použitím. Zbývají screenshoty.
 - [ ] Rozhodnout model: čistě OSS / OSS + placené buildy / donationware.
 

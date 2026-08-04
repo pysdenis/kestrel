@@ -144,13 +144,19 @@ struct MainWindow: View {
         HStack(spacing: 0) {
             SidebarView()
             Rectangle().fill(Color.primary.opacity(0.07)).frame(width: 1).ignoresSafeArea()
-            detail
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(Color(nsColor: .windowBackgroundColor))
+            VStack(spacing: 0) {
+                if model.showUpdateBanner, let release = model.updateAvailable {
+                    UpdateBanner(release: release).environmentObject(model)
+                }
+                detail
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
+            .background(Color(nsColor: .windowBackgroundColor))
         }
         .frame(minWidth: 900, minHeight: 640)
         .confirmHost()
         .onAppear { model.surfaceAppeared() }
+        .task { model.autoCheckOnLaunchIfEnabled() }
         .onDisappear { model.surfaceDisappeared(); model.mainWindowClosed() }
         .sheet(isPresented: $model.showPalette) { CommandPaletteView().environmentObject(model) }
         .sheet(isPresented: $model.showOnboarding) { OnboardingView().environmentObject(model) }
@@ -172,6 +178,37 @@ struct MainWindow: View {
         case .activity: ActivitySection()
         case .settings: SettingsSection(controller: model.settingsController)
         }
+    }
+}
+
+/// A slim top-of-window strip shown when a newer Kestrel release is on GitHub. Download pulls
+/// the asset to ~/Downloads (safe for an unsigned build — no in-place swap); the ✕ hides it
+/// until the next, newer version.
+struct UpdateBanner: View {
+    @EnvironmentObject private var model: AppModel
+    let release: ReleaseInfo
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "arrow.down.circle.fill").font(.title3).foregroundStyle(Palette.accent)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("\(L("Kestrel")) \(release.version) \(L("is available"))").font(.callout.weight(.semibold))
+                Text("\(L("You have")) \(Kestrel.version)").font(.caption2).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button { NSWorkspace.shared.open(release.pageURL) } label: { Text(L("Release notes")) }
+                .buttonStyle(.kestrel(.subtle, size: .small))
+            Button { model.downloadUpdate(release) } label: {
+                Label(model.updateDownloading ? L("Downloading…") : L("Download"), systemImage: "arrow.down")
+            }
+            .buttonStyle(.kestrel(.prominent, size: .small))
+            .disabled(model.updateDownloading)
+            Button { model.dismissUpdateBanner() } label: { Image(systemName: "xmark").font(.caption) }
+                .buttonStyle(.plain).foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 10)
+        .background(Palette.accent.opacity(0.10))
+        .overlay(alignment: .bottom) { Rectangle().fill(Palette.accent.opacity(0.25)).frame(height: 1) }
     }
 }
 
@@ -904,6 +941,7 @@ struct SettingsSection: View {
             if !model.fullDiskAccess { FullDiskAccessBanner() }
 
             preferencesCard
+            updatesCard
             vaultCard
 
             Card {
@@ -928,6 +966,65 @@ struct SettingsSection: View {
             }
         }
         .onAppear { controller.load() }
+    }
+
+    private var updatesCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionTitle(model.t("Updates"), icon: "arrow.triangle.2.circlepath")
+                HStack {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(model.t("Current version")).font(.callout.weight(.medium))
+                        Text(Kestrel.version).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button { model.checkForUpdates(manual: true) } label: {
+                        Label(model.updateChecking ? L("Checking…") : L("Check now"), systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(.kestrel(.secondary, size: .small))
+                    .disabled(model.updateChecking)
+                }
+
+                if let release = model.updateAvailable {
+                    Hairline()
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("\(L("Version")) \(release.version) \(L("is available"))", systemImage: "sparkles")
+                            .font(.callout.weight(.semibold)).foregroundStyle(Palette.accent)
+                        if !release.notes.isEmpty {
+                            Text(release.notes).font(.caption).foregroundStyle(.secondary)
+                                .lineLimit(8).fixedSize(horizontal: false, vertical: true)
+                        }
+                        HStack {
+                            Button { model.downloadUpdate(release) } label: {
+                                Label(model.updateDownloading ? L("Downloading…") : L("Download"), systemImage: "arrow.down")
+                            }
+                            .buttonStyle(.kestrel(.prominent, size: .small)).disabled(model.updateDownloading)
+                            Button { NSWorkspace.shared.open(release.pageURL) } label: {
+                                Label(L("Release notes"), systemImage: "arrow.up.forward")
+                            }
+                            .buttonStyle(.kestrel(.subtle, size: .small))
+                        }
+                        if let msg = model.updateMessage {
+                            Text(msg).font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                } else if let msg = model.updateMessage {
+                    Hairline()
+                    Text(msg).font(.caption).foregroundStyle(.secondary)
+                }
+
+                Hairline()
+                HStack {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(model.t("Check for updates automatically")).font(.callout.weight(.medium))
+                        Text(model.t("On launch, Kestrel asks GitHub for the latest release — the only automatic network request. It sends no data."))
+                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    KestrelToggle(isOn: Binding(get: { model.autoCheckUpdates }, set: { model.setAutoCheckUpdates($0) }))
+                }
+            }
+        }
     }
 
     private var preferencesCard: some View {

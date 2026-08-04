@@ -103,6 +103,101 @@ final class AppModel: ObservableObject {
     @Published var notificationsEnabled = UserDefaults.standard.bool(forKey: "kestrel.notifications")
     private var lowDiskNotified = false
 
+    // MARK: Self-update (GitHub Releases)
+
+    /// The one feature that reaches the network on its own — a read-only check of the public
+    /// GitHub releases API. On by default (the user asked for auto-updates), fully toggleable,
+    /// and it sends no data. See KestrelCore.SelfUpdate.
+    @Published var autoCheckUpdates = UserDefaults.standard.object(forKey: "kestrel.autoUpdate") as? Bool ?? true
+    @Published var updateChecking = false
+    @Published var updateAvailable: ReleaseInfo?
+    @Published var updateMessage: String?
+    @Published var updateDownloading = false
+    /// Dismissed banners shouldn't nag again for the same version this launch.
+    private var dismissedUpdateTag: String?
+    private var didAutoCheck = false
+
+    func setAutoCheckUpdates(_ on: Bool) {
+        autoCheckUpdates = on
+        UserDefaults.standard.set(on, forKey: "kestrel.autoUpdate")
+        if on { checkForUpdates(manual: false) }
+    }
+
+    /// Check GitHub for a newer release. `manual` distinguishes the Settings button (which
+    /// reports "you're up to date") from the silent launch check (which stays quiet).
+    func checkForUpdates(manual: Bool) {
+        guard !updateChecking else { return }
+        updateChecking = true
+        if manual { updateMessage = nil }
+        let current = Kestrel.version
+        Task { @MainActor in
+            defer { updateChecking = false }
+            do {
+                let release = try await SelfUpdate.check(current: current)
+                if let release {
+                    updateAvailable = release
+                    if manual { updateMessage = nil }
+                } else if manual {
+                    updateMessage = L("You're on the latest version.")
+                }
+            } catch {
+                if manual { updateMessage = L("Couldn't reach GitHub to check for updates.") }
+            }
+        }
+    }
+
+    /// Silent check once per launch when auto-update is enabled.
+    func autoCheckOnLaunchIfEnabled() {
+        guard autoCheckUpdates, !didAutoCheck else { return }
+        didAutoCheck = true
+        checkForUpdates(manual: false)
+    }
+
+    func dismissUpdateBanner() {
+        dismissedUpdateTag = updateAvailable?.tag
+        updateAvailable = nil
+    }
+
+    var showUpdateBanner: Bool {
+        guard let u = updateAvailable else { return false }
+        return u.tag != dismissedUpdateTag
+    }
+
+    /// Download the release asset to ~/Downloads and reveal it in Finder, so the user can
+    /// drag it to Applications. Safe for an unsigned build (no in-place swap of a running app).
+    /// Falls back to opening the release page when the release has no downloadable asset.
+    func downloadUpdate(_ release: ReleaseInfo) {
+        guard let url = release.downloadURL else {
+            NSWorkspace.shared.open(release.pageURL); return
+        }
+        guard !updateDownloading else { return }
+        updateDownloading = true
+        updateMessage = nil
+        let name = release.assetName ?? url.lastPathComponent
+        Task { @MainActor in
+            defer { updateDownloading = false }
+            do {
+                let (tempURL, _) = try await URLSession.shared.download(from: url)
+                let downloads = try FileManager.default.url(for: .downloadsDirectory, in: .userDomainMask,
+                                                            appropriateFor: nil, create: true)
+                var dest = downloads.appendingPathComponent(name)
+                var n = 1
+                while FileManager.default.fileExists(atPath: dest.path) {
+                    let base = (name as NSString).deletingPathExtension
+                    let ext = (name as NSString).pathExtension
+                    dest = downloads.appendingPathComponent("\(base) \(n).\(ext)")
+                    n += 1
+                }
+                try FileManager.default.moveItem(at: tempURL, to: dest)
+                NSWorkspace.shared.activateFileViewerSelecting([dest])
+                updateMessage = L("Downloaded to your Downloads folder — open it and drag Kestrel to Applications.")
+            } catch {
+                updateMessage = L("Download failed. Opening the release page instead.")
+                NSWorkspace.shared.open(release.pageURL)
+            }
+        }
+    }
+
     /// UI language. Changing it republishes the model, so every view re-renders in the new
     /// language. `t(_:)` translates a source string via the lightweight table.
     @Published var language: AppLanguage = AppLanguage(rawValue: UserDefaults.standard.string(forKey: "kestrel.language") ?? "") ?? .system

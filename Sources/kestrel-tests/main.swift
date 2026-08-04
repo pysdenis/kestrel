@@ -1161,6 +1161,40 @@ check(DriveHealth.parse("   SMART Status:             Something Else\n").status 
 check(DriveHealth.parse("no smart line here").status == .notSupported, "missing line → .notSupported (never invents health)")
 check(DriveHealth.parse("   SMART Status:  Verified\n").raw == "Verified", "keeps the raw reported value")
 
+// MARK: - SelfUpdate (GitHub releases)
+
+section("SelfUpdate: semver comparison")
+check(SelfUpdate.isNewer("0.1.1", than: "0.1.0"), "patch bump is newer")
+check(SelfUpdate.isNewer("v0.2.0", than: "0.1.9"), "minor bump beats higher patch, ignores v prefix")
+check(SelfUpdate.isNewer("1.0.0", than: "0.9.9"), "major bump is newer")
+check(!SelfUpdate.isNewer("0.1.0", than: "0.1.0"), "equal is not newer")
+check(!SelfUpdate.isNewer("0.1.0", than: "0.1.1"), "older is not newer")
+check(SelfUpdate.isNewer("0.1.10", than: "0.1.9"), "numeric (not lexical) component compare")
+check(SelfUpdate.cleanTag("v1.2.3") == "1.2.3" && SelfUpdate.cleanTag(" 1.2.3 ") == "1.2.3", "cleanTag strips v and whitespace")
+
+section("SelfUpdate: parses the GitHub release payload")
+let releaseJSON = """
+{
+  "tag_name": "v0.2.0",
+  "html_url": "https://github.com/pysdenis/kestrel/releases/tag/v0.2.0",
+  "body": "Faster scans and a new icon.",
+  "assets": [
+    {"name": "notes.txt", "browser_download_url": "https://example.com/notes.txt"},
+    {"name": "Kestrel-0.2.0.dmg", "browser_download_url": "https://example.com/Kestrel-0.2.0.dmg"}
+  ]
+}
+""".data(using: .utf8)!
+if let info = SelfUpdate.parse(releaseJSON) {
+    check(info.version == "0.2.0", "version cleaned from tag")
+    check(info.notes.contains("Faster scans"), "keeps release notes")
+    check(info.downloadURL?.lastPathComponent == "Kestrel-0.2.0.dmg", "prefers the .dmg asset over the .txt")
+    check(info.pageURL.absoluteString.hasSuffix("v0.2.0"), "keeps the release page URL")
+} else {
+    check(false, "parses a well-formed release payload")
+}
+check(SelfUpdate.parse(Data("{}".utf8)) == nil, "missing tag/url → nil (never invents a release)")
+check(SelfUpdate.parse(Data("not json".utf8)) == nil, "garbage → nil")
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

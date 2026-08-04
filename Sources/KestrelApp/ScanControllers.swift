@@ -242,6 +242,7 @@ import KestrelCore
     @Published var orphans: [LaunchItem] = []
     @Published var extensions: [SystemExtension] = []
     @Published var quarantine: [QuarantineInfo] = []
+    @Published var posture: SecurityPosture?
     @Published var scanProgress: Double = 0
     @Published var scanStatus = ""
     @Published var explanations: [String: String] = [:]   // finding key → AI explanation
@@ -273,7 +274,11 @@ import KestrelCore
             let orphaned = LaunchAgentAuditor().orphans()
             let exts = SystemExtensionAuditor().list()
             let quarantined = QuarantineReader().scan(root: downloads)
-            await MainActor.run { [weak self] in self?.orphans = orphaned; self?.extensions = exts; self?.quarantine = quarantined }
+            let posture = SecurityPostureReader().read()
+            await MainActor.run { [weak self] in
+                self?.orphans = orphaned; self?.extensions = exts
+                self?.quarantine = quarantined; self?.posture = posture
+            }
         }
     }
 

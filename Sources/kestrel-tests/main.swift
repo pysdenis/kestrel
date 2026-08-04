@@ -1195,6 +1195,24 @@ if let info = SelfUpdate.parse(releaseJSON) {
 check(SelfUpdate.parse(Data("{}".utf8)) == nil, "missing tag/url → nil (never invents a release)")
 check(SelfUpdate.parse(Data("not json".utf8)) == nil, "garbage → nil")
 
+// MARK: - SecurityPosture (protection readouts)
+
+section("SecurityPosture: honest parsers for FileVault / SIP / Gatekeeper / firewall")
+check(SecurityPostureReader.parseFileVault("FileVault is On.") == .on, "FileVault On")
+check(SecurityPostureReader.parseFileVault("FileVault is Off.") == .off, "FileVault Off")
+check(SecurityPostureReader.parseFileVault("weird") == .unknown, "FileVault unknown → never guesses")
+check(SecurityPostureReader.parseSIP("System Integrity Protection status: enabled.") == .on, "SIP enabled")
+check(SecurityPostureReader.parseSIP("System Integrity Protection status: disabled.") == .off, "SIP disabled")
+check(SecurityPostureReader.parseGatekeeper("assessments enabled") == .on, "Gatekeeper on")
+check(SecurityPostureReader.parseGatekeeper("assessments disabled") == .off, "Gatekeeper off")
+let fwOn = SecurityPostureReader.firewallStates(from: ["globalstate": 1, "stealthenabled": 1])
+check(fwOn.state == .on && fwOn.stealth == .on, "firewall on + stealth on")
+let fwBlock = SecurityPostureReader.firewallStates(from: ["globalstate": 2, "stealthenabled": 0])
+check(fwBlock.state == .on && fwBlock.stealth == .off, "block-all counts as on; stealth off")
+let fwOff = SecurityPostureReader.firewallStates(from: ["globalstate": 0])
+check(fwOff.state == .off && fwOff.stealth == .unknown, "firewall off; missing stealth → unknown")
+check(SecurityPostureReader.firewallStates(from: nil).state == .unknown, "no plist → unknown (never invents)")
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

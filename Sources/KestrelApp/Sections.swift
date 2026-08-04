@@ -799,6 +799,7 @@ struct SecuritySection: View {
             if !model.fullDiskAccess { FullDiskAccessBanner() }
 
             if let status = controller.status { protectionHero(status) }
+            if let posture = controller.posture { postureCard(posture) }
 
             scanCard
 
@@ -832,6 +833,59 @@ struct SecuritySection: View {
                 }
             }
         }
+    }
+
+    // MARK: security posture (honest checklist)
+
+    private func postureCard(_ p: SecurityPosture) -> some View {
+        let cols = [GridItem(.adaptive(minimum: 150), spacing: 10)]
+        return Card {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionTitle("Security posture", icon: "checkerboard.shield")
+                Text(L("Your Mac's built-in protections, read straight from the system. Facts only — SIP off is normal on some developer setups."))
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                LazyVGrid(columns: cols, spacing: 10) {
+                    postureTile("FileVault", "lock.laptopcomputer", p.fileVault, offIsWarn: true)
+                    postureTile("Firewall", "network.badge.shield.half.filled", p.firewall, offIsWarn: true)
+                    postureTile("Stealth mode", "eye.slash.circle", p.firewallStealth, offIsWarn: false)
+                    postureTile("SIP", "cpu", p.sip, offIsWarn: false)
+                    postureTile("Gatekeeper", "lock.shield", p.gatekeeper, offIsWarn: true)
+                    postureValueTile("XProtect", "checkmark.seal", value: p.xprotectVersion)
+                }
+            }
+        }
+    }
+
+    /// A protection with an On/Off/Unknown state. Off is amber only where it *should* be on
+    /// (FileVault, Firewall, Gatekeeper); otherwise it's stated neutrally — never as a scare.
+    @ViewBuilder private func postureTile(_ label: String, _ icon: String, _ state: SecurityPosture.State, offIsWarn: Bool) -> some View {
+        let (text, color): (String, Color) = {
+            switch state {
+            case .on: return (L("On"), Palette.good)
+            case .off: return (L("Off"), offIsWarn ? Palette.warn : .secondary)
+            case .unknown: return (L("Unknown"), .secondary)
+            }
+        }()
+        postureRow(label: label, icon: icon, valueText: text, color: color)
+    }
+
+    @ViewBuilder private func postureValueTile(_ label: String, _ icon: String, value: String?) -> some View {
+        let ok = value != nil
+        postureRow(label: label, icon: icon, valueText: value ?? L("Unknown"), color: ok ? Palette.good : .secondary)
+    }
+
+    private func postureRow(label: String, icon: String, valueText: String, color: Color) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon).font(.callout).foregroundStyle(color).frame(width: 22)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(L(label)).font(.caption.weight(.medium))
+                Text(valueText).font(.caption2.monospacedDigit()).foregroundStyle(color)
+            }
+            Spacer()
+            Circle().fill(color).frame(width: 8, height: 8)
+        }
+        .padding(10)
+        .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     // MARK: protection status

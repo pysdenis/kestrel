@@ -1101,6 +1101,7 @@ struct ToolsSection: View {
             photosCard
             duplicatesCard
             devCachesCard
+            privacyCard
             secretsCard
             cloudCard
             loginItemsCard
@@ -1310,6 +1311,72 @@ struct ToolsSection: View {
                     }
                 }
             }
+        }
+    }
+
+    private var privacyCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionTitle("Privacy", icon: "eye.slash")
+                    Spacer()
+                    Button { controller.loadPrivacy() } label: {
+                        Label(controller.privacyLoading ? L("Scanning…") : L("Scan"), systemImage: "magnifyingglass")
+                    }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).disabled(controller.privacyLoading)
+                }
+                Text(L("Browser caches, history and cookies. Nothing is preselected — clearing history signs you out of sites. Passwords and bookmarks are never touched.")).font(.caption).foregroundStyle(.secondary)
+                if let m = controller.privacyMessage {
+                    Label(m, systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(Palette.good)
+                }
+                if controller.privacyLoading {
+                    HStack(spacing: 10) { ScanRadar(tint: Palette.pink, size: 24); Text(L("Looking for browser data…")).foregroundStyle(.secondary).font(.callout) }
+                } else if controller.privacyItems.isEmpty {
+                    Text(L("Scan to find browsing traces you can clear.")).font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    HStack {
+                        Text("\(controller.privacySelection.count) \(L("selected")) · \(bytesString(controller.privacySelectionBytes))")
+                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        Spacer()
+                        Button { controller.applyPrivacy() } label: {
+                            Label(controller.privacyApplying ? L("Clearing…") : L("Move to Vault"), systemImage: "tray.and.arrow.down")
+                        }
+                        .buttonStyle(.kestrel(.prominent, size: .small))
+                        .disabled(controller.privacySelection.isEmpty || controller.privacyApplying)
+                    }
+                    ForEach(controller.privacyItems) { item in
+                        if item.id != controller.privacyItems.first?.id { Hairline() }
+                        let picked = controller.privacySelection.contains(item.url)
+                        HStack(spacing: 10) {
+                            Button { controller.togglePrivacy(item.url) } label: {
+                                Image(systemName: picked ? "checkmark.circle.fill" : "circle")
+                                    .font(.callout).foregroundStyle(picked ? Palette.pink : .secondary)
+                            }
+                            .buttonStyle(.plain)
+                            Image(systemName: privacyKindIcon(item.kind)).font(.caption).foregroundStyle(Palette.pink).frame(width: 18)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("\(item.app) · \(L(item.kind.rawValue))").font(.callout.weight(.medium))
+                                Text(privacyConsequence(item.kind)).font(.caption2).foregroundStyle(.tertiary)
+                            }
+                            Spacer()
+                            Text(bytesString(item.size)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 2)
+                        .opacity(picked ? 1 : 0.7)
+                    }
+                }
+            }
+        }
+    }
+
+    private func privacyKindIcon(_ kind: PrivacyItem.Kind) -> String {
+        switch kind { case .cache: return "photo.stack"; case .history: return "clock.arrow.circlepath"; case .cookies: return "circle.grid.2x2" }
+    }
+    private func privacyConsequence(_ kind: PrivacyItem.Kind) -> String {
+        switch kind {
+        case .cache: return L("Safe — just re-downloaded as you browse.")
+        case .history: return L("Clears your browsing history.")
+        case .cookies: return L("Signs you out of websites.")
         }
     }
 

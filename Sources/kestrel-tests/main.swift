@@ -1242,6 +1242,24 @@ withTempDir { home in
 check(PackageCacheFinder.candidatePaths.contains { $0.tool == "Gradle" && $0.path == ".gradle/caches" },
       "candidate list is data-driven and auditable")
 
+// MARK: - PrivacyDataFinder (browser traces)
+
+section("PrivacyDataFinder: locates browser caches/history/cookies by size")
+withTempDir { home in
+    let safariCache = home.appendingPathComponent("Library/Caches/com.apple.Safari")
+    try? FileManager.default.createDirectory(at: safariCache, withIntermediateDirectories: true)
+    _ = makeFile(safariCache.appendingPathComponent("blob"), "cache bytes here")
+    let history = home.appendingPathComponent("Library/Safari/History.db")
+    try? FileManager.default.createDirectory(at: history.deletingLastPathComponent(), withIntermediateDirectories: true)
+    _ = makeFile(history, "sqlite history")
+
+    let items = PrivacyDataFinder().find(home: home)
+    check(items.contains { $0.app == "Safari" && $0.kind == .cache }, "finds the Safari cache dir")
+    check(items.contains { $0.kind == .history && $0.url.lastPathComponent == "History.db" }, "finds the history file")
+    check(items.allSatisfy { $0.size > 0 }, "only non-empty stores are listed")
+}
+check(PrivacyDataFinder.locations.contains { $0.app == "QuickLook" }, "known locations include the QuickLook thumbnail cache")
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

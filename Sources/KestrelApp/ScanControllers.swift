@@ -546,6 +546,12 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var devCaches: [PackageCache] = []
     @Published var devCachesLoading = false
     @Published var devCachesMessage: String?
+    // Browser privacy stores — opt-in, nothing preselected (clearing history signs you out).
+    @Published var privacyItems: [PrivacyItem] = []
+    @Published var privacyLoading = false
+    @Published var privacyApplying = false
+    @Published var privacyMessage: String?
+    @Published var privacySelection: Set<URL> = []
     private var states: [String: ToolRunState] = [:]
     private var loadedMeta = false
 
@@ -670,6 +676,52 @@ struct ChatMessage: Identifiable, Equatable {
             await MainActor.run { [weak self] in
                 self?.devCachesMessage = (result?.movedCount ?? 0) > 0 ? "Cleared \(tool) cache → vault (undoable)." : "Couldn't clear \(tool) cache."
                 self?.devCaches.removeAll { $0.url == url }
+            }
+        }
+    }
+
+    /// Locate browser caches/history/cookies with their sizes. Nothing is preselected.
+    func loadPrivacy() {
+        guard !privacyLoading else { return }
+        privacyLoading = true; privacyMessage = nil; privacySelection = []
+        Task.detached { [weak self] in
+            let items = PrivacyDataFinder().find()
+            await MainActor.run { [weak self] in
+                self?.privacyItems = items
+                self?.privacyLoading = false
+                if items.isEmpty { self?.privacyMessage = "No browser data found." }
+            }
+        }
+    }
+
+    func togglePrivacy(_ url: URL) {
+        if privacySelection.contains(url) { privacySelection.remove(url) } else { privacySelection.insert(url) }
+    }
+
+    var privacySelectionBytes: Int64 {
+        let sizes = Dictionary(privacyItems.map { ($0.url, $0.size) }, uniquingKeysWith: { a, _ in a })
+        return privacySelection.reduce(0) { $0 + (sizes[$1] ?? 0) }
+    }
+
+    /// Move the chosen privacy stores to the vault (undoable). Explicit selection only.
+    func applyPrivacy() {
+        guard !privacySelection.isEmpty, !privacyApplying else { return }
+        privacyApplying = true
+        let chosen = privacyItems.filter { privacySelection.contains($0.url) }
+        let plan = CleanupPlan(items: chosen.map {
+            CleanupItem(entry: FileEntry(url: $0.url, size: $0.size, modified: Date(), isDirectory: true),
+                        category: .privacy, reason: "\($0.app) \($0.kind.rawValue)")
+        })
+        let vaultURL = paths.vault, auditURL = paths.auditLog
+        Task.detached { [weak self] in
+            let result = try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
+            let removed = Set(chosen.map(\.url))
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.privacyMessage = result.map { "Cleared \($0.movedCount) item(s), \(bytesString($0.movedBytes)) → vault\($0.failureSuffix)" } ?? "Failed"
+                self.privacyItems.removeAll { removed.contains($0.url) }
+                self.privacySelection = []
+                self.privacyApplying = false
             }
         }
     }

@@ -1093,6 +1093,27 @@ do {
     check(runner.tool == "purge", "runs purge")
 }
 
+// MARK: - AppUpdater
+
+section("AppUpdater: parses outdated casks and trims the revision after a comma")
+do {
+    struct StubRunner: CommandRunner {
+        func run(_ tool: String, _ arguments: [String]) throws -> String {
+            if arguments.contains("--version") { return "Homebrew 4.0" }
+            return "claude (1.1.9134,87a63a5) != 1.24012.11,09114b6\ndiscord (0.0.335) != 0.0.405"
+        }
+    }
+    let casks = AppUpdater(runner: StubRunner()).outdatedCasks()
+    check(casks.count == 2, "parses both lines")
+    check(casks.first?.name == "claude", "cask name")
+    check(casks.first?.current == "1.1.9134" && casks.first?.latest == "1.24012.11", "revision after comma trimmed")
+    check(casks.last?.current == "0.0.335" && casks.last?.latest == "0.0.405", "plain versions unaffected")
+    check(AppUpdater.cleanVersion("(1.0,rev)") == "1.0", "cleanVersion strips parens + revision")
+    // No brew → no casks (guarded).
+    struct NoBrew: CommandRunner { func run(_ t: String, _ a: [String]) throws -> String { "" } }
+    check(AppUpdater(runner: NoBrew()).outdatedCasks().isEmpty, "no brew → empty")
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

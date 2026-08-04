@@ -23,18 +23,22 @@ public struct AppUpdater {
     }
 
     /// Parses `brew outdated --cask --verbose`, whose lines look like
-    /// `name (1.0) != 2.0` or `name (1.0) < 2.0`.
+    /// `name (1.0) != 2.0` or `name (1.0) < 2.0`. Cask versions can carry a revision after
+    /// a comma (`1.1.9134,87a63…`); only the human version before the comma is shown.
     public func outdatedCasks() -> [OutdatedCask] {
         guard !(((try? runner.run("brew", ["--version"])) ?? "").isEmpty) else { return [] }
         let output = (try? runner.run("brew", ["outdated", "--cask", "--verbose"])) ?? ""
         return output.split(separator: "\n").compactMap { line in
             let parts = line.split(separator: " ").map(String.init)
             guard parts.count >= 4 else { return nil }
-            let name = parts[0]
-            let current = parts[1].trimmingCharacters(in: CharacterSet(charactersIn: "()"))
-            let latest = parts[3]
-            return OutdatedCask(name: name, current: current, latest: latest)
+            return OutdatedCask(name: parts[0], current: Self.cleanVersion(parts[1]), latest: Self.cleanVersion(parts[3]))
         }
+    }
+
+    /// Strip surrounding parentheses and any `,revision` suffix from a cask version.
+    public static func cleanVersion(_ raw: String) -> String {
+        let stripped = raw.trimmingCharacters(in: CharacterSet(charactersIn: "()"))
+        return stripped.split(separator: ",").first.map(String.init) ?? stripped
     }
 
     /// The Sparkle appcast feed URL declared in an app's Info.plist, if any.

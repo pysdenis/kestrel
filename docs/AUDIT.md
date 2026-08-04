@@ -33,6 +33,12 @@
 
 ---
 
+### [NÍZKÁ] ✅ OPRAVENO — `AppUpdater` zobrazoval revizní hash ve verzi
+- **Lokace:** `Sources/KestrelCore/Maintenance/AppUpdater.swift`
+- **Popis:** Verze casku `claude (1.1.9134,87a63…)` se zobrazila i s revizí za čárkou.
+- **Riziko:** Ošklivý/matoucí údaj verze v „Updates available".
+- **Návrh řešení (implementováno):** `cleanVersion` ořezává závorky i `,revision`; přidán test.
+
 ## [STŘEDNÍ / REFAKTOR]
 
 ### [STŘEDNÍ] `try?` spolyká chyby v controllerech
@@ -126,4 +132,5 @@ catch { await MainActor.run { self.lastError = "Scan failed: \(error.localizedDe
 - **Offline-first je bezpečnostní výhoda, ne omezení:** absence cloudu/účtů/telemetrie eliminuje celou třídu rizik (únik dat, přístupové tokeny, GDPR). Jediné egress body (Gemini, speed test) jsou opt-in a posílají jen metadata.
 - **Hlavní technický dluh k dořešení:** (1) přechod na Swift 6 concurrency (dnes warningy), (2) centralizace vystavování chyb místo `try?`, (3) zrušitelnost dlouhých scanů, (4) čtení/označení systémové TCC DB.
 - **Doporučení pro distribuci (deployment):** Developer ID podpis + notarizace + stapling (dnes jen ad-hoc podpis, viz `docs/RELEASE.md`), Full Disk Access onboarding (mnoho funkcí ho vyžaduje — Trash, Mail, TCC, restore do chráněných cest), a sandbox rozvaha (uninstaller a TCC čtení jsou s app sandboxem v napětí — pravděpodobně distribuovat mimo Mac App Store).
-- **Celkový stav:** zdravý, dobře strukturovaný projekt s jasnými invarianty; po opravách v této revizi jsou známé kritické/vysoké nálezy uzavřené, zbývající jsou střední/kosmetické a plánovatelné.
+- **3. kolo review (Core doména):** `DiskMap` (paralelní sizing, symlinky jako listy, allocated bytes), `RuleScanner`/`AntivirusEngine` (EICAR + hash streaming, jen reálné nálezy), `DuplicateFinder` (3-fázový funnel, originál se nikdy nemaže), `SafetyGuard` (blacklist prefixů/segmentů/jmen/přípon), `DevArtifactClassifier` (name + project-marker), `EnergyLog`, `GeminiClient` — **bez dalších reálných bugů**. Jádro je napsané obezřetně a v souladu s invarianty. Jediný drobný nález (AppUpdater verze) opraven.
+- **Celkový stav:** zdravý, dobře strukturovaný projekt s jasnými invarianty; po 3 kolech revize jsou všechny kritické/vysoké/střední nálezy uzavřené nebo posouzené, coverage 213 testů.

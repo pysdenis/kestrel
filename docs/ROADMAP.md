@@ -204,8 +204,10 @@ plus závěrečné **Architektonické zhodnocení**. Každý nález řešit v ko
       vystavování chyb u Cleanup scanu (místo tichého `try?`).
 - [x] **Kosmetika:** aliasy palety zdokumentovány, sdílený `failureSuffix` helper;
       `id: \.offset` posouzeno (seznamy se nahrazují najednou → bezpečné, ponecháno).
-- [ ] **3. kolo:** projít zbylé moduly (Space/Assistant/Rules/AV) stejným formátem,
-      přidat regresní testy k nalezeným bugům, a udržovat `docs/AUDIT.md` živý.
+- [x] **3. kolo:** proveden review zbylých modulů (DiskMap, RuleScanner, DuplicateFinder,
+      SafetyGuard, DevArtifactClassifier, EnergyLog, GeminiClient) — jádro **solidní, bez
+      dalších reálných bugů**. Jediný drobný nález: `AppUpdater` zobrazoval revizní hash za
+      čárkou → opraveno (`cleanVersion`) + test. Coverage 213 testů.
 
 ---
 

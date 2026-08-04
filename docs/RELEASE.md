@@ -74,7 +74,7 @@ až bude podpis (Sparkle vyžaduje EdDSA/Developer ID pro bezpečné auto-instal
 
 ## 7. Ikona / branding — ✅ hotovo
 Vlastní `Resources/AppIcon.icns` (teal→indigo squircle, bílý pták v health-gauge prstenci —
-stejné brand marky jako UI, žádné CleanMyMac assety, viz `docs/LEGAL.md`). `build-app.sh` ji
+stejné brand marky jako UI, žádné cizí cleaner assety, viz `docs/LEGAL.md`). `build-app.sh` ji
 kopíruje do bundlu a `Info.plist` má `CFBundleIconFile=AppIcon`. Regenerace z brand marků:
 ```bash
 bash scripts/make-icns.sh   # scripts/make-icon.swift → 1024pt master → iconset → .icns

@@ -58,5 +58,5 @@ Postupuj podle `docs/ROADMAP.md`. Neskákej do GUI/antiviru, dokud nestojí Core
 + audit + dry-run infra (Fáze 0). Pořadí: **Core → CLI → GUI → AV → extra**.
 
 ## Právní připomínka
-Nepoužívej NIC z CleanMyMac (kód, texty, ikony, layout 1:1, jméno). Vlastní branding.
+Nepoužívej NIC z žádného komerčního cleaneru (kód, texty, ikony, layout 1:1, jméno). Vlastní branding.
 Detaily `docs/LEGAL.md`.

@@ -36,7 +36,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         case .permissions: return "hand.raised"
         case .tools: return "wrench.and.screwdriver"
         case .automation: return "wand.and.rays"
-        case .assistant: return "bubble.left.and.sparkles"
+        case .assistant: return "text.bubble.fill"
         case .timemachine: return "clock.arrow.2.circlepath"
         case .activity: return "clock.arrow.circlepath"
         case .settings: return "gearshape"
@@ -158,7 +158,7 @@ struct MainWindow: View {
         .frame(minWidth: 900, minHeight: 640)
         .confirmHost()
         .onAppear { model.surfaceAppeared() }
-        .task { model.autoCheckOnLaunchIfEnabled() }
+        .task { model.autoCheckOnLaunchIfEnabled(); model.probeOnDeviceAI() }
         .onDisappear { model.surfaceDisappeared(); model.mainWindowClosed() }
         .sheet(isPresented: $model.showPalette) { CommandPaletteView().environmentObject(model) }
         .sheet(isPresented: $model.showOnboarding) { OnboardingView().environmentObject(model) }

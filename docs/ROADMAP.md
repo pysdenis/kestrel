@@ -54,7 +54,7 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 - [x] On-access watcher (FSEvents na Downloads/Desktop) — `OnAccessWatcher`, `kestrel av watch`.
 **DoD:** ✅ on-demand i on-access čestný report („čisto" když čisto, nález s důkazem).
 
-## Fáze 5 — Zbytek CleanMyMac sekcí 🧩 (většina ✅)
+## Fáze 5 — Zbytek běžných sekcí cleaneru 🧩 (většina ✅)
 - [x] SmartScan (orchestrace health + clutter + review + AV) — `SmartScan`, `kestrel smartscan`.
 - [x] MaintenanceService (advisory katalog: DNS flush, Spotlight/LaunchServices rebuild, purge, fontcache).
 - [x] App Updater (Homebrew casks outdated + Sparkle feed reader) + orphaned data (`OrphanFinder`, `kestrel orphans`).
@@ -107,7 +107,7 @@ Detaily viz brainstorm; AI je vždy opt-in a posílá jen metadata (invariant #7
 
 ## Fáze 7 — Vydání 📦 (rozpracováno)
 - [x] Vlastní branding + ikona (`Resources/AppIcon.icns` — teal→indigo squircle + pták v gauge prstenci,
-      žádné CleanMyMac assety). Generátor `scripts/make-icon.swift` + `scripts/make-icns.sh`. Menubar = živý health-ring.
+      žádné cizí cleaner assety). Generátor `scripts/make-icon.swift` + `scripts/make-icns.sh`. Menubar = živý health-ring.
 - [x] Release automation (`scripts/release.sh`): Developer ID podpis (hardened runtime) → notarizace → stapling → `.dmg`.
       Parametrizovaný přes `SIGN_IDENTITY`/`NOTARY_PROFILE`; bez nich nic neposílá. Zbývá jen dodat Apple cert a spustit.
 - [x] App bundle skript (`scripts/build-app.sh` → `dist/Kestrel.app`, vkládá ikonu, ad-hoc podpis).
@@ -117,8 +117,8 @@ Detaily viz brainstorm; AI je vždy opt-in a posílá jen metadata (invariant #7
 - [x] LICENSE (MIT), README pro veřejnost s reálným použitím. Zbývají screenshoty.
 - [ ] Rozhodnout model: čistě OSS / OSS + placené buildy / donationware.
 
-## Fáze 10 — Plná parita s CleanMyMac 🧩🟰
-Cíl: **umět vše, co CleanMyMac**, uspořádané jako jeho sekce. `[x]` hotovo, `[~]` částečně, `[ ]` chybí.
+## Fáze 10 — Plná parita s běžnými cleanery 🧩🟰
+Cíl: **umět vše, co běžný komerční cleaner**, uspořádané do sekcí. `[x]` hotovo, `[~]` částečně, `[ ]` chybí.
 Vše drží invarianty: dry-run default, vault + undo, audit, unknown se nemaže, žádné strašení.
 
 ### Smart Care (orchestrace jedním klikem)
@@ -169,7 +169,7 @@ Vše drží invarianty: dry-run default, vault + undo, audit, unknown se nemaže
 - [ ] **iCloud Drive / Dropbox / Google Drive** — offload lokálních kopií (evict, ne smazání).
 
 ### My Tools (toolbox)
-- [ ] **Toolbox grid GUI** se všemi nástroji (karty + „Scan"), jako CleanMyMac „My Tools" — každý nástroj = existující Core funkce.
+- [ ] **Toolbox grid GUI** se všemi nástroji (karty + „Scan"), jako „My Tools" v běžných cleanerech — každý nástroj = existující Core funkce.
 
 ### My Activity
 - [x] `ActivityReporter` (úspory z audit logu) → [ ] **GUI ledger** (co, kdy, kolik, undo historie).
@@ -187,7 +187,7 @@ Naportovat schválený návrh (redesign v2) do nativního SwiftUI, komponentu po
 - [~] Redesign **menubar popoveru** — už plně custom (chip cluster, action/speed karty); drobný sjednocující pass zbývá.
 - [x] Sjednocené komponenty: **žádný defaultní Apple control** — vlastní progress (`KestrelProgress`), spinner (`KestrelSpinner`), switch (`KestrelToggle`), confirm modal (`ConfirmModal`), select (`KestrelSelect`), tlačítka, karty, gauge; light/dark přes sémantickou paletu.
 
-## Fáze 12 — Extra funkce (co CleanMyMac NEMÁ) 🚀
+## Fáze 12 — Extra funkce (co běžné cleanery NEMAJÍ) 🚀
 Diferenciátory — většina už hotová, tady jako přehled + zbytek.
 - [x] Dev-first úklid (chápe repozitáře), [x] Vault + Undo, [x] Secrets scanner, [x] čestný AV (nestraší),
       [x] Energy per-app + quit + live time-left, [x] Zero telemetry, [x] plné CLI (skriptovatelné, CI/cron),

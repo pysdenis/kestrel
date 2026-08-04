@@ -6,13 +6,13 @@
 ## Smí se: napodobit funkci
 Funkčnost software se autorským právem **nechrání** — chrání se konkrétní vyjádření
 (zdrojový kód, texty, grafika, ikony, jedinečný vizuál). Napsat vlastní cleaner
-se stejnými funkcemi jako CleanMyMac je legální.
+se stejnými funkcemi jako komerční cleanery je legální.
 
-## Nesmí se: převzít vyjádření CleanMyMac
+## Nesmí se: převzít vyjádření konkrétního cleaneru
 - ❌ Kód (ani dekompilovaný), ikony, obrázky, jejich texty/formulace.
 - ❌ Layout/vizuál 1:1 (pixel-perfect klon). Inspirace ano, kopie ne.
-- ❌ Jméno **„CleanMyMac"**, logo, „Open CleanMyMac" apod. — ochranná známka MacPaw.
-- ❌ Vydávat se za MacPaw / naznačovat spojení.
+- ❌ Jméno, logo či konkrétní texty chráněného komerčního cleaneru (ochranné známky jejich výrobců).
+- ❌ Vydávat se za výrobce jiného cleaneru / naznačovat spojení.
 
 ## Naming (náš projekt)
 - Pracovní název **Kestrel** je placeholder. Před vydáním ověř:

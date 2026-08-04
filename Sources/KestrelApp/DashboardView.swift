@@ -3,7 +3,7 @@ import KestrelCore
 
 enum DetailKind: String, Identifiable { case storage, memory, battery, cpu, network; var id: String { rawValue } }
 
-/// The menu-bar popover — Kestrel's own layout (not a CleanMyMac clone): a compact
+/// The menu-bar popover — Kestrel's own layout (not a clone of any commercial cleaner): a compact
 /// header with the health ring, a single "instrument cluster" row of mini-gauges, a
 /// dev-first free-up action, and a speed check. Tapping a gauge navigates to a rich
 /// full-width detail (back to return) rather than a side panel.

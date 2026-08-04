@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Regenerate Resources/AppIcon.icns from the brand marks. Renders a 1024pt master via
 # scripts/make-icon.swift, downscales to every iconset size, and packs an .icns.
-# Original artwork — no CleanMyMac assets (docs/LEGAL.md). Run: bash scripts/make-icns.sh
+# Original artwork — no third-party cleaner assets (docs/LEGAL.md). Run: bash scripts/make-icns.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

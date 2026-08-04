@@ -414,7 +414,7 @@ struct AssistantSection: View {
                 .font(.title3.weight(.semibold)).foregroundStyle(.secondary)
             FlowLayout(spacing: 8, lineSpacing: 8) {
                 ForEach(suggestions, id: \.self) { s in
-                    Button { controller.send(s, assistant: model.aiAssistant, context: model.aiContext()) } label: {
+                    Button { controller.send(L(s), assistant: model.aiAssistant, context: model.aiContext()) } label: {
                         Text(L(s)).font(.callout)
                     }
                     .buttonStyle(.kestrel(.secondary, tint: Palette.violet, size: .small))

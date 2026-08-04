@@ -451,7 +451,7 @@ struct ChatMessage: Identifiable, Equatable {
         draft = ""
         thinking = true
         Task { [weak self] in
-            let reply = (try? await assistant.ask(q, context: context)) ?? "The request failed. Check your API key and connection."
+            let reply = (try? await assistant.ask(q, context: context)) ?? L("The request failed — try again.")
             await MainActor.run { [weak self] in self?.messages.append(ChatMessage(role: .assistant, text: reply)); self?.thinking = false }
         }
     }
@@ -464,7 +464,7 @@ struct ChatMessage: Identifiable, Equatable {
         Task.detached { [weak self] in
             let classified = (try? ScanCoordinator().scan(root: target)) ?? []
             let plan = Planner().plan(classified)
-            let reply = (try? await assistant.summarize(plan: plan, disk: disk)) ?? "The request failed. Check your API key and connection."
+            let reply = (try? await assistant.summarize(plan: plan, disk: disk)) ?? L("The request failed — try again.")
             await MainActor.run { [weak self] in self?.messages.append(ChatMessage(role: .assistant, text: reply)); self?.thinking = false }
         }
     }

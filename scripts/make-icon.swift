@@ -1,7 +1,7 @@
 #!/usr/bin/env swift
 // Generates Kestrel's app icon — a 1024×1024 master PNG rendered from the same brand marks
 // as the UI: a teal→indigo squircle, a white bird glyph, and the health-gauge ring motif.
-// Original artwork (no CleanMyMac assets — see docs/LEGAL.md). Run: swift scripts/make-icon.swift <out.png>
+// Original artwork (no third-party cleaner assets — see docs/LEGAL.md). Run: swift scripts/make-icon.swift <out.png>
 import AppKit
 
 let outPath = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "dist/icon-master.png"

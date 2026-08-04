@@ -381,6 +381,7 @@ enum Localization {
         ("Security posture", "Stav ochrany"),
         ("Your Mac's built-in protections, read straight from the system. Facts only — SIP off is normal on some developer setups.", "Vestavěné ochrany tvého Macu, načtené přímo ze systému. Jen fakta — vypnuté SIP je u některých vývojářských sestav normální."),
         ("Stealth mode", "Skrytý režim"),
+        ("The request failed — try again.", "Požadavek selhal — zkus to znovu."),
         ("On-device (offline)", "V zařízení (offline)"),
         ("Gemini (cloud)", "Gemini (cloud)"),
         ("Off", "Vypnuto"),

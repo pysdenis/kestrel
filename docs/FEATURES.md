@@ -1,15 +1,15 @@
 # Feature katalog
 
-Kompletní seznam funkcí. Rozdělený na (A) pokrytí CleanMyMac sidebaru 1:1,
-(B) extra funkce navíc, (C) „killer" diferenciátory, které CleanMyMac nemá.
+Kompletní seznam funkcí. Rozdělený na (A) pokrytí typického cleaner sidebaru,
+(B) extra funkce navíc, (C) „killer" diferenciátory, které běžné cleanery nemají.
 
-Legenda pokrytí: ✅ v plánu · ➕ přidáno v této iteraci · 🆕 nad rámec CleanMyMacu
+Legenda pokrytí: ✅ v plánu · ➕ přidáno v této iteraci · 🆕 nad rámec běžných cleanerů
 
 ---
 
-## A) Mapování CleanMyMac sidebaru → Kestrel
+## A) Mapování typického cleaner sidebaru → Kestrel
 
-| CleanMyMac sekce | Co obsahuje | Kestrel ekvivalent | Stav |
+| Sekce cleaneru | Co obsahuje | Kestrel ekvivalent | Stav |
 |---|---|---|---|
 | **Smart Care** (Quick Scan, System Tune-up, Security Check) | jednotlačítková orchestrace | `SmartScan` — spustí clean+stats+AV pipeline, ukáže souhrn, potvrzení | ➕ |
 | **Cleanup** | cache, logy, junk, koš | Fáze 1 – čisticí jádro | ✅ |
@@ -55,7 +55,7 @@ Legenda pokrytí: ✅ v plánu · ➕ přidáno v této iteraci · 🆕 nad rám
 
 ---
 
-## B) Extra funkce navíc (nad CleanMyMac základ)
+## B) Extra funkce navíc (nad běžný základ)
 
 | Funkce | Popis | Stav |
 |---|---|---|
@@ -73,7 +73,7 @@ Legenda pokrytí: ✅ v plánu · ➕ přidáno v této iteraci · 🆕 nad rám
 
 ---
 
-## C) Killer diferenciátory 🆕 (tohle CleanMyMac buď nemá, nebo dělá špatně)
+## C) Killer diferenciátory 🆕 (tohle běžné cleanery buď nemají, nebo dělají špatně)
 
 1. **APFS local snapshots & Time Machine local cleanup** — skryté „purgeable" místo,
    které normálně nevidíš. Často desítky GB. Kestrel je zobrazí a bezpečně smaže staré
@@ -86,7 +86,7 @@ Legenda pokrytí: ✅ v plánu · ➕ přidáno v této iteraci · 🆕 nad rám
 3. **Apple Shortcuts integrace** — vystaví akce (Free Up, Quick Scan, Purge Vault…)
    jako Shortcuts → uživatel si je zapojí do vlastních automatizací a Focus režimů.
 
-4. **Homebrew maintenance** — `brew cleanup`, staré verze, orphaned deps, cache. CleanMyMac
+4. **Homebrew maintenance** — `brew cleanup`, staré verze, orphaned deps, cache. Běžné cleanery
    Homebrew ignoruje, přitom u vývojářů žere GB.
 
 5. **Sensitive file shredder** — bezpečné mazání citlivých souborů (s poctivou poznámkou,
@@ -112,6 +112,6 @@ Legenda pokrytí: ✅ v plánu · ➕ přidáno v této iteraci · 🆕 nad rám
 ---
 
 ## Poznámka k „System Tune-up" / „RAM optimalizaci"
-CleanMyMac tu do velké míry prodává placebo. Kestrel dělá jen věci s reálným efektem
+Běžné cleanery tu do velké míry prodávají placebo. Kestrel dělá jen věci s reálným efektem
 (maintenance skripty, purgeable, index rebuild) a **nikdy neslibuje „zrychlení RAM"**.
 Čestnost = feature.

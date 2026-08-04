@@ -4,7 +4,7 @@ Tenhle soubor je „onboarding" pro pokračování vývoje (klidně v nové sess
 Přečti ho celý, pak `CLAUDE.md` (invarianty), pak pokračuj podle roadmapy.
 
 ## Co je Kestrel
-Vlastní macOS utilita pro údržbu — čestná náhrada CleanMyMacu pro osobní použití,
+Vlastní macOS utilita pro údržbu — čestná náhrada komerčních cleanerů pro osobní použití,
 cílově open-core (jádro open-source + placené „pro" buildy). Nativní Swift.
 Vize a filozofie v `README.md`, plný katalog funkcí v `docs/FEATURES.md`.
 
@@ -16,7 +16,7 @@ Vize a filozofie v `README.md`, plný katalog funkcí v `docs/FEATURES.md`.
 
 ## Stav: Fáze 0–5 z podstatné části HOTOVÉ ✅ (141/141 testů zelených)
 Základ (Fáze 0) + čisticí jádro, přehled místa, stats+health+GUI, antivirus a většina
-CleanMyMac sekcí stojí. `swift run kestrel-tests` = 141 zelených; `swift build` zelený
+běžných sekcí stojí. `swift run kestrel-tests` = 141 zelených; `swift build` zelený
 (vč. SwiftUI `KestrelApp` targetu). Detailní rozpis hotového/zbývajícího v `docs/ROADMAP.md`.
 
 CLI dnes: `scan`, `clean [--apply] [--category ...]`, `uninstall`, `orphans`, `map`,
@@ -63,7 +63,7 @@ Zbývá ve Fázi 1:
 - Reálné provedení Docker/brew prune (mimo vault → potřebuje explicitní opt-in UX).
 
 Pak Fáze 2 (Space Lens/přehled místa) → Fáze 3 (SwiftUI menubar GUI, tady přijde Xcode)
-→ Fáze 4 (antivirus) → Fáze 5 (zbytek CleanMyMac sekcí) → Fáze 6 (extra) → Fáze 7 (release).
+→ Fáze 4 (antivirus) → Fáze 5 (zbytek běžných sekcí) → Fáze 6 (extra) → Fáze 7 (release).
 Detailní checklisty: `docs/ROADMAP.md`.
 
 ## Git & GitHub

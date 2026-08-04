@@ -460,8 +460,21 @@ final class AppModel: ObservableObject {
         return ""
     }
 
-    /// Apple's on-device model, when the Mac has Apple Intelligence — zero network.
-    var onDeviceAIAvailable: Bool { OnDeviceLLM.isAvailable }
+    /// Apple's on-device model, but only once it has actually answered a probe — a Mac can
+    /// report Apple Intelligence "available" yet fail to run it, so we verify before relying on it.
+    @Published private(set) var onDeviceReady = false
+    private var onDeviceProbed = false
+    var onDeviceAIAvailable: Bool { onDeviceReady }
+
+    func probeOnDeviceAI() {
+        guard !onDeviceProbed else { return }
+        onDeviceProbed = true
+        guard OnDeviceLLM.isAvailable else { return }
+        Task { @MainActor in
+            let reply = try? await OnDeviceLLM().generate("Reply with OK.", system: nil)
+            onDeviceReady = (reply?.isEmpty == false)
+        }
+    }
 
     var aiConfigured: Bool { onDeviceAIAvailable || !geminiKey().isEmpty }
 

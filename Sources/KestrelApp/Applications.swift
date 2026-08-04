@@ -13,7 +13,6 @@ struct AppInfo: Identifiable {
 
 @MainActor final class AppsController: ObservableObject {
     @Published var apps: [AppInfo] = []
-    @Published var icons: [String: NSImage] = [:]
     @Published var updates: [OutdatedCask] = []
     @Published var loading = false
     @Published var busy = false
@@ -50,7 +49,6 @@ struct AppInfo: Identifiable {
             await MainActor.run {
                 self?.apps = found
                 self?.loading = false
-                self?.loadIcons(found)
             }
             // Measure sizes in the background, then merge them in one update.
             var sizes: [String: Int64] = [:]
@@ -63,12 +61,6 @@ struct AppInfo: Identifiable {
         Task.detached { [weak self] in
             let casks = AppUpdater().outdatedCasks()
             await MainActor.run { self?.updates = casks }
-        }
-    }
-
-    private func loadIcons(_ apps: [AppInfo]) {
-        for app in apps where icons[app.url.path] == nil {
-            icons[app.url.path] = NSWorkspace.shared.icon(forFile: app.url.path)
         }
     }
 
@@ -162,7 +154,7 @@ struct ApplicationsSection: View {
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 12)], spacing: 12) {
                     ForEach(controller.filtered) { app in
-                        AppCard(app: app, icon: controller.icons[app.url.path], busy: controller.busy || controller.preparing,
+                        AppCard(app: app, busy: controller.busy || controller.preparing,
                                 onUninstall: { controller.prepareUninstall(app) }, onReset: { controller.prepareReset(app) })
                     }
                 }
@@ -297,12 +289,14 @@ struct PlanReviewModal: View {
 }
 
 /// One application, as a card: icon, name, identifier, size and Uninstall / Reset actions.
+/// The icon is loaded per-card on appear, so only visible cells (LazyVGrid) touch
+/// NSWorkspace — no upfront main-thread stampede across every installed app.
 struct AppCard: View {
     let app: AppInfo
-    let icon: NSImage?
     let busy: Bool
     let onUninstall: () -> Void
     let onReset: () -> Void
+    @State private var icon: NSImage?
 
     var body: some View {
         Card {
@@ -313,6 +307,7 @@ struct AppCard: View {
                         else { Image(systemName: "app.fill").resizable().foregroundStyle(.tertiary) }
                     }
                     .frame(width: 40, height: 40)
+                    .onAppear { if icon == nil { icon = NSWorkspace.shared.icon(forFile: app.url.path) } }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(app.name).font(.subheadline.weight(.semibold)).lineLimit(1).truncationMode(.middle)
                         Text(app.bundleId ?? app.url.path).font(.caption2).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)

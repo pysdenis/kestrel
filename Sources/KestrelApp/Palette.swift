@@ -30,9 +30,11 @@ enum Palette {
     static let good    = Color(lightHex: 0x10B981, darkHex: 0x37D39A)
     static let warn    = Color(lightHex: 0xE0912F, darkHex: 0xF2B34A)
     static let crit    = Color(lightHex: 0xE5484D, darkHex: 0xFB6D6D)
-    static let teal     = accent
-    static let violet  = accent2
-    static let blue    = accent2
-    static let orange  = Color(lightHex: 0xE0912F, darkHex: 0xF2B34A)
+    // Intentional readability aliases onto the two signature accents (not new colors):
+    // use them when a call site reads better named by hue than by role.
+    static let teal    = accent    // == accent
+    static let violet  = accent2   // == accent2
+    static let blue    = accent2   // == accent2
+    static let orange  = warn      // == warn
     static let pink    = Color(lightHex: 0xD6568A, darkHex: 0xF07BAB)
 }

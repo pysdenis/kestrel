@@ -57,7 +57,8 @@ struct SidebarView: View {
             paletteHint
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 12)
+        .padding(.top, 32)      // clear the floating traffic-light buttons
+        .padding(.bottom, 12)
         .frame(width: 214)
         .frame(maxHeight: .infinity, alignment: .top)
         .background(sidebarBackground)
@@ -185,7 +186,7 @@ struct SectionScaffold<Content: View>: View {
                 }
                 content
             }
-            .padding(22)
+            .padding(.horizontal, 24).padding(.top, 28).padding(.bottom, 24)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -560,76 +561,178 @@ struct ActivitySection: View {
     @EnvironmentObject private var model: AppModel
     @State private var summary: ActivitySummary?
     @State private var digest: Digest?
+    @State private var sessions: [VaultSession] = []
+
+    private let columns = [GridItem(.adaptive(minimum: 320), spacing: 14)]
+    private var totalVaultBytes: Int64 { sessions.reduce(0) { $0 + $1.totalBytes } }
 
     var body: some View {
-        SectionScaffold(title: "Activity", subtitle: "What Kestrel has actually reclaimed — from the audit log") {
-            let s = summary
-            Card(elevated: true, tint: Palette.good) {
-                HStack(spacing: 16) {
-                    ZStack {
-                        Circle().fill(Palette.good.opacity(0.14)).frame(width: 56, height: 56)
-                        Image(systemName: "arrow.up.bin.fill").font(.system(size: 24)).foregroundStyle(Palette.good)
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(bytesString(s?.reclaimedBytes ?? 0)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
-                        Text("reclaimed across \(s?.totalActions ?? 0) action(s)").font(.subheadline).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 4) {
-                        CopyButton(text: digestText())
-                        Text("Copy digest").font(.caption2).foregroundStyle(.tertiary)
-                    }
-                }
-            }
-
-            if let byCat = s?.bytesByCategory, !byCat.isEmpty {
-                Card {
-                    VStack(alignment: .leading, spacing: 12) {
-                        SectionTitle("By category", icon: "chart.bar")
-                        let total = max(1, byCat.values.reduce(0, +))
-                        ForEach(byCat.sorted { $0.value > $1.value }, id: \.key) { key, bytes in
-                            LabeledBar(label: categoryLabel(key), value: bytesString(bytes),
-                                       fraction: Double(bytes) / Double(total), tint: categoryColor(key))
-                        }
-                    }
-                }
-            } else {
-                Card {
-                    EmptyState(icon: "tray", title: "Nothing reclaimed yet",
-                               caption: "Run a cleanup and what you free up will show up here.", tint: Palette.accent)
-                }
-            }
-
-            if let d = digest, (d.dailyGrowthBytes != nil || !d.recentChanges.isEmpty) {
-                Card {
-                    VStack(alignment: .leading, spacing: 10) {
-                        SectionTitle("Storage trend", icon: "chart.line.uptrend.xyaxis")
-                        if let g = d.dailyGrowthBytes {
-                            HStack(alignment: .firstTextBaseline, spacing: 5) {
-                                Text("\(g >= 0 ? "+" : "−")\(bytesString(abs(g)))")
-                                    .font(.title3.weight(.bold)).foregroundStyle(g >= 0 ? Palette.warn : Palette.good)
-                                Text("/ day" + (d.daysUntilFull.map { " · full in ~\(Int($0)) days" } ?? ""))
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                        }
-                        ForEach(Array(d.recentChanges.enumerated()), id: \.offset) { i, c in
-                            if i > 0 { Hairline() }
-                            HStack {
-                                Text(c.path).font(.caption).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
-                                Spacer()
-                                Text("\(c.delta >= 0 ? "+" : "−")\(bytesString(abs(c.delta)))").font(.caption.monospacedDigit().weight(.medium))
-                                    .foregroundStyle(c.delta >= 0 ? Palette.warn : Palette.good)
-                            }
-                            .padding(.vertical, 2)
-                        }
-                    }
-                }
+        SectionScaffold(title: "My Activity", subtitle: "What Kestrel has done, and how your Mac is doing — honest, from the audit log") {
+            healthHero
+            LazyVGrid(columns: columns, spacing: 14) {
+                reclaimedCard
+                trendCard
+                recommendationsCard
+                vaultCard
             }
         }
         .onAppear {
             summary = ActivityReporter(audit: AuditLog(url: model.paths.auditLog)).summary()
             digest = DigestReporter(audit: AuditLog(url: model.paths.auditLog), snapshots: SnapshotStore(directory: model.paths.snapshots)).generate()
+            let vaultURL = model.paths.vault
+            Task.detached {
+                let list = (try? VaultService(vaultRoot: vaultURL).listSessions()) ?? []
+                await MainActor.run { sessions = list }
+            }
         }
+    }
+
+    // MARK: cards
+
+    private var healthHero: some View {
+        let score = model.health?.overall ?? 0
+        return Card(elevated: true, tint: healthColor(score)) {
+            HStack(spacing: 22) {
+                HealthRing(score: score, size: 100)
+                VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Mac Health").font(.subheadline).foregroundStyle(.secondary)
+                        Text(healthWord(score)).font(.system(size: 30, weight: .bold)).foregroundStyle(healthColor(score))
+                    }
+                    if let d = model.disk {
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack {
+                                Text(model.volumes().first?.name ?? "Macintosh HD").font(.callout.weight(.medium))
+                                Spacer()
+                                Text("\(bytesString(d.used)) of \(bytesString(d.total)) used").font(.caption).foregroundStyle(.secondary)
+                            }
+                            KestrelProgress(value: d.usedFraction, tint: fractionColor(d.usedFraction), height: 10)
+                        }
+                        .frame(maxWidth: 420)
+                    }
+                }
+                Spacer()
+            }
+        }
+    }
+
+    private var reclaimedCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    SectionTitle("Storage reclaimed", icon: "internaldrive.badge.checkmark")
+                    Spacer()
+                    CopyButton(text: digestText())
+                }
+                Text(bytesString(summary?.reclaimedBytes ?? 0)).font(.system(size: 30, weight: .bold, design: .rounded)).monospacedDigit()
+                Text("across \(summary?.totalActions ?? 0) action(s)").font(.caption).foregroundStyle(.secondary)
+                if let byCat = summary?.bytesByCategory, !byCat.isEmpty {
+                    SegmentBar(segments: byCat.sorted { $0.value > $1.value }.map {
+                        SegmentBar.Segment(color: categoryColor($0.key), value: Double($0.value), label: categoryLabel($0.key))
+                    }).padding(.top, 2)
+                } else {
+                    Text("Run a cleanup and what you free up appears here.").font(.caption).foregroundStyle(.tertiary)
+                }
+            }
+        }
+    }
+
+    private var trendCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("Storage trend", icon: "chart.line.uptrend.xyaxis")
+                if let d = digest, d.dailyGrowthBytes != nil || !d.recentChanges.isEmpty {
+                    if let g = d.dailyGrowthBytes {
+                        HStack(alignment: .firstTextBaseline, spacing: 5) {
+                            Text("\(g >= 0 ? "+" : "−")\(bytesString(abs(g)))")
+                                .font(.title3.weight(.bold)).foregroundStyle(g >= 0 ? Palette.warn : Palette.good)
+                            Text("/ day" + (d.daysUntilFull.map { " · full in ~\(Int($0)) days" } ?? ""))
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    ForEach(Array(d.recentChanges.prefix(4).enumerated()), id: \.offset) { i, c in
+                        if i > 0 { Hairline() }
+                        HStack {
+                            Text((c.path as NSString).lastPathComponent).font(.caption).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
+                            Spacer()
+                            Text("\(c.delta >= 0 ? "+" : "−")\(bytesString(abs(c.delta)))").font(.caption.monospacedDigit().weight(.medium))
+                                .foregroundStyle(c.delta >= 0 ? Palette.warn : Palette.good)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                } else {
+                    Text("A daily snapshot builds this over a couple of days.").font(.caption).foregroundStyle(.tertiary)
+                }
+            }
+        }
+    }
+
+    private var recommendationsCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("Recommendations", icon: "lightbulb")
+                ForEach(Array(recommendations.enumerated()), id: \.offset) { i, rec in
+                    if i > 0 { Hairline() }
+                    Button(action: rec.action) {
+                        HStack(spacing: 11) {
+                            Image(systemName: rec.icon).foregroundStyle(rec.tint).frame(width: 22)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(rec.title).font(.callout.weight(.medium))
+                                Text(rec.detail).font(.caption2).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                        }
+                        .padding(.vertical, 4).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var vaultCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("Vault", icon: "tray.full")
+                if sessions.isEmpty {
+                    Text("Empty — cleaned items land here, restorable until you purge.").font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("\(sessions.count)").font(.system(size: 30, weight: .bold, design: .rounded)).monospacedDigit()
+                        Text("session(s) · \(bytesString(totalVaultBytes)) restorable").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Button { model.section = .settings } label: { Label("Manage vault", systemImage: "arrow.right") }
+                    .buttonStyle(.kestrel(.subtle, size: .small))
+            }
+        }
+    }
+
+    // MARK: honest recommendations (derived from real state — no invented metrics)
+
+    private struct Recommendation { let icon: String; let tint: Color; let title: String; let detail: String; let action: () -> Void }
+
+    private var recommendations: [Recommendation] {
+        var out: [Recommendation] = []
+        if let d = model.disk, d.usedFraction > 0.85 {
+            out.append(Recommendation(icon: "internaldrive.badge.exclamationmark", tint: Palette.warn,
+                title: "Disk is \(Int(d.usedFraction * 100))% full",
+                detail: "Free up space to keep things responsive.", action: { model.section = .cleanup }))
+        }
+        if totalVaultBytes > 0 {
+            out.append(Recommendation(icon: "tray.full", tint: Palette.accent2,
+                title: "\(bytesString(totalVaultBytes)) held in the vault",
+                detail: "Purge old sessions in Settings to reclaim it for good.", action: { model.section = .settings }))
+        }
+        out.append(Recommendation(icon: "wand.and.stars", tint: Palette.accent,
+            title: "Run Smart Care",
+            detail: "One honest pass across cleanup, protection and malware.", action: { model.section = .smartcare }))
+        return out
+    }
+
+    private func healthWord(_ score: Int) -> String {
+        switch score { case 85...: return "Great"; case 70..<85: return "Good"; case 50..<70: return "Fair"; default: return "Needs attention" }
     }
 
     private func categoryColor(_ key: String) -> Color {

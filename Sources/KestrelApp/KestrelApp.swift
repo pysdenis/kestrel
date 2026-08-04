@@ -37,6 +37,7 @@ struct KestrelApp: App {
             MainWindow().environmentObject(model)
         }
         .defaultSize(width: 980, height: 700)
+        .windowStyle(.hiddenTitleBar)   // custom top: no title bar, just the traffic lights
         .commands {
             CommandMenu("Actions") {
                 Button("Command Palette…") { model.showPalette = true }

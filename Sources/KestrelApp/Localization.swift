@@ -107,8 +107,7 @@ enum Localization {
         "Safety": "Bezpečnost",
         "Version": "Verze",
 
-        // Smart Care
-        "Run Smart Care": "Spustit Smart Care",
+        // Smart Care (note: "Run Smart Care" is defined above in the Dashboard block)
         "Smart Care complete": "Smart Care dokončeno",
         "Running Smart Care…": "Probíhá Smart Care…",
         "Reclaimable space": "Uvolnitelné místo",

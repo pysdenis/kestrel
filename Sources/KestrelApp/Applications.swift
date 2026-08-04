@@ -77,9 +77,18 @@ struct AppInfo: Identifiable {
         let app: AppInfo
         let plan: CleanupPlan
         let reset: Bool
+        var batchCount: Int = 1
+        var title: String { batchCount > 1 ? "Uninstall \(batchCount) apps?" : "\(reset ? "Reset" : "Uninstall") \(app.name)?" }
     }
     @Published var pending: Pending?
     @Published var preparing = false
+
+    /// Multi-select for batch uninstall (app id = bundle path).
+    @Published var selected: Set<String> = []
+    func toggleSelect(_ app: AppInfo) {
+        if selected.contains(app.id) { selected.remove(app.id) } else { selected.insert(app.id) }
+    }
+    func clearSelection() { selected.removeAll() }
 
     func prepareUninstall(_ app: AppInfo) { prepare(app, reset: false) }
     func prepareReset(_ app: AppInfo) { prepare(app, reset: true) }
@@ -95,22 +104,44 @@ struct AppInfo: Identifiable {
         }
     }
 
+    /// Build one combined review plan for every selected app.
+    func prepareUninstallSelected() {
+        guard !preparing, !busy else { return }
+        let apps = self.apps.filter { selected.contains($0.id) }
+        guard let first = apps.first else { return }
+        preparing = true; message = nil
+        Task.detached { [weak self] in
+            var items: [CleanupItem] = []
+            for app in apps {
+                if let plan = try? AppUninstaller().plan(for: app.url) { items.append(contentsOf: plan.items) }
+            }
+            let plan = CleanupPlan(items: items)
+            await MainActor.run { [weak self] in
+                self?.pending = Pending(app: first, plan: plan, reset: false, batchCount: apps.count)
+                self?.preparing = false
+            }
+        }
+    }
+
     /// Execute the reviewed plan: move everything it lists to the vault (undoable, audited).
     func confirmPending() {
         guard let pending, !busy else { return }
         self.pending = nil
         busy = true
         let plan = pending.plan, name = pending.app.name, reset = pending.reset
+        let batch = pending.batchCount
         let vaultURL = paths.vault, auditURL = paths.auditLog
         Task.detached { [weak self] in
             let result: ExecutionResult? = plan.items.isEmpty ? nil
                 : try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
             await MainActor.run { [weak self] in
+                let subject = batch > 1 ? "\(batch) apps" : name
                 let verb = reset ? "Reset" : "Uninstalled"
-                self?.message = plan.items.isEmpty ? "\(name) had nothing to \(reset ? "reset" : "remove")."
-                    : (result.map { "\(verb) \(name) — moved \($0.movedCount) item(s), \(bytesString($0.movedBytes)) to the vault (undoable).\($0.failureSuffix)" }
-                        ?? "Couldn't \(reset ? "reset" : "uninstall") \(name).")
+                self?.message = plan.items.isEmpty ? "\(subject) had nothing to \(reset ? "reset" : "remove")."
+                    : (result.map { "\(verb) \(subject) — moved \($0.movedCount) item(s), \(bytesString($0.movedBytes)) to the vault (undoable).\($0.failureSuffix)" }
+                        ?? "Couldn't \(reset ? "reset" : "uninstall") \(subject).")
                 self?.busy = false
+                self?.clearSelection()
                 if !reset { self?.load(force: true) }
             }
         }
@@ -146,6 +177,8 @@ struct ApplicationsSection: View {
 
             searchCard
 
+            if !controller.selected.isEmpty { selectionBar }
+
             if controller.loading {
                 ScanningBanner(title: "Reading your applications…", detail: "Measuring bundle sizes", tint: Palette.accent2)
             } else if controller.filtered.isEmpty {
@@ -154,6 +187,8 @@ struct ApplicationsSection: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 12)], spacing: 12) {
                     ForEach(controller.filtered) { app in
                         AppCard(app: app, busy: controller.busy || controller.preparing,
+                                selected: controller.selected.contains(app.id),
+                                onToggleSelect: { controller.toggleSelect(app) },
                                 onUninstall: { controller.prepareUninstall(app) }, onReset: { controller.prepareReset(app) })
                     }
                 }
@@ -164,7 +199,7 @@ struct ApplicationsSection: View {
                 PlanReviewModal(
                     icon: pending.reset ? "arrow.counterclockwise" : "trash",
                     tint: pending.reset ? Palette.warn : Palette.crit,
-                    title: "\(pending.reset ? "Reset" : "Uninstall") \(pending.app.name)?",
+                    title: pending.title,
                     subtitle: pending.plan.items.isEmpty
                         ? "Nothing was found to \(pending.reset ? "reset" : "remove")."
                         : "These \(pending.plan.count) item(s) — \(bytesString(pending.plan.totalBytes)) — will move to the vault. Undoable.",
@@ -210,6 +245,23 @@ struct ApplicationsSection: View {
                     .textFieldStyle(.plain)
                 Spacer()
                 Text("\(controller.filtered.count) app(s)").font(.caption).foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private var selectionBar: some View {
+        Card(padding: 10, tint: Palette.crit) {
+            HStack(spacing: 10) {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(Palette.crit)
+                Text("\(controller.selected.count) selected").font(.callout.weight(.medium))
+                Spacer()
+                Button("Clear") { controller.clearSelection() }.buttonStyle(.kestrel(.subtle, size: .small))
+                Button { controller.prepareUninstallSelected() } label: {
+                    if controller.preparing { KestrelSpinner(tint: .white, size: 14) }
+                    else { Label("Uninstall \(controller.selected.count)", systemImage: "trash") }
+                }
+                .buttonStyle(.kestrel(.prominent, tint: Palette.crit, size: .small))
+                .disabled(controller.preparing || controller.busy)
             }
         }
     }
@@ -293,14 +345,21 @@ struct PlanReviewModal: View {
 struct AppCard: View {
     let app: AppInfo
     let busy: Bool
+    var selected: Bool = false
+    var onToggleSelect: () -> Void = {}
     let onUninstall: () -> Void
     let onReset: () -> Void
     @State private var icon: NSImage?
 
     var body: some View {
-        Card {
+        Card(tint: selected ? Palette.crit : nil) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 12) {
+                    Button(action: onToggleSelect) {
+                        Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                            .font(.title3).foregroundStyle(selected ? Palette.crit : Color.secondary.opacity(0.5))
+                    }
+                    .buttonStyle(.plain).help("Select for batch uninstall")
                     Group {
                         if let icon { Image(nsImage: icon).resizable() }
                         else { Image(systemName: "app.fill").resizable().foregroundStyle(.tertiary) }

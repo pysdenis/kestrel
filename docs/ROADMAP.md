@@ -216,7 +216,8 @@ Diferenciátory — většina už hotová, tady jako přehled + zbytek.
       graceful fallback. Assistant ukazuje aktivní backend („V zařízení (offline)" / „Gemini (cloud)"). „AI, která nikdy nevolá domů."
 - [x] **Mapa expozice appky** — Permissions „podle oprávnění" reverzní pohled, zvýraznění citlivých (`TCCReader.isSensitive`),
       one-hop deep-link na revoke do přesného Privacy pane.
-- [ ] Duplicity → APFS klon/hardlink místo mazání; růst místa v čase (viník); ransomware kanárek; reverzibilní odinstalace.
+- [x] **Duplicity → APFS klon** místo mazání (`APFSCloner` přes `clonefile`, atomicky, oba soubory zůstanou a sdílí úložiště). Konkurence nemá.
+- [ ] Růst místa v čase (viník — potřeba populovat `DiskSnapshot.breakdown`); ransomware kanárek (FSEvents); reverzibilní odinstalace (snapshot nastavení).
 - [x] Command palette (⌘K, klávesová navigace), [x] Lokální notifikace, [x] Free up RAM, [x] App Permissions (TCC),
       [x] Login Items viewer, [x] Drag&drop sken složky, [x] **Bandwidth monitor per-app** (`BandwidthMonitor`, nettop),
       [x] **Batch uninstall** (multi-select + kombinovaný review), [x] „Explain this" (security nálezy),

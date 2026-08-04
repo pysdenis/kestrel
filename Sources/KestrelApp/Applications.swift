@@ -106,11 +106,8 @@ struct AppInfo: Identifiable {
             await MainActor.run {
                 let verb = reset ? "Reset" : "Uninstalled"
                 self?.message = plan.items.isEmpty ? "\(name) had nothing to \(reset ? "reset" : "remove")."
-                    : (result.map { r in
-                        var m = "\(verb) \(name) — moved \(r.movedCount) item(s), \(bytesString(r.movedBytes)) to the vault (undoable)."
-                        if !r.failures.isEmpty { m += " \(r.failures.count) couldn't be moved (permissions?)." }
-                        return m
-                    } ?? "Couldn't \(reset ? "reset" : "uninstall") \(name).")
+                    : (result.map { "\(verb) \(name) — moved \($0.movedCount) item(s), \(bytesString($0.movedBytes)) to the vault (undoable).\($0.failureSuffix)" }
+                        ?? "Couldn't \(reset ? "reset" : "uninstall") \(name).")
                 self?.busy = false
                 if !reset { self?.load(force: true) }
             }

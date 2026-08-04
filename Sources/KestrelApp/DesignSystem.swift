@@ -37,6 +37,14 @@ func bytesString(_ value: Int64) -> String {
     ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
 }
 
+extension ExecutionResult {
+    /// The shared " N couldn't be moved …" tail appended to every apply message, so the
+    /// honest reporting of failures lives in one place.
+    var failureSuffix: String {
+        failures.isEmpty ? "" : " \(failures.count) couldn't be moved — likely permissions."
+    }
+}
+
 /// "1h 20m" / "45m" from a minute count.
 func minutesString(_ minutes: Int) -> String {
     let h = minutes / 60, m = minutes % 60

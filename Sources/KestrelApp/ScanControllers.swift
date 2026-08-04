@@ -236,7 +236,7 @@ import KestrelCore
         insightLoading = true
         Task { [weak self] in
             let prompt = "In one or two sentences, give the single most useful, honest, practical insight about this Mac's storage and health right now. Be specific."
-            let text = (try? await assistant.ask(prompt, context: context)) ?? "Couldn't reach the assistant — check your key and connection."
+            let text = (try? await assistant.ask(prompt, context: context)) ?? L("The assistant didn't respond. Check its setup in Settings and your connection.")
             await MainActor.run { [weak self] in self?.insight = text; self?.insightLoading = false }
         }
     }
@@ -305,7 +305,7 @@ import KestrelCore
         guard explanations[key] == nil, !explaining.contains(key) else { return }
         explaining.insert(key)
         Task { [weak self] in
-            let text = (try? await assistant.explainFinding(finding)) ?? "Couldn't reach the assistant — check your key and connection."
+            let text = (try? await assistant.explainFinding(finding)) ?? L("The assistant didn't respond. Check its setup in Settings and your connection.")
             await MainActor.run { [weak self] in self?.explanations[key] = text; self?.explaining.remove(key) }
         }
     }

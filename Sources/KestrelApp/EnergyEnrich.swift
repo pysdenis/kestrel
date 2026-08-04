@@ -48,7 +48,7 @@ enum AppResolver {
         let subject = resolved.isEmpty ? proc.name : resolved
         Task { [weak self] in
             let question = "In one or two short, honest sentences, explain why “\(subject)” (process \(proc.name)) might be using about \(Int(proc.cpuPercent))% CPU and drawing power right now, and give one practical tip. Don't invent specifics."
-            let text = (try? await assistant.ask(question, context: "")) ?? "Couldn't reach the assistant — check your key and connection."
+            let text = (try? await assistant.ask(question, context: "")) ?? L("The assistant didn't respond. Check its setup in Settings and your connection.")
             await MainActor.run { [weak self] in self?.explanations[proc.pid] = text; self?.explaining.remove(proc.pid) }
         }
     }

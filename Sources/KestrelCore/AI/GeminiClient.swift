@@ -64,14 +64,19 @@ public struct GeminiClient: LLMBackend {
             payload["systemInstruction"] = ["parts": [["text": system]]]
         }
         let body = try JSONSerialization.data(withJSONObject: payload)
+        let headers = ["Content-Type": "application/json", "x-goog-api-key": apiKey]
 
-        let (data, status) = try await http.post(
-            url: url,
-            headers: ["Content-Type": "application/json", "x-goog-api-key": apiKey],
-            body: body
-        )
-        guard status == 200 else { throw GeminiError.http(status) }
-        return try Self.parseText(data)
+        // Flash models are frequently overloaded (503) or rate-limited (429); those are
+        // transient, so retry a couple of times with backoff before giving up.
+        var lastStatus = 0
+        for attempt in 0..<3 {
+            let (data, status) = try await http.post(url: url, headers: headers, body: body)
+            if status == 200 { return try Self.parseText(data) }
+            lastStatus = status
+            guard status == 503 || status == 429, attempt < 2 else { break }
+            try? await Task.sleep(nanoseconds: UInt64(attempt + 1) * 800_000_000)  // 0.8s, 1.6s
+        }
+        throw GeminiError.http(lastStatus)
     }
 
     /// Extract the answer text from a `generateContent` response.

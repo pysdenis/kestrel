@@ -214,6 +214,7 @@ final class AppModel: ObservableObject {
     init() {
         Localization.setting = language                       // sync the persisted language on launch
         SafetyGuard.userExclusions = Set(ExclusionStore(url: paths.exclusions).load())  // honour the allowlist everywhere
+        observeActivation()                                   // pause polling when the app goes to the background
     }
 
     func setNotifications(_ on: Bool) {
@@ -246,8 +247,40 @@ final class AppModel: ObservableObject {
     /// How many UI surfaces (popover, main window) are on screen. When this drops to
     /// zero the app stops polling entirely, so an idle menu-bar app costs ~nothing.
     private var visibleSurfaces = 0
+    /// Whether the app is the active (frontmost) app. We poll only while a surface is visible
+    /// AND we're active — so a window left open behind other apps costs nothing either.
+    private var appActive = true
+    private var activationObservers: [NSObjectProtocol] = []
 
-    // MARK: - Lifecycle (drives all polling — nothing runs while nothing is shown)
+    // MARK: - Lifecycle (drives all polling — nothing runs while nothing is shown or in background)
+
+    /// Start/stop the 4 s stats poll based on visibility + activation. Idempotent.
+    private func updatePolling() {
+        let shouldPoll = visibleSurfaces > 0 && appActive
+        if shouldPoll {
+            if timer == nil {
+                refresh()
+                timer = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
+                    Task { @MainActor in self?.refresh() }
+                }
+            }
+        } else if timer != nil {
+            timer?.invalidate(); timer = nil
+            cpuSampler.reset()   // next active session starts from a fresh baseline
+        }
+    }
+
+    /// Observe app foreground/background so polling pauses the moment we're not frontmost.
+    func observeActivation() {
+        guard activationObservers.isEmpty else { return }
+        let nc = NotificationCenter.default
+        activationObservers.append(nc.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.appActive = true; self?.updatePolling() }
+        })
+        activationObservers.append(nc.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.appActive = false; self?.updatePolling() }
+        })
+    }
 
     /// Call from a surface's `.onAppear`.
     private var requestedNotifAuth = false
@@ -259,20 +292,13 @@ final class AppModel: ObservableObject {
             let granted = FullDiskAccess.isGranted()
             await MainActor.run { self.fullDiskAccess = granted }
         }
-        if timer == nil {
-            timer = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
-                Task { @MainActor in self?.refresh() }
-            }
-        }
+        updatePolling()
     }
 
     /// Call from a surface's `.onDisappear`.
     func surfaceDisappeared() {
         visibleSurfaces = max(0, visibleSurfaces - 1)
-        if visibleSurfaces == 0 {
-            timer?.invalidate(); timer = nil
-            cpuSampler.reset()   // next visible session starts from a fresh baseline
-        }
+        updatePolling()
     }
 
     /// The Energy section is the only place `top` runs; sample only while it is visible.

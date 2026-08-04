@@ -234,8 +234,9 @@ pozadí (idle), tak při aktivním používání. Měřit, ne hádat (Instrument
 Allocations, SwiftUI). Vše drží invarianty (žádné blokování main threadu už je pravidlo).
 
 ### Na pozadí (idle) — co nejméně CPU a paměti
-- [ ] **Audit timerů/monitorů** — když je okno zavřené, pozastavit polling (stats, CPU/RAM/síť
-      sparkliny, bandwidth `nettop`, FSEvents on-access). Menu-bar gauge obnovovat řídce (např. 5–10 s).
+- [x] **Polling gated na viditelnost + aktivní stav** — 4s stats poll běží jen když je surface vidět **A** appka je frontmost;
+      `NSApplication.didResignActive` ho pozastaví (okno otevřené na pozadí = ~0 % CPU). Energy `top` jen ve viditelné Energy sekci.
+- [ ] **Audit zbytku monitorů** — bandwidth `nettop`, FSEvents on-access, speed-test task; menu-bar gauge obnovovat řídce (5–10 s).
 - [ ] **Líné kontrolery** — nespouštět skeny/monitory, dokud sekce není zobrazená; zastavit při odchodu.
 - [ ] **Frekvence vzorkování** — sladit intervaly (1 s vs 2 s vs 5 s) podle viditelnosti; při `surfaceDisappeared` stáhnout na minimum.
 - [ ] **Paměť** — uvolnit náhledy/ikony (foto thumbnaily, app ikony) mimo viditelnou oblast; cap velikostí cache.

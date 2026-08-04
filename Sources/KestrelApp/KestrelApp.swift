@@ -50,9 +50,35 @@ struct KestrelApp: App {
             }
         }
 
-        MenuBarExtra("Kestrel", systemImage: "bird.fill") {
+        MenuBarExtra {
             MenuBarView().environmentObject(model)
+        } label: {
+            MenuBarIcon().environmentObject(model)
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+/// A live health-ring drawn straight into the menu bar. The arc fills in proportion to the
+/// Mac Health score, so the ring reads as a gauge even when macOS renders it monochrome;
+/// when color survives, it tints green→amber→red. Falls back to the bird until health loads.
+private struct MenuBarIcon: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        if let score = model.health?.overall {
+            let f = max(0.04, Double(score) / 100)
+            ZStack {
+                Circle().stroke(Color.primary.opacity(0.28), lineWidth: 2)
+                Circle().trim(from: 0, to: f)
+                    .stroke(healthColor(score), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                Image(systemName: "bird.fill").font(.system(size: 6, weight: .bold))
+            }
+            .frame(width: 16, height: 16)
+            .help("\(L("Mac Health")): \(score)/100")
+        } else {
+            Image(systemName: "bird.fill")
+        }
     }
 }

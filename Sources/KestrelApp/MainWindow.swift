@@ -684,6 +684,9 @@ struct ActivitySection: View {
                 HStack {
                     SectionTitle("Storage reclaimed", icon: "internaldrive.badge.checkmark")
                     Spacer()
+                    Button(action: exportReport) { Image(systemName: "square.and.arrow.up") }
+                        .buttonStyle(.kestrel(.subtle, size: .small))
+                        .help(L("Export report (.md)"))
                     CopyButton(text: digestText())
                 }
                 Text(bytesString(summary?.reclaimedBytes ?? 0)).font(.system(size: 30, weight: .bold, design: .rounded)).monospacedDigit()
@@ -826,6 +829,46 @@ struct ActivitySection: View {
             }
         }
         return lines.joined(separator: "\n")
+    }
+
+    /// A shareable Markdown report — same audit-log/snapshot data as the cards above, nothing invented.
+    private func reportMarkdown() -> String {
+        var md = ["# Kestrel — \(L("Activity report"))", "", "_\(Date().formatted(date: .long, time: .shortened))_"]
+        if let score = model.health?.overall { md += ["", "**\(L("Mac Health")):** \(score)/100 — \(L(healthWord(score)))"] }
+        if let s = summary {
+            md += ["", "## \(L("Storage reclaimed"))", "", "**\(bytesString(s.reclaimedBytes))** — \(s.totalActions) \(L("action(s)"))"]
+            for (key, bytes) in s.bytesByCategory.sorted(by: { $0.value > $1.value }) {
+                md.append("- \(categoryLabel(key)): \(bytesString(bytes))")
+            }
+        }
+        if let d = digest, let g = d.dailyGrowthBytes {
+            var t = "- \(g >= 0 ? "+" : "−")\(bytesString(abs(g)))/\(L("day"))"
+            if let days = d.daysUntilFull { t += " · ~\(Int(days)) \(L("days")) \(L("until full"))" }
+            md += ["", "## \(L("Storage trend"))", "", t]
+        }
+        if !entries.isEmpty {
+            md += ["", "## \(L("Recent activity"))", "", "| \(L("When")) | \(L("Action")) | \(L("Item")) | \(L("Size")) |", "|---|---|---|---|"]
+            for e in entries.prefix(40) {
+                let when = e.timestamp.formatted(date: .abbreviated, time: .shortened)
+                let item = (e.paths.first as NSString?)?.lastPathComponent ?? "—"
+                let size = e.bytes > 0 ? bytesString(e.bytes) : "—"
+                md.append("| \(when) | \(L(ledgerAction(e.action))) | \(item) | \(size) |")
+            }
+        }
+        md += ["", "---", "_\(L("Generated locally by Kestrel — nothing left this Mac."))_"]
+        return md.joined(separator: "\n")
+    }
+
+    private func exportReport() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "kestrel-report-\(Self.stamp()).md"
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        try? reportMarkdown().write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private static func stamp() -> String {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: Date())
     }
 }
 

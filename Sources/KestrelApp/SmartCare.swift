@@ -157,7 +157,7 @@ struct SmartCareSection: View {
         Card {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
-                    Image(systemName: icon).foregroundStyle(tint).imageScale(.medium)
+                    Image(systemName: icon).resizable().scaledToFit().frame(width: 17, height: 17).foregroundStyle(tint)
                     Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                     Spacer()
                 }

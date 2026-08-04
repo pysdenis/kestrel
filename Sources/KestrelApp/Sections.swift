@@ -900,7 +900,7 @@ struct SecuritySection: View {
 
     private func postureRow(label: String, icon: String, valueText: String, color: Color) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: icon).font(.callout).foregroundStyle(color).frame(width: 22)
+            Image(systemName: icon).resizable().scaledToFit().foregroundStyle(color).frame(width: 20, height: 18)
             VStack(alignment: .leading, spacing: 1) {
                 Text(L(label)).font(.caption.weight(.medium))
                 Text(valueText).font(.caption2.monospacedDigit()).foregroundStyle(color)
@@ -1639,7 +1639,8 @@ struct ToolsSection: View {
     }
 
     private var tools: [ToolDef] {
-        [
+        let home = home   // capture the URL once so the @Sendable scan closures don't touch the actor
+        return [
             ToolDef(id: "Trash Bins", title: L("Trash Bins"), subtitle: L("Empty every Trash — undoable via the vault"), icon: "trash", tint: Palette.good) { TrashFinder().find() },
             ToolDef(id: "App Leftovers", title: L("App Leftovers"), subtitle: L("Data left behind by removed apps"), icon: "app.badge.checkmark", tint: Palette.accent) { OrphanFinder().find() },
             ToolDef(id: "Old Installers", title: L("Old Installers"), subtitle: L(".dmg / .pkg / .iso in Downloads"), icon: "shippingbox", tint: Palette.accent2) { ClutterFinder().oldInstallers(under: home.appendingPathComponent("Downloads")) },
@@ -1668,17 +1669,21 @@ struct PhotoThumb: View {
         .task(id: url) { image = await Self.thumbnail(url) }
     }
 
+    /// Off-main image decode hands the finished NSImage back through a one-shot box — the image
+    /// is freshly created and passed exactly once, so the unchecked Sendable is safe.
+    private struct Box: @unchecked Sendable { let image: NSImage? }
+
     static func thumbnail(_ url: URL, maxPixel: CGFloat = 200) async -> NSImage? {
-        await Task.detached(priority: .utility) {
-            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        await Task.detached(priority: .utility) { () -> Box in
+            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return Box(image: nil) }
             let options: [CFString: Any] = [
                 kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
                 kCGImageSourceThumbnailMaxPixelSize: maxPixel,
             ]
-            guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
-            return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
-        }.value
+            guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return Box(image: nil) }
+            return Box(image: NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height)))
+        }.value.image
     }
 }
 

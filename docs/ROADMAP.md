@@ -214,6 +214,9 @@ Diferenciátory — většina už hotová, tady jako přehled + zbytek.
 - [x] **Security hardening + fix** — Posture → akční checklist (FileVault/firewall/auto-updaty/guest/Gatekeeper) s deep-link „Opravit". Offline & open Pareto.
 - [x] **On-device AI (offline)** — `LLMBackend` protokol + `OnDeviceLLM` přes Apple Foundation Models (macOS 26), preferováno před Gemini,
       graceful fallback. Assistant ukazuje aktivní backend („V zařízení (offline)" / „Gemini (cloud)"). „AI, která nikdy nevolá domů."
+      ⚠️ **Vyžaduje build s plným Xcode 26** — `FoundationModels.framework` NENÍ v Command Line Tools SDK, takže při
+      `swift build` s CLT se `#if canImport(FoundationModels)` vyhodnotí jako false a on-device kód se zkompiluje pryč
+      (vždy fallback na Gemini). `sudo xcode-select -s /Applications/Xcode.app` + rebuild → on-device se zapojí.
 - [x] **Mapa expozice appky** — Permissions „podle oprávnění" reverzní pohled, zvýraznění citlivých (`TCCReader.isSensitive`),
       one-hop deep-link na revoke do přesného Privacy pane.
 - [x] **Duplicity → APFS klon** místo mazání (`APFSCloner` přes `clonefile`, atomicky, oba soubory zůstanou a sdílí úložiště). Konkurence nemá.

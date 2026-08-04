@@ -127,12 +127,16 @@ Vše drží invarianty: dry-run default, vault + undo, audit, unknown se nemaže
 ### Cleanup
 - [x] **System Junk** (uživatelské cache/logy, dev-tool cache).
 - [x] **Dev-first úklid** (node_modules, DerivedData, Docker/brew, .venv, target…) — *navíc*.
+- [x] **Developer caches** (Tools) — `PackageCacheFinder`: globální cache npm/pip/brew/Gradle/Cargo/Go/CocoaPods/DerivedData… → trezor.
+- [x] **Duplicate Files** (Tools) — grouped preview nad `DuplicateFinder.findGroups` (original „Keep" + kopie, sken libovolné složky).
 - [x] **Trash Bins** — `TrashFinder`, `kestrel trash` (přes vault, undoable).
 - [ ] Rozšířit „System Junk" o systémové cache, broken login items, XPC cache, apod.
 
 ### Protection
 - [x] **Malware Finder** — čestný scanner (EICAR + heuristika, quarantined) → [ ] bundling **ClamAV + YARA** + freshclam definice.
-- [x] **Privacy Items** — browser cache/history/cookies → [ ] rozšířit (recent items, uložené stavy, chat/app logy).
+- [x] **Privacy Items** — browser cache/history/cookies (`PrivacyClassifier` v Cleanupu + dedikovaná Tools karta `PrivacyDataFinder`,
+      opt-in výběr s dopady, QuickLook cache) → [ ] rozšířit (recent items, uložené stavy, chat/app logy).
+- [x] **Security Posture** — čestný panel FileVault / Firewall (+stealth) / SIP / Gatekeeper / XProtect (`SecurityPostureReader`), read-only.
 - [x] On-access sken (FSEvents).
 - [x] **Application Permissions** — GUI modul `PermissionsSection` nad `TCCReader` (kamera/mikrofon/Full Disk Access/…), read-only, seskupené podle appky s ikonami.
 

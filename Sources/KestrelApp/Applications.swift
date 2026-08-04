@@ -46,13 +46,15 @@ struct AppInfo: Identifiable {
                 }
             }
             found.sort { $0.name.lowercased() < $1.name.lowercased() }
+            let sorted = found
             await MainActor.run { [weak self] in
-                self?.apps = found
+                self?.apps = sorted
                 self?.loading = false
             }
             // Measure sizes in the background, then merge them in one update.
-            var sizes: [String: Int64] = [:]
-            for info in found { sizes[info.url.path] = Self.bundleSize(info.url) }
+            var sizeMap: [String: Int64] = [:]
+            for info in sorted { sizeMap[info.url.path] = Self.bundleSize(info.url) }
+            let sizes = sizeMap
             await MainActor.run { [weak self] in self?.applySizes(sizes) }
         }
 

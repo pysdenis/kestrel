@@ -77,7 +77,9 @@ struct CleanupSection: View {
             }
 
             if let message = controller.message {
-                Label(message, systemImage: "checkmark.circle.fill").foregroundStyle(Palette.good).font(.callout)
+                Label(message, systemImage: controller.messageIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                    .foregroundStyle(controller.messageIsError ? Palette.warn : Palette.good).font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             if let aiReview = controller.aiReview {

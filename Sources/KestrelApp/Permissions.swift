@@ -62,7 +62,7 @@ struct PermissionsSection: View {
             Card {
                 HStack(spacing: 12) {
                     Image(systemName: "hand.raised.fill").font(.title2).foregroundStyle(Palette.accent)
-                    Text("Kestrel only reads these grants — it never changes them. Manage them in System Settings.")
+                    Text("Per-user privacy grants, read-only from your TCC database. System-level ones like Full Disk Access and Accessibility live in a root-only database and may not all appear here — manage everything in System Settings.")
                         .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     Spacer()
                     Button {

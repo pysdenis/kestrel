@@ -97,11 +97,17 @@ catch { await MainActor.run { self.lastError = "Scan failed: \(error.localizedDe
 - **Riziko:** Zbytečná zátěž disku/CPU při navigaci.
 - **Návrh řešení (implementováno):** `loaded` guard + `load(force:)` po uninstallu.
 
-### [VYSOKÁ] TCCReader vidí jen uživatelskou TCC databázi
-- **Lokace:** `Sources/KestrelCore/Privacy/TCCReader.swift`
+### [VYSOKÁ] ✅ OPRAVENO — Zabalená GUI appka nenašla externí nástroje (PATH)
+- **Lokace:** `Sources/KestrelCore/External/CommandRunner.swift` — `ProcessRunner.run`
+- **Popis:** GUI appka spuštěná z Finderu/`open` dědí minimální PATH (`/usr/bin:/bin:/usr/sbin:/sbin`) bez Homebrew. `/usr/bin/env brew …` proto `brew` nenašlo → „Updates available" karta byla vždy prázdná, ClamAV/docker adaptéry taky tiše nefungovaly. Z CLI to fungovalo jen díky shellovému PATH.
+- **Riziko:** Celá třída advisory funkcí (updaty, AV, docker) v GUI tiše nefunkční → uživatel netuší proč („aktualizace nefungují").
+- **Návrh řešení (implementováno):** `ProcessRunner` předřazuje běžné tool adresáře (`/opt/homebrew/bin`, `/usr/local/bin`, …) do PATH, takže nástroje se najdou nezávisle na způsobu spuštění. Ověřeno v minimálním prostředí.
+
+### [VYSOKÁ] ✅ OPRAVENO (komunikací) — TCCReader vidí jen uživatelskou TCC databázi
+- **Lokace:** `Sources/KestrelCore/Privacy/TCCReader.swift`, `Sources/KestrelApp/Permissions.swift`
 - **Popis:** Čte `~/Library/Application Support/com.apple.TCC/TCC.db`. Některá klíčová oprávnění (Full Disk Access, Accessibility, Screen Recording) žijí v **systémové** DB (`/Library/...`), která vyžaduje root.
-- **Riziko:** Permissions modul může pod-reportovat právě ta nejcitlivější oprávnění → uživatel je uveden v omyl (naráží na invariant čestnosti #6).
-- **Návrh řešení:** V UI explicitně uvést, že jde o **per-user** grants a systémová oprávnění spravuje System Settings; případně přidat čtení systémové DB, pokud běžíme s dostatečným oprávněním, jinak jasně označit „neúplné".
+- **Riziko:** Permissions modul může pod-reportovat právě ta nejcitlivější oprávnění → uživatel by mohl být uveden v omyl (naráží na invariant čestnosti #6).
+- **Návrh řešení (implementováno):** UI teď explicitně uvádí, že jde o **per-user** grants a že systémová (FDA/Accessibility) žijí v root-only DB a nemusí se zobrazit → spravovat v System Settings. (Čtení systémové DB by vyžadovalo root, mimo scope.)
 
 ---
 

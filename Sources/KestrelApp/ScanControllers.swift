@@ -16,6 +16,7 @@ import KestrelCore
     @Published var applying = false
     @Published var plan: CleanupPlan?
     @Published var message: String?
+    @Published var messageIsError = false
     @Published var aiReview: String?
     @Published var reviewing = false
     @Published var scanStatus = ""
@@ -33,16 +34,25 @@ import KestrelCore
 
     func scan() {
         guard !scanning else { return }
-        scanning = true; plan = nil; message = nil; aiReview = nil; scanStatus = ""
+        scanning = true; plan = nil; message = nil; messageIsError = false; aiReview = nil; scanStatus = ""
         let root = self.root
         let categories = choice.categories
         Task.detached { [weak self] in
-            let classified = (try? ScanCoordinator().scan(root: root) { count, url in
-                let name = url.lastPathComponent
-                Task { @MainActor in self?.scanStatus = "Scanned \(count) files · \(name)" }
-            }) ?? []
-            let result = Planner().plan(classified, categories: categories)
-            await MainActor.run { [weak self] in self?.plan = result; self?.scanning = false }
+            do {
+                let classified = try ScanCoordinator().scan(root: root) { count, url in
+                    let name = url.lastPathComponent
+                    Task { @MainActor in self?.scanStatus = "Scanned \(count) files · \(name)" }
+                }
+                let result = Planner().plan(classified, categories: categories)
+                await MainActor.run { [weak self] in self?.plan = result; self?.scanning = false }
+            } catch {
+                // Surface the real reason instead of a misleading empty "nothing to clean".
+                await MainActor.run { [weak self] in
+                    self?.scanning = false
+                    self?.messageIsError = true
+                    self?.message = "Couldn't finish scanning \(root.lastPathComponent) — \((error as NSError).localizedDescription). Full Disk Access may be required."
+                }
+            }
         }
     }
 
@@ -64,6 +74,7 @@ import KestrelCore
             let executor = CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL))
             let result = try? executor.execute(plan, apply: true)
             await MainActor.run { [weak self] in
+                self?.messageIsError = (result == nil)
                 self?.message = result.map { "Moved \($0.movedCount) item(s), \(bytesString($0.movedBytes)) to the vault (undoable).\($0.failureSuffix)" } ?? "Cleanup failed."
                 self?.plan = nil
                 self?.applying = false
@@ -420,8 +431,9 @@ struct ChatMessage: Identifiable, Equatable {
                 text = "Restore failed: \((error as NSError).localizedDescription)"
             }
             let sessions = (try? VaultService(vaultRoot: vaultURL).listSessions()) ?? []
+            let finalText = text, finalOK = ok
             await MainActor.run { [weak self] in
-                self?.message = text; self?.lastRestoreOK = ok
+                self?.message = finalText; self?.lastRestoreOK = finalOK
                 self?.sessions = sessions; self?.busy = false
             }
         }

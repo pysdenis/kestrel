@@ -25,11 +25,11 @@
 - **Riziko:** Kosmetické glitche animací u seznamů, které se mění za běhu (např. energy list). U statických seznamů neškodí.
 - **Návrh řešení:** Tam, kde má prvek stabilní klíč (cesta, pid, id), použít ho: `ForEach(items, id: \.pid)`.
 
-### [NÍZKÁ] Duplikovaná formátovací logika hlášek
-- **Lokace:** `ScanControllers.swift` (`CleanupController.apply`, `SmartCareController.apply`, `ToolsController.applyTool`), `Applications.swift` (`confirmPending`)
-- **Popis:** Skládání zprávy „Moved N … (failures)" je 4× zkopírované.
-- **Riziko:** Rozjede se konzistence textace při budoucí úpravě.
-- **Návrh řešení:** Sdílený helper `func executionMessage(_ result: ExecutionResult, verb: String) -> String`.
+### [NÍZKÁ] ✅ OPRAVENO — Duplikovaná formátovací logika hlášek
+- **Lokace:** `ScanControllers.swift`, `Applications.swift`
+- **Popis:** Skládání „N couldn't be moved …" bylo 4× zkopírované.
+- **Riziko:** Rozjela by se konzistence textace při budoucí úpravě.
+- **Návrh řešení (implementováno):** Sdílený `ExecutionResult.failureSuffix` na jednom místě.
 
 ---
 
@@ -45,29 +45,29 @@ do { let r = try ScanCoordinator().scan(root: root) { … }; … }
 catch { await MainActor.run { self.lastError = "Scan failed: \(error.localizedDescription)" } }
 ```
 
-### [STŘEDNÍ] Swift 6 concurrency warningy (`self` capture)
-- **Lokace:** `ScanControllers.swift`, `DashboardModel.swift` (mnoho `Task.detached { [weak self] … await MainActor.run { self?… } }`)
-- **Popis:** Kompilátor hlásí „reference to captured var 'self' in concurrently-executing code; this is an error in the Swift 6 language mode".
-- **Riziko:** Po přechodu na Swift 6 language mode se z warningů stanou chyby → nekompiluje.
-- **Návrh řešení:** Zachytit potřebné hodnoty před hopem na actor a nevolat `self?` uvnitř `MainActor.run`; např. vrátit výsledek z detached tasku a přiřadit ho v jednom `await MainActor.run { self.x = value }` bez opakovaného `self?`.
+### [STŘEDNÍ] ✅ OPRAVENO — Swift 6 concurrency warningy (`self` capture)
+- **Lokace:** `ScanControllers.swift`, `Applications.swift`, `Permissions.swift`, `DashboardModel.swift`
+- **Popis:** Kompilátor hlásil „reference to captured var 'self' in concurrently-executing code; this is an error in the Swift 6 language mode" u každého `await MainActor.run { self?… }` uvnitř detached tasku.
+- **Riziko:** Po přechodu na Swift 6 language mode by se z warningů staly chyby → nekompiluje.
+- **Návrh řešení (implementováno):** Každý `await MainActor.run` uzavírá `self` čerstvě (`{ [weak self] in … }`) místo reference na weak var z vnějšího closure. Build je nyní na tuto třídu **bez warningů (0)**, bez změny chování.
 
-### [STŘEDNÍ] `MemoryReliever` nehlásí reálný výsledek `purge`
-- **Lokace:** `Sources/KestrelCore/Stats/MemoryReliever.swift`, `Sources/KestrelCore/External/CommandRunner.swift`
-- **Popis:** `ProcessRunner.run` nevrací exit status, takže `freeInactiveMemory()` vrátí `true`, i když `purge` neexistuje nebo selže.
-- **Riziko:** UI napíše „hotovo", aniž se cokoli stalo (mírné porušení invariantu čestnosti #6).
-- **Návrh řešení:** Rozšířit `CommandRunner` o návrat exit kódu (nebo házet při nenulovém), a `freeInactiveMemory()` vázat na úspěch.
+### [STŘEDNÍ] ✅ OPRAVENO — `MemoryReliever` nehlásil reálný výsledek `purge`
+- **Lokace:** `Sources/KestrelCore/Stats/MemoryReliever.swift`
+- **Popis:** `freeInactiveMemory()` vracelo `true`, i když `purge` neexistuje.
+- **Riziko:** UI napsalo „hotovo", aniž se cokoli stalo (porušení invariantu čestnosti #6).
+- **Návrh řešení (implementováno):** Ověření existence binárky (`/usr/sbin/purge`) před spuštěním; úspěch se hlásí jen když tool existuje a doběhl.
 
-### [STŘEDNÍ] Ikony aplikací se načítají na main threadu
-- **Lokace:** `Sources/KestrelApp/Applications.swift` — `loadIcons(_:)`
-- **Popis:** `NSWorkspace.shared.icon(forFile:)` v cyklu přes všechny appky běží na `@MainActor`.
+### [STŘEDNÍ] ✅ OPRAVENO — Ikony aplikací se načítaly na main threadu
+- **Lokace:** `Sources/KestrelApp/Applications.swift`
+- **Popis:** `NSWorkspace.shared.icon(forFile:)` v cyklu přes všechny appky běžel na `@MainActor` naráz.
 - **Riziko:** Při stovkách aplikací krátký lag/jank při otevření modulu.
-- **Návrh řešení:** Načítat ikony líně per-buňka (`.task`) nebo dávkovat mimo hlavní vlákno a předávat `Data`/`CGImage`.
+- **Návrh řešení (implementováno):** Ikona se načítá per-`AppCard` v `onAppear`, takže `LazyVGrid` řeší jen viditelné buňky.
 
-### [STŘEDNÍ] Race při autorizaci notifikací
+### [STŘEDNÍ] ✅ OPRAVENO — Race při autorizaci notifikací
 - **Lokace:** `Sources/KestrelApp/Notifier.swift`
-- **Popis:** `requestAuthorization` nastaví `authorized` asynchronně; první `notify` volané dřív se zahodí (`guard authorized`).
-- **Riziko:** První upozornění na málo místa může být tiše ztraceno.
-- **Návrh řešení:** Ptát se přímo `getNotificationSettings` před posláním, nebo frontovat pending notifikaci do doběhnutí autorizace.
+- **Popis:** `requestAuthorization` nastavoval `authorized` asynchronně; první `notify` volané dřív se zahodilo.
+- **Riziko:** První upozornění na málo místa mohlo být tiše ztraceno.
+- **Návrh řešení (implementováno):** `notify` čte živý `getNotificationSettings` před posláním, nezávisle na async flagu.
 
 ---
 

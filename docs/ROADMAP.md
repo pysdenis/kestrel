@@ -197,10 +197,11 @@ plus závěrečné **Architektonické zhodnocení**. Každý nález řešit v ko
 - [x] **1. kolo auditu** → `docs/AUDIT.md` (nálezy seřazené dle závažnosti).
 - [x] **Kritické/Vysoké opraveny v 1. kole:** vault restore data-loss (+ data-safety test),
       tiché move failures, MenuBar popover Back dismiss, re-sken aplikací.
-- [ ] **Střední/refaktor:** Swift 6 concurrency (odstranit `self?` v detached tascích),
-      centralizace vystavování chyb místo `try?`, `MemoryReliever` reálný exit status,
-      líné načítání app ikon, notifikační autorizační race.
-- [ ] **Kosmetika:** aliasy palety, `id: \.offset` → stabilní klíče, sdílený message helper.
+- [x] **Střední/refaktor (2. kolo):** Swift 6 concurrency vyřešeno (0 warningů), líné
+      načítání app ikon, notifikační autorizační race, `MemoryReliever` ověřuje existenci
+      `purge`. Zbývá: centralizace vystavování chyb místo `try?` u scan cest.
+- [x] **Kosmetika:** aliasy palety zdokumentovány, sdílený `failureSuffix` helper.
+      Zbývá: `id: \.offset` → stabilní klíče u dynamických seznamů.
 - [ ] **2. kolo:** projít každý zbylý modul (Space/Energy/Assistant/Rules/AV) stejným
       formátem, přidat regresní testy k nalezeným bugům, a udržovat `docs/AUDIT.md` živý.
 

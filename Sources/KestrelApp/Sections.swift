@@ -812,6 +812,7 @@ struct SecuritySection: View {
 
             if let status = controller.status { protectionHero(status) }
             if let posture = controller.posture { postureCard(posture) }
+            if let posture = controller.posture { hardeningCard(posture) }
 
             scanCard
 
@@ -898,6 +899,80 @@ struct SecuritySection: View {
         }
         .padding(10)
         .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    // MARK: hardening (actionable recommendations with deep-link fixes)
+
+    private struct Hardening: Identifiable {
+        let id = UUID()
+        let title: String       // English source
+        let why: String         // English source
+        let ok: Bool
+        let unknown: Bool
+        let settingsURL: String
+    }
+
+    private func hardeningChecks(_ p: SecurityPosture) -> [Hardening] {
+        func mk(_ title: String, wantOn: Bool, _ state: SecurityPosture.State, _ why: String, _ url: String) -> Hardening {
+            let ok = wantOn ? state == .on : state == .off
+            return Hardening(title: title, why: why, ok: ok, unknown: state == .unknown, settingsURL: url)
+        }
+        return [
+            mk("Turn on FileVault", wantOn: true, p.fileVault,
+               "Encrypts your disk so a lost or stolen Mac can't be read.",
+               "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?FileVault"),
+            mk("Turn on the firewall", wantOn: true, p.firewall,
+               "Blocks unsolicited incoming network connections.",
+               "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Firewall"),
+            mk("Enable automatic updates", wantOn: true, p.automaticUpdates,
+               "Security fixes install as soon as Apple ships them.",
+               "x-apple.systempreferences:com.apple.Software-Update-Settings.extension"),
+            mk("Disable the guest account", wantOn: false, p.guestAccount,
+               "A guest login is one more way in — turn it off if you don't use it.",
+               "x-apple.systempreferences:com.apple.Users-Groups-Settings.extension"),
+            mk("Keep Gatekeeper on", wantOn: true, p.gatekeeper,
+               "Stops unsigned, unnotarized apps from launching by accident.",
+               "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"),
+        ]
+    }
+
+    @ViewBuilder private func hardeningCard(_ p: SecurityPosture) -> some View {
+        let checks = hardeningChecks(p)
+        let known = checks.filter { !$0.unknown }
+        let actionable = known.filter { !$0.ok }
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionTitle("Hardening", icon: "lock.badge.clock")
+                    Spacer()
+                    Text("\(known.count - actionable.count)/\(known.count)")
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(actionable.isEmpty ? Palette.good : Palette.warn)
+                }
+                Text(L("One-tap jumps to each setting. Kestrel reads your posture but never flips a system switch behind your back.")).font(.caption).foregroundStyle(.secondary)
+                if actionable.isEmpty {
+                    Label(L("Your Mac is well hardened — nothing to change."), systemImage: "checkmark.shield.fill")
+                        .font(.callout).foregroundStyle(Palette.good)
+                } else {
+                    ForEach(actionable) { c in
+                        Hairline()
+                        HStack(spacing: 10) {
+                            Image(systemName: "exclamationmark.shield").font(.callout).foregroundStyle(Palette.warn).frame(width: 22)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(L(c.title)).font(.callout.weight(.medium))
+                                Text(L(c.why)).font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer()
+                            Button { if let u = URL(string: c.settingsURL) { NSWorkspace.shared.open(u) } } label: {
+                                Label(L("Fix"), systemImage: "arrow.up.forward.app")
+                            }
+                            .buttonStyle(.kestrel(.secondary, size: .small))
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+        }
     }
 
     // MARK: protection status

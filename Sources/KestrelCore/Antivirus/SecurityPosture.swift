@@ -12,15 +12,22 @@ public struct SecurityPosture: Sendable, Equatable {
     public let sip: State
     public let gatekeeper: State
     public let xprotectVersion: String?
+    /// Automatic macOS update checks (on = good).
+    public let automaticUpdates: State
+    /// Guest login account (on = enabled = a hardening concern).
+    public let guestAccount: State
 
     public init(fileVault: State, firewall: State, firewallStealth: State,
-                sip: State, gatekeeper: State, xprotectVersion: String?) {
+                sip: State, gatekeeper: State, xprotectVersion: String?,
+                automaticUpdates: State = .unknown, guestAccount: State = .unknown) {
         self.fileVault = fileVault
         self.firewall = firewall
         self.firewallStealth = firewallStealth
         self.sip = sip
         self.gatekeeper = gatekeeper
         self.xprotectVersion = xprotectVersion
+        self.automaticUpdates = automaticUpdates
+        self.guestAccount = guestAccount
     }
 }
 
@@ -30,10 +37,17 @@ public struct SecurityPostureReader {
     private let runner: CommandRunner
     private let firewallPlistPath: String
 
+    private let updatesPlistPath: String
+    private let loginwindowPlistPath: String
+
     public init(runner: CommandRunner = ProcessRunner(),
-                firewallPlistPath: String = "/Library/Preferences/com.apple.alf.plist") {
+                firewallPlistPath: String = "/Library/Preferences/com.apple.alf.plist",
+                updatesPlistPath: String = "/Library/Preferences/com.apple.SoftwareUpdate.plist",
+                loginwindowPlistPath: String = "/Library/Preferences/com.apple.loginwindow.plist") {
         self.runner = runner
         self.firewallPlistPath = firewallPlistPath
+        self.updatesPlistPath = updatesPlistPath
+        self.loginwindowPlistPath = loginwindowPlistPath
     }
 
     public func read() -> SecurityPosture {
@@ -44,8 +58,30 @@ public struct SecurityPostureReader {
             firewallStealth: firewall.stealth,
             sip: Self.parseSIP((try? runner.run("csrutil", ["status"])) ?? ""),
             gatekeeper: Self.parseGatekeeper((try? runner.run("spctl", ["--status"])) ?? ""),
-            xprotectVersion: SystemProtectionReader.xprotectVersion()
+            xprotectVersion: SystemProtectionReader.xprotectVersion(),
+            automaticUpdates: Self.parseAutomaticUpdates(plist(at: updatesPlistPath)),
+            guestAccount: Self.parseGuest(plist(at: loginwindowPlistPath))
         )
+    }
+
+    /// Automatic update checks — reads `AutomaticCheckEnabled` from the SoftwareUpdate prefs.
+    public static func parseAutomaticUpdates(_ plist: [String: Any]?) -> SecurityPosture.State {
+        guard let plist else { return .unknown }
+        if let enabled = plist["AutomaticCheckEnabled"] as? Bool { return enabled ? .on : .off }
+        return .unknown
+    }
+
+    /// Guest login account — `on` means the guest account is enabled (a hardening concern).
+    public static func parseGuest(_ plist: [String: Any]?) -> SecurityPosture.State {
+        guard let plist else { return .unknown }
+        if let enabled = plist["GuestEnabled"] as? Bool { return enabled ? .on : .off }
+        return .unknown
+    }
+
+    private func plist(at path: String) -> [String: Any]? {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              let obj = try? PropertyListSerialization.propertyList(from: data, format: nil) else { return nil }
+        return obj as? [String: Any]
     }
 
     // MARK: - Pure parsers (unit-tested)

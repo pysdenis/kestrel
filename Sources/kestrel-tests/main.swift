@@ -1220,6 +1220,12 @@ check(fwBlock.state == .on && fwBlock.stealth == .off, "block-all counts as on; 
 let fwOff = SecurityPostureReader.firewallStates(from: ["globalstate": 0])
 check(fwOff.state == .off && fwOff.stealth == .unknown, "firewall off; missing stealth → unknown")
 check(SecurityPostureReader.firewallStates(from: nil).state == .unknown, "no plist → unknown (never invents)")
+check(SecurityPostureReader.parseAutomaticUpdates(["AutomaticCheckEnabled": true]) == .on, "auto-updates on")
+check(SecurityPostureReader.parseAutomaticUpdates(["AutomaticCheckEnabled": false]) == .off, "auto-updates off")
+check(SecurityPostureReader.parseAutomaticUpdates([:]) == .unknown, "auto-updates missing → unknown")
+check(SecurityPostureReader.parseGuest(["GuestEnabled": true]) == .on, "guest enabled → on (a concern)")
+check(SecurityPostureReader.parseGuest(["GuestEnabled": false]) == .off, "guest disabled → off (good)")
+check(SecurityPostureReader.parseGuest(nil) == .unknown, "no loginwindow plist → unknown")
 
 // MARK: - PackageCacheFinder (dev caches)
 

@@ -29,6 +29,14 @@ public struct QuarantineReader {
         return QuarantineInfo(path: url.path, agent: agent?.isEmpty == true ? nil : agent, raw: raw)
     }
 
+    /// Top-level items under `root` that still carry the quarantine flag — i.e. things that
+    /// came from the internet and haven't been cleared. Not recursive (the useful view is
+    /// what's sitting in Downloads), read-only, capped.
+    public func scan(root: URL, limit: Int = 200, fm: FileManager = .default) -> [QuarantineInfo] {
+        guard let entries = try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else { return [] }
+        return entries.compactMap { read($0) }.prefix(limit).map { $0 }
+    }
+
     static func extendedAttribute(_ name: String, path: String) -> String? {
         let length = getxattr(path, name, nil, 0, 0, 0)
         guard length > 0 else { return nil }

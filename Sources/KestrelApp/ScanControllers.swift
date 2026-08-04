@@ -227,6 +227,7 @@ import KestrelCore
     @Published var status: GatekeeperStatus?
     @Published var orphans: [LaunchItem] = []
     @Published var extensions: [SystemExtension] = []
+    @Published var quarantine: [QuarantineInfo] = []
     @Published var scanProgress: Double = 0
     @Published var scanStatus = ""
     @Published var explanations: [String: String] = [:]   // finding key → AI explanation
@@ -253,10 +254,12 @@ import KestrelCore
         guard !loadedMeta else { return }
         loadedMeta = true
         status = SystemProtectionReader().status()
+        let downloads = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
         Task.detached { [weak self] in
             let orphaned = LaunchAgentAuditor().orphans()
             let exts = SystemExtensionAuditor().list()
-            await MainActor.run { [weak self] in self?.orphans = orphaned; self?.extensions = exts }
+            let quarantined = QuarantineReader().scan(root: downloads)
+            await MainActor.run { [weak self] in self?.orphans = orphaned; self?.extensions = exts; self?.quarantine = quarantined }
         }
     }
 

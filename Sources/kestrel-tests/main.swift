@@ -1133,6 +1133,23 @@ do {
     check(!top.contains { $0.name == "airportd" }, "zero-traffic process filtered out")
 }
 
+// MARK: - QuarantineReader
+
+section("QuarantineReader: reads the quarantine xattr and scans a folder")
+withTempDir { tmp in
+    let downloaded = makeFile(tmp.appendingPathComponent("installer.dmg"))
+    let clean = makeFile(tmp.appendingPathComponent("notes.txt"))
+    let value = "0083;65abcd00;Safari;ABCDEF-1234"
+    _ = value.withCString { setxattr(downloaded.path, "com.apple.quarantine", $0, strlen($0), 0, 0) }
+
+    let reader = QuarantineReader()
+    let info = reader.read(downloaded)
+    check(info?.agent == "Safari", "parses the download agent")
+    check(reader.read(clean) == nil, "a clean file has no quarantine info")
+    let found = reader.scan(root: tmp)
+    check(found.count == 1 && found.first?.path.hasSuffix("installer.dmg") == true, "scan finds only the quarantined file")
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

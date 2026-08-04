@@ -240,6 +240,8 @@ enum Localization {
         ("file(s) — no threats found. No scare tactics.", "souborů — žádné hrozby. Žádné strašení."),
         ("finding(s), each with evidence", "nálezů, každý s důkazem"),
         ("These agents point at programs that no longer exist — usually safe to remove.", "Tito agenti míří na programy, které už neexistují — obvykle bezpečné odstranit."),
+        ("Came from the internet", "Staženo z internetu"),
+        ("Files in Downloads still flagged by Gatekeeper (quarantine) — normal for anything you downloaded. The agent shows what fetched it.", "Soubory ve Stažených stále označené Gatekeeperem (karanténa) — normální u čehokoli staženého. Agent ukazuje, co je stáhlo."),
 
         // Tools
         ("Trash Bins", "Koše"),

@@ -787,11 +787,36 @@ struct SecuritySection: View {
 
             scanCard
 
+            if !controller.quarantine.isEmpty { quarantineCard }
             if !controller.extensions.isEmpty { extensionsCard }
             if !controller.orphans.isEmpty { orphansCard }
         }
         .dropFolder { url in controller.root = url; controller.report = nil; controller.scan() }
         .onAppear { controller.loadMeta() }
+    }
+
+    private var quarantineCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("Came from the internet", icon: "arrow.down.circle.dotted")
+                Text(L("Files in Downloads still flagged by Gatekeeper (quarantine) — normal for anything you downloaded. The agent shows what fetched it."))
+                    .font(.caption).foregroundStyle(.secondary)
+                ForEach(Array(controller.quarantine.prefix(30).enumerated()), id: \.offset) { i, q in
+                    if i > 0 { Hairline() }
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.down.doc").font(.caption).foregroundStyle(Palette.accent2)
+                        Text((q.path as NSString).lastPathComponent).font(.callout).lineLimit(1).truncationMode(.middle)
+                        Spacer()
+                        if let agent = q.agent { StatePill(text: agent, ok: false) }
+                        Button { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: q.path)]) } label: {
+                            Image(systemName: "magnifyingglass")
+                        }
+                        .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Reveal in Finder"))
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
     }
 
     // MARK: protection status

@@ -183,8 +183,13 @@ Diferenciátory — většina už hotová, tady jako přehled + zbytek.
 - [x] Dev-first úklid (chápe repozitáře), [x] Vault + Undo, [x] Secrets scanner, [x] čestný AV (nestraší),
       [x] Energy per-app + quit + live time-left, [x] Zero telemetry, [x] plné CLI (skriptovatelné, CI/cron),
       [x] AI asistent + „druhý názor", [x] Storage forecast, [x] Rules engine + launchd, [x] Shredder.
-- [x] **Čeština / lokalizace** — vlastní vrstva (`Localization.swift`, `L()`, ~300 hesel, duplicate-safe),
+- [x] **Čeština / lokalizace** — vlastní vrstva (`Localization.swift`, `L()`, ~350 hesel, duplicate-safe),
       přepínač v Settings (Systém/Čeština/English), přepíná se naživo; přeloženo celé UI.
+- [x] **Energy: jméno + ikona aplikace** (resolver přes NSRunningApplication/proc_pidpath) + **AI „proč to žere"** per proces.
+- [x] **Security: Quarantine viewer** (`QuarantineReader.scan`, co přišlo z internetu + agent).
+- [x] **Cleanup: výběr kategorií** (zaškrtávátka), **Applications: nepoužívané appky + řazení + celková velikost**.
+- [x] **Automation modul** (GUI nad Rules engine + `RulesScheduler` LaunchAgent: pravidla, náhled, run-now, plán).
+- [x] **First-run onboarding**, **⌘1–9** zkratky na sekce, **klikací dlaždice** dashboardu → detail.
 - [x] Command palette (⌘K, klávesová navigace), [x] Lokální notifikace, [x] Free up RAM, [x] App Permissions (TCC),
       [x] Login Items viewer, [x] Drag&drop sken složky, [x] **Bandwidth monitor per-app** (`BandwidthMonitor`, nettop),
       [x] **Batch uninstall** (multi-select + kombinovaný review), [x] „Explain this" (security nálezy),

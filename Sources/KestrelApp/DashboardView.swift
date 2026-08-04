@@ -15,7 +15,7 @@ struct MenuBarView: View {
     var body: some View {
         Group {
             if let detail {
-                DetailPanel(kind: detail) { withAnimation(.easeOut(duration: 0.18)) { self.detail = nil } }
+                DetailPanel(kind: detail, onBack: back)
             } else {
                 overview
             }
@@ -23,12 +23,20 @@ struct MenuBarView: View {
         .padding(14)
         .frame(width: 366)
         .background(LinearGradient(colors: [Palette.accent.opacity(0.06), .clear], startPoint: .topTrailing, endPoint: .center).ignoresSafeArea())
-        .confirmHost()
         .onAppear { model.surfaceAppeared() }
         .onDisappear { model.surfaceDisappeared() }
     }
 
-    private func open(_ kind: DetailKind) { withAnimation(.easeOut(duration: 0.18)) { detail = kind } }
+    // Mutating `detail` synchronously inside a button tap makes the .window-style
+    // MenuBarExtra popover treat the in-place hierarchy swap as a dismissal and close.
+    // Deferring the change to the next runloop tick lets the click finish first, so
+    // opening a detail and pressing Back navigate within the popover instead of closing it.
+    private func open(_ kind: DetailKind) {
+        DispatchQueue.main.async { withAnimation(.easeOut(duration: 0.18)) { detail = kind } }
+    }
+    private func back() {
+        DispatchQueue.main.async { withAnimation(.easeOut(duration: 0.18)) { detail = nil } }
+    }
 
     private var overview: some View {
         VStack(alignment: .leading, spacing: 13) {

@@ -365,12 +365,28 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Collect the (blocking) system stats **off the main actor** — `statfs`, IOKit battery and
+    /// Mach host counters are all syscalls, and running them on the main thread every 4 s risks a
+    /// visible hitch. The stateful parts (CPU sampler, histories, health score, low-disk notify)
+    /// then run back on the main actor, where they're just fast arithmetic.
     func refresh() {
-        let disk = stats.disk()
-        let memory = stats.memory()
-        let base = stats.cpu()
+        let stats = self.stats   // StatsCollector is a stateless value type — safe to hop actors
+        Task.detached { [weak self] in
+            let disk = stats.disk()
+            let memory = stats.memory()
+            let base = stats.cpu()
+            let battery = stats.battery()
+            let net = stats.network()
+            let now = Date()
+            await MainActor.run { [weak self] in
+                self?.applyStats(disk: disk, memory: memory, base: base, battery: battery, net: net, at: now)
+            }
+        }
+    }
+
+    private func applyStats(disk: DiskSpace?, memory: MemoryStats, base: CPUStats,
+                            battery: BatteryStats?, net: NetworkStats, at now: Date) {
         let cpu = CPUStats(coreCount: base.coreCount, loadAverages: base.loadAverages, usagePercent: cpuSampler.sample())
-        let battery = stats.battery()
         self.disk = disk
         self.memory = memory
         self.cpu = cpu
@@ -384,8 +400,6 @@ final class AppModel: ObservableObject {
 
         batteryTimeMinutes = computeBatteryMinutes(battery)
 
-        let net = stats.network()
-        let now = Date()
         if let last = lastNet {
             let dt = now.timeIntervalSince(last.at)
             if dt > 0.5, dt < 10 {   // ignore long gaps (surface was closed)

@@ -1663,8 +1663,22 @@ struct ToolsSection: View {
     }
 }
 
+/// A bounded, memory-pressure-aware cache of decoded thumbnails. NSCache is thread-safe and auto-
+/// evicts when the system needs RAM; we also cap the count so scrolling a huge image group never
+/// balloons memory, while scrolling back reuses an earlier decode instead of paying for it again.
+enum ThumbnailCache {
+    private static let cache: NSCache<NSString, NSImage> = {
+        let c = NSCache<NSString, NSImage>()
+        c.countLimit = 240   // a few visible groups' worth; older thumbnails evict automatically
+        return c
+    }()
+    static func image(for key: String) -> NSImage? { cache.object(forKey: key as NSString) }
+    static func store(_ image: NSImage, for key: String) { cache.setObject(image, forKey: key as NSString) }
+}
+
 /// A lazily-loaded, downscaled thumbnail for a local image file. Uses ImageIO (thread-safe,
-/// reuses any embedded thumbnail) off the main actor so scrolling a group stays smooth.
+/// reuses any embedded thumbnail) off the main actor so scrolling a group stays smooth, and a
+/// bounded cache so scrolling back doesn't re-decode while memory stays capped.
 struct PhotoThumb: View {
     let url: URL
     @State private var image: NSImage?
@@ -1686,7 +1700,9 @@ struct PhotoThumb: View {
     private struct Box: @unchecked Sendable { let image: NSImage? }
 
     static func thumbnail(_ url: URL, maxPixel: CGFloat = 200) async -> NSImage? {
-        await Task.detached(priority: .utility) { () -> Box in
+        let key = "\(url.path)#\(Int(maxPixel))"
+        if let cached = ThumbnailCache.image(for: key) { return cached }
+        let decoded = await Task.detached(priority: .utility) { () -> Box in
             guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return Box(image: nil) }
             let options: [CFString: Any] = [
                 kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
@@ -1696,6 +1712,8 @@ struct PhotoThumb: View {
             guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return Box(image: nil) }
             return Box(image: NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height)))
         }.value.image
+        if let decoded { ThumbnailCache.store(decoded, for: key) }
+        return decoded
     }
 }
 

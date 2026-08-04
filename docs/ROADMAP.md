@@ -239,7 +239,9 @@ Allocations, SwiftUI). Vše drží invarianty (žádné blokování main threadu
 - [ ] **Audit zbytku monitorů** — bandwidth `nettop`, FSEvents on-access, speed-test task; menu-bar gauge obnovovat řídce (5–10 s).
 - [ ] **Líné kontrolery** — nespouštět skeny/monitory, dokud sekce není zobrazená; zastavit při odchodu.
 - [ ] **Frekvence vzorkování** — sladit intervaly (1 s vs 2 s vs 5 s) podle viditelnosti; při `surfaceDisappeared` stáhnout na minimum.
-- [ ] **Paměť** — uvolnit náhledy/ikony (foto thumbnaily, app ikony) mimo viditelnou oblast; cap velikostí cache.
+- [x] **Paměť — cap foto-náhledů.** `PhotoThumb` teď kreslí z ohraničené `ThumbnailCache`
+      (`NSCache`, `countLimit 240`, auto-evikce při tlaku na RAM): scroll zpět už znovu nedekóduje
+      a paměť má strop. App ikony se drží v `@State` per-view (uvolní se s řádkem) — bez cache.
 
 ### Při používání — plynulost
 - [x] **🔥 Zásadní fix idle CPU: 43 % → ~0 %.** Metric grid na dashboardu používal `LazyVGrid(.adaptive(minimum:))`;
@@ -248,7 +250,11 @@ Allocations, SwiftUI). Vše drží invarianty (žádné blokování main threadu
       Diagnostikováno přes `sample`/`ps` delta a binární vyřazování komponent.
 - [ ] **Profilace UI** — najít drahé re-rendery (velké `@Published` republish, těžké `body`),
       rozdělit velké view, `Equatable`/`@ViewBuilder` kde pomůže; líné gridy (`LazyVGrid`) už jsou.
-- [ ] **I/O mimo main** — všechny skeny/velikosti/hash už běží v `Task.detached`; doauditovat zbytek (ikony, plisty).
+- [x] **I/O mimo main — stats poll.** `refresh()` sbíral `statfs`/IOKit baterii/Mach čítače
+      **synchronně na main threadu** každé 4 s (riziko hitchů). Teď běží v `Task.detached`
+      (`StatsCollector` je bezstavový value type), stavová část (`CPUUsageSampler`, historie,
+      health, low-disk notify) doběhne zpět na main jako rychlá aritmetika. Ověřeno: ~0,17 % CPU
+      s viditelným oknem. Skeny/velikosti/hash už v `Task.detached` byly; zbývají ikony/plisty.
 - [ ] **Throttle živých dat** — sparkliny/gauge animace omezit, respektovat Reduce Motion; batchovat `@Published` update.
 - [ ] **Startup** — měřit čas do prvního snímku; odložit nenutnou práci (snapshoty, audit read) za první render.
 

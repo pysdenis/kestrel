@@ -206,6 +206,15 @@ Diferenciátory — většina už hotová, tady jako přehled + zbytek.
 - [x] **Allowlist vyloučení** (`ExclusionStore` → `SafetyGuard.userExclusions`, Settings karta — cesty, kterých se Kestrel nikdy nedotkne),
       **Cleanup per-položkový výběr** (checkbox + reveal u každého souboru), **menu-bar cockpit** (Uvolnit RAM / Vysypat koš / Smart Care),
       **akční health na Dashboardu** (co sráží skóre → tlačítka opravit). Fix: „Show oldest" v Applications řadilo obráceně.
+- [x] **Smart Care volitelné kroky** (zaškrtávátka + krok „Aktualizace aplikací" přes `AppUpdater`).
+
+## Killer featury (diferenciátory, co konkurence nemá) 🏆
+- [x] **Cleanup Time Machine** — procházatelná reverzibilní historie každého úklidu (modul, timeline relací, filtr věku, hledání,
+      Restore-all + **per-file restore** přes nový `VaultService.restoreItem`). „Jediný cleaner, kterého nemůžeš litovat."
+- [x] **Security hardening + fix** — Posture → akční checklist (FileVault/firewall/auto-updaty/guest/Gatekeeper) s deep-link „Opravit". Offline & open Pareto.
+- [ ] **On-device AI (offline)** — asistent přes Apple Foundation Models (macOS 26), fallback Gemini. „AI, která nikdy nevolá domů."
+- [ ] **Mapa expozice appky** — co appka vidí (FDA/kamera/mik) + poslední přístup ke kameře/mikrofonu + one-click odebrat.
+- [ ] Duplicity → APFS klon/hardlink místo mazání; růst místa v čase (viník); ransomware kanárek; reverzibilní odinstalace.
 - [x] Command palette (⌘K, klávesová navigace), [x] Lokální notifikace, [x] Free up RAM, [x] App Permissions (TCC),
       [x] Login Items viewer, [x] Drag&drop sken složky, [x] **Bandwidth monitor per-app** (`BandwidthMonitor`, nettop),
       [x] **Batch uninstall** (multi-select + kombinovaný review), [x] „Explain this" (security nálezy),

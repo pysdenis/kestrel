@@ -98,7 +98,9 @@ struct CleanupSection: View {
                 } else {
                     summaryHero(plan)
                     ForEach(groups(plan), id: \.category) { group in
-                        CleanupGroup(category: group.category, items: group.items)
+                        CleanupGroup(category: group.category, items: group.items,
+                                     included: controller.isIncluded(group.category),
+                                     onToggle: { controller.toggle(group.category) })
                     }
                 }
             }
@@ -135,21 +137,22 @@ struct CleanupSection: View {
     // MARK: summary
 
     private func summaryHero(_ plan: CleanupPlan) -> some View {
-        Card(elevated: true, tint: Palette.accent) {
+        let selected = controller.selectedPlan(plan)
+        return Card(elevated: true, tint: Palette.accent) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(bytesString(plan.totalBytes)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
-                        Text("\(L("reclaimable")) · \(plan.count) \(L("items"))").font(.subheadline).foregroundStyle(.secondary)
+                        Text(bytesString(selected.totalBytes)).font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                        Text("\(L("reclaimable")) · \(selected.count) \(L("items"))").font(.subheadline).foregroundStyle(.secondary)
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 8) {
                         Button { controller.apply() } label: {
                             if controller.applying { KestrelSpinner(tint: .white, size: 15) }
-                            else { Label("\(L("Move to Vault")) (\(plan.count))", systemImage: "tray.and.arrow.down") }
+                            else { Label("\(L("Move to Vault")) (\(selected.count))", systemImage: "tray.and.arrow.down") }
                         }
                         .buttonStyle(.kestrel(.prominent))
-                        .disabled(controller.applying)
+                        .disabled(controller.applying || selected.items.isEmpty)
 
                         if model.aiConfigured {
                             Button { controller.review(assistant: model.aiAssistant) } label: {
@@ -235,29 +238,40 @@ struct SegmentBar: View {
 struct CleanupGroup: View {
     let category: KestrelCore.Category
     let items: [CleanupItem]
+    var included: Bool = true
+    var onToggle: () -> Void = {}
     @State private var expanded = false
 
     private var subtotal: Int64 { items.reduce(0) { $0 + $1.entry.size } }
 
     var body: some View {
         let d = category.display
-        Card(padding: 0) {
+        return Card(padding: 0) {
             VStack(spacing: 0) {
-                Button { withAnimation(.easeOut(duration: 0.2)) { expanded.toggle() } } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: d.icon).foregroundStyle(d.color).frame(width: 24)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(d.title).font(.subheadline.weight(.semibold))
-                            Text("\(items.count) item(s)").font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Text(bytesString(subtotal)).font(.callout.weight(.semibold).monospacedDigit())
-                        Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-                            .rotationEffect(.degrees(expanded ? 90 : 0))
+                HStack(spacing: 12) {
+                    Button(action: onToggle) {
+                        Image(systemName: included ? "checkmark.circle.fill" : "circle")
+                            .font(.title3).foregroundStyle(included ? d.color : Color.secondary.opacity(0.5))
                     }
-                    .padding(14).contentShape(Rectangle())
+                    .buttonStyle(.plain).help(L("Include in cleanup"))
+                    Button { withAnimation(.easeOut(duration: 0.2)) { expanded.toggle() } } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: d.icon).foregroundStyle(d.color).frame(width: 24)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(d.title).font(.subheadline.weight(.semibold))
+                                Text("\(items.count) \(L("item(s)"))").font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(bytesString(subtotal)).font(.callout.weight(.semibold).monospacedDigit())
+                            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                                .rotationEffect(.degrees(expanded ? 90 : 0))
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                .padding(14)
+                .opacity(included ? 1 : 0.55)
 
                 if expanded {
                     Hairline().padding(.horizontal, 14)

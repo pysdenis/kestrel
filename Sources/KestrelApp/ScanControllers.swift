@@ -21,8 +21,21 @@ import KestrelCore
     @Published var reviewing = false
     @Published var scanStatus = ""
 
+    /// Categories the user has unchecked — excluded from the apply. Empty = clean everything.
+    @Published var excluded: Set<KestrelCore.Category> = []
+
     private let paths: KestrelPaths
     init(paths: KestrelPaths) { self.paths = paths }
+
+    func toggle(_ category: KestrelCore.Category) {
+        if excluded.contains(category) { excluded.remove(category) } else { excluded.insert(category) }
+    }
+    func isIncluded(_ category: KestrelCore.Category) -> Bool { !excluded.contains(category) }
+
+    /// The plan filtered to the currently-included categories.
+    func selectedPlan(_ plan: CleanupPlan) -> CleanupPlan {
+        CleanupPlan(items: plan.items.filter { !excluded.contains($0.category) })
+    }
 
     func pickFolder() {
         let panel = NSOpenPanel()
@@ -34,7 +47,7 @@ import KestrelCore
 
     func scan() {
         guard !scanning else { return }
-        scanning = true; plan = nil; message = nil; messageIsError = false; aiReview = nil; scanStatus = ""
+        scanning = true; plan = nil; message = nil; messageIsError = false; aiReview = nil; scanStatus = ""; excluded = []
         let root = self.root
         let categories = choice.categories
         Task.detached { [weak self] in
@@ -68,11 +81,12 @@ import KestrelCore
     func apply() {
         guard let plan, !applying else { return }
         applying = true
+        let toMove = selectedPlan(plan)   // only the checked categories
         let vaultURL = paths.vault
         let auditURL = paths.auditLog
         Task.detached { [weak self] in
             let executor = CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL))
-            let result = try? executor.execute(plan, apply: true)
+            let result = try? executor.execute(toMove, apply: true)
             await MainActor.run { [weak self] in
                 self?.messageIsError = (result == nil)
                 self?.message = result.map { "Moved \($0.movedCount) item(s), \(bytesString($0.movedBytes)) to the vault (undoable).\($0.failureSuffix)" } ?? "Cleanup failed."

@@ -19,11 +19,11 @@
 - **Riziko:** Při budoucí změně palety někdo přebarví `accent2`, ale zapomene, že `violet` i `blue` jsou totéž → nekonzistence.
 - **Návrh řešení:** Ponechat jen sémantické názvy (`accent`, `accent2`, `good/warn/crit`) a aliasy odstranit, nebo je jasně zdokumentovat jako „intentional alias".
 
-### [NÍZKÁ] `id: \.offset` napříč `ForEach`
+### [NÍZKÁ] ✅ POSOUZENO — `id: \.offset` napříč `ForEach`
 - **Lokace:** `Sections.swift`, `MainWindow.swift`, `Applications.swift` (mnoho míst)
-- **Popis:** Kolekce se iterují přes `Array(x.enumerated())` s `id: \.offset`. Index jako identita znamená, že SwiftUI neumí správně diffovat při reorderingu/odebrání.
-- **Riziko:** Kosmetické glitche animací u seznamů, které se mění za běhu (např. energy list). U statických seznamů neškodí.
-- **Návrh řešení:** Tam, kde má prvek stabilní klíč (cesta, pid, id), použít ho: `ForEach(items, id: \.pid)`.
+- **Popis:** Kolekce se iterují přes `Array(x.enumerated())` s `id: \.offset`.
+- **Riziko:** Kosmetické glitche animací jen u seznamů, které mutují **in-place** za běhu.
+- **Posouzení:** Jediný skutečně dynamický seznam (Energy „draining now", refresh à 45 s) už používá stabilní `.element.id`. Ostatní výskyty jsou seznamy výsledků, které se při scanu/loadu **nahrazují najednou** (findings, extensions, updates, plan items, records…), takže index-identita je zde bezpečná; navíc jejich prvky nejsou `Identifiable`. Nucený převod = churn bez přínosu → ponecháno.
 
 ### [NÍZKÁ] ✅ OPRAVENO — Duplikovaná formátovací logika hlášek
 - **Lokace:** `ScanControllers.swift`, `Applications.swift`

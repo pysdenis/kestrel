@@ -197,13 +197,15 @@ plus závěrečné **Architektonické zhodnocení**. Každý nález řešit v ko
 - [x] **1. kolo auditu** → `docs/AUDIT.md` (nálezy seřazené dle závažnosti).
 - [x] **Kritické/Vysoké opraveny v 1. kole:** vault restore data-loss (+ data-safety test),
       tiché move failures, MenuBar popover Back dismiss, re-sken aplikací.
+- [x] **VYSOKÁ — GUI PATH bug:** zabalená appka nenašla `brew`/`clamav` (minimální PATH) →
+      updaty tiše nefunkční; `ProcessRunner` teď předřazuje tool adresáře.
 - [x] **Střední/refaktor (2. kolo):** Swift 6 concurrency vyřešeno (0 warningů), líné
-      načítání app ikon, notifikační autorizační race, `MemoryReliever` ověřuje existenci
-      `purge`. Zbývá: centralizace vystavování chyb místo `try?` u scan cest.
-- [x] **Kosmetika:** aliasy palety zdokumentovány, sdílený `failureSuffix` helper.
-      Zbývá: `id: \.offset` → stabilní klíče u dynamických seznamů.
-- [ ] **2. kolo:** projít každý zbylý modul (Space/Energy/Assistant/Rules/AV) stejným
-      formátem, přidat regresní testy k nalezeným bugům, a udržovat `docs/AUDIT.md` živý.
+      načítání app ikon, notifikační race, `MemoryReliever` ověřuje existenci `purge`,
+      vystavování chyb u Cleanup scanu (místo tichého `try?`).
+- [x] **Kosmetika:** aliasy palety zdokumentovány, sdílený `failureSuffix` helper;
+      `id: \.offset` posouzeno (seznamy se nahrazují najednou → bezpečné, ponecháno).
+- [ ] **3. kolo:** projít zbylé moduly (Space/Assistant/Rules/AV) stejným formátem,
+      přidat regresní testy k nalezeným bugům, a udržovat `docs/AUDIT.md` živý.
 
 ---
 

@@ -1260,6 +1260,30 @@ withTempDir { home in
 }
 check(PrivacyDataFinder.locations.contains { $0.app == "QuickLook" }, "known locations include the QuickLook thumbnail cache")
 
+// MARK: - Exclusions allowlist (SafetyGuard integration)
+
+section("ExclusionStore + SafetyGuard: user allowlist is honoured everywhere")
+withTempDir { tmp in
+    let store = ExclusionStore(url: tmp.appendingPathComponent("exclusions.json"))
+    check(store.load().isEmpty, "starts empty")
+    let keep = tmp.appendingPathComponent("Keep")
+    _ = store.add(keep.path)
+    _ = store.add(keep.path)  // idempotent
+    check(store.load() == [keep.path], "adds once, de-duplicated")
+
+    // Wire into SafetyGuard and confirm the subtree is now protected.
+    SafetyGuard.userExclusions = Set(store.load())
+    check(SafetyGuard.isProtected(keep), "the excluded folder itself is protected")
+    check(SafetyGuard.isProtected(keep.appendingPathComponent("deep/file.txt")), "everything under it is protected")
+    check(!SafetyGuard.isProtected(tmp.appendingPathComponent("KeepOther")), "a sibling with a shared prefix is NOT protected")
+    check(SafetyGuard.protectionReason(for: keep)?.contains("Excluded by you") == true, "reason names the user exclusion")
+
+    _ = store.remove(keep.path)
+    SafetyGuard.userExclusions = Set(store.load())
+    check(!SafetyGuard.isProtected(keep), "removing the exclusion lifts protection")
+    SafetyGuard.userExclusions = []  // reset shared state for other tests
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

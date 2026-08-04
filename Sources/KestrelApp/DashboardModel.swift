@@ -210,7 +210,10 @@ final class AppModel: ObservableObject {
 
     func t(_ en: String) -> String { L(en) }
 
-    init() { Localization.setting = language }   // sync the persisted language on launch
+    init() {
+        Localization.setting = language                       // sync the persisted language on launch
+        SafetyGuard.userExclusions = Set(ExclusionStore(url: paths.exclusions).load())  // honour the allowlist everywhere
+    }
 
     func setNotifications(_ on: Bool) {
         notificationsEnabled = on

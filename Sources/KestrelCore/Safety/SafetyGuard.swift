@@ -39,12 +39,20 @@ public enum SafetyGuard {
         "pem", "p12", "key",
     ]
 
+    /// User-defined allowlist: absolute paths (and their subtrees) the user has told Kestrel
+    /// to never touch. Loaded from `ExclusionStore` at launch and updated when the user edits
+    /// it in Settings. Checked before everything else, so an exclusion always wins.
+    public static var userExclusions: Set<String> = []
+
     /// Why a path is protected, or `nil` if it is safe to consider for cleanup.
     public static func protectionReason(for url: URL) -> String? {
         let path = url.path
         let name = url.lastPathComponent
         let ext = url.pathExtension.lowercased()
 
+        for excluded in userExclusions where path == excluded || path.hasPrefix(excluded + "/") {
+            return "Excluded by you (\(excluded))"
+        }
         for prefix in protectedPrefixes where path == prefix || path.hasPrefix(prefix + "/") {
             return "Protected system location (\(prefix))"
         }

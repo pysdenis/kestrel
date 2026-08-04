@@ -29,4 +29,7 @@ public struct KestrelPaths: Sendable {
 
     /// Optional Gemini API key file (GUI apps don't inherit the shell environment).
     public var geminiKey: URL { root.appendingPathComponent("gemini.key") }
+
+    /// User allowlist — absolute paths Kestrel must never touch (fed into `SafetyGuard`).
+    public var exclusions: URL { root.appendingPathComponent("exclusions.json") }
 }

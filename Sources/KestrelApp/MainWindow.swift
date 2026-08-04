@@ -942,6 +942,7 @@ struct SettingsSection: View {
 
             preferencesCard
             updatesCard
+            exclusionsCard
             vaultCard
 
             Card {
@@ -966,6 +967,42 @@ struct SettingsSection: View {
             }
         }
         .onAppear { controller.load() }
+    }
+
+    private var exclusionsCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    SectionTitle(model.t("Exclusions"), icon: "hand.raised")
+                    Spacer()
+                    Button { controller.addExclusion() } label: { Label(L("Add…"), systemImage: "plus") }
+                        .buttonStyle(.kestrel(.secondary, size: .small))
+                }
+                Text(model.t("Paths on this list are never moved or deleted — Kestrel's SafetyGuard treats them (and everything inside them) as off-limits across every module."))
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if controller.exclusions.isEmpty {
+                    Text(model.t("Nothing excluded yet. Add a folder or file you want Kestrel to always leave alone.")).font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    ForEach(Array(controller.exclusions.enumerated()), id: \.offset) { i, path in
+                        if i > 0 { Hairline() }
+                        HStack(spacing: 10) {
+                            Image(systemName: (path as NSString).pathExtension.isEmpty ? "folder" : "doc")
+                                .font(.caption).foregroundStyle(Palette.good).frame(width: 18)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text((path as NSString).lastPathComponent).font(.callout.weight(.medium)).lineLimit(1).truncationMode(.middle)
+                                Text(path).font(.caption2.monospaced()).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
+                            }
+                            Spacer()
+                            Button { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) } label: { Image(systemName: "magnifyingglass") }
+                                .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Reveal in Finder"))
+                            Button { controller.removeExclusion(path) } label: { Image(systemName: "xmark") }
+                                .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Remove"))
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+        }
     }
 
     private var updatesCard: some View {

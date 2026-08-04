@@ -432,11 +432,37 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var retentionDays = 14
     let retentionOptions = [7, 14, 30, 90]
 
+    /// The user allowlist — paths Kestrel must never touch. Mirrors SafetyGuard.userExclusions.
+    @Published var exclusions: [String] = []
+
     private let paths: KestrelPaths
     init(paths: KestrelPaths) { self.paths = paths }
 
+    private var exclusionStore: ExclusionStore { ExclusionStore(url: paths.exclusions) }
+
+    private func syncExclusions(_ list: [String]) {
+        exclusions = list
+        SafetyGuard.userExclusions = Set(list)
+    }
+
+    func addExclusion() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true; panel.canChooseFiles = true; panel.allowsMultipleSelection = true
+        panel.prompt = L("Exclude")
+        guard panel.runModal() == .OK else { return }
+        var list = exclusionStore.load()
+        for url in panel.urls { list.append(url.path) }
+        exclusionStore.save(list)
+        syncExclusions(exclusionStore.load())
+    }
+
+    func removeExclusion(_ path: String) {
+        syncExclusions(exclusionStore.remove(path))
+    }
+
     func load() {
         launchAtLogin = SMAppService.mainApp.status == .enabled
+        syncExclusions(exclusionStore.load())
         let vaultURL = paths.vault
         Task.detached { [weak self] in
             let sessions = (try? VaultService(vaultRoot: vaultURL).listSessions()) ?? []

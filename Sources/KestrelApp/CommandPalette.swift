@@ -24,19 +24,19 @@ struct CommandPaletteView: View {
     private var commands: [Command] {
         var out: [Command] = []
         for section in AppSection.allCases {
-            out.append(Command(title: "Go to \(section.title)", subtitle: "Section", icon: section.icon) {
+            out.append(Command(title: "\(L("Go to")) \(L(section.title))", subtitle: L("Section"), icon: section.icon) {
                 model.section = section
             })
         }
-        out.append(Command(title: "Run speed test", subtitle: "Network", icon: "speedometer", tint: Palette.teal) { model.runSpeedTest(); model.section = .dashboard })
-        out.append(Command(title: "Free up space", subtitle: "Cleanup", icon: "sparkles", tint: Palette.accent) { model.section = .cleanup })
-        out.append(Command(title: "Run Smart Care", subtitle: "Smart Care", icon: "wand.and.stars", tint: Palette.accent) {
+        out.append(Command(title: L("Run speed test"), subtitle: L("Network"), icon: "speedometer", tint: Palette.teal) { model.runSpeedTest(); model.section = .dashboard })
+        out.append(Command(title: L("Free up space"), subtitle: L("Cleanup"), icon: "sparkles", tint: Palette.accent) { model.section = .cleanup })
+        out.append(Command(title: L("Run Smart Care"), subtitle: "Smart Care", icon: "wand.and.stars", tint: Palette.accent) {
             model.section = .smartcare
             let home = model.paths.home
             model.smartcare.run(home: home, downloads: home.appendingPathComponent("Downloads"))
         })
-        out.append(Command(title: "Ask the assistant", subtitle: "AI", icon: "bubble.left.and.sparkles", tint: Palette.violet) { model.section = .assistant })
-        out.append(Command(title: "Reveal ~/.kestrel in Finder", subtitle: "Vault & logs", icon: "folder", tint: Palette.accent2) {
+        out.append(Command(title: L("Ask the assistant"), subtitle: "AI", icon: "bubble.left.and.sparkles", tint: Palette.violet) { model.section = .assistant })
+        out.append(Command(title: L("Reveal ~/.kestrel in Finder"), subtitle: L("Vault & logs"), icon: "folder", tint: Palette.accent2) {
             NSWorkspace.shared.activateFileViewerSelecting([model.paths.root])
         })
         return out
@@ -50,7 +50,7 @@ struct CommandPaletteView: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").foregroundStyle(Palette.accent)
-                TextField("Search or run a command…", text: $query)
+                TextField(L("Search or run a command…"), text: $query)
                     .textFieldStyle(.plain).font(.title3)
                     .focused($focused)
                     .onSubmit { runSelected() }
@@ -70,7 +70,7 @@ struct CommandPaletteView: View {
                         if filtered.isEmpty {
                             VStack(spacing: 8) {
                                 Image(systemName: "questionmark.circle").font(.title).foregroundStyle(.tertiary)
-                                Text("No matching commands.").foregroundStyle(.secondary)
+                                Text(L("No matching commands.")).foregroundStyle(.secondary)
                             }
                             .frame(maxWidth: .infinity).padding(28)
                         }
@@ -82,10 +82,10 @@ struct CommandPaletteView: View {
             }
             Hairline()
             HStack(spacing: 14) {
-                hint("return", "run")
-                hint("esc", "dismiss")
+                hint("return", L("run"))
+                hint("esc", L("dismiss"))
                 Spacer()
-                Text("\(filtered.count) command(s)").font(.caption2).foregroundStyle(.tertiary)
+                Text("\(filtered.count) \(L("command(s)"))").font(.caption2).foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 14).padding(.vertical, 9)
         }

@@ -322,6 +322,41 @@ enum Localization {
         ("Restore", "Obnovit"),
         ("item(s)", "položek"),
 
+        // Assistant
+        ("Honest AI help · sends metadata only", "Poctivá AI pomoc · posílá jen metadata"),
+        ("New chat", "Nový chat"),
+        ("Ask me about your Mac's storage, or analyze a folder.", "Zeptej se na místo na Macu nebo nech analyzovat složku."),
+        ("What's using most of my disk?", "Co mi zabírá nejvíc místa?"),
+        ("Is it safe to clear developer caches?", "Je bezpečné smazat vývojářské cache?"),
+        ("How can I free space as a developer?", "Jak jako vývojář uvolním místo?"),
+        ("What are the biggest wins to reclaim space?", "Kde nejvíc uvolním místo?"),
+        ("Choose a folder to analyze:", "Vyber složku k analýze:"),
+        ("Analyze", "Analyzovat"),
+        ("Ask anything…", "Zeptej se na cokoli…"),
+        ("Turn on the assistant", "Zapnout asistenta"),
+        ("The assistant is opt-in and off by default. To enable it, put your Google Gemini API key in a file:", "Asistent je volitelný a defaultně vypnutý. Zapneš ho vložením svého Google Gemini API klíče do souboru:"),
+        ("It then sends only metadata (names, sizes, categories) — never file contents.", "Pak posílá jen metadata (názvy, velikosti, kategorie) — nikdy obsah souborů."),
+
+        // Command palette
+        ("Go to", "Přejít na"),
+        ("Section", "Sekce"),
+        ("Run speed test", "Spustit test rychlosti"),
+        ("Ask the assistant", "Zeptat se asistenta"),
+        ("Vault & logs", "Trezor a logy"),
+        ("Search or run a command…", "Hledej nebo spusť příkaz…"),
+        ("No matching commands.", "Žádné odpovídající příkazy."),
+        ("run", "spustit"),
+        ("dismiss", "zavřít"),
+        ("command(s)", "příkazů"),
+
+        // Menu-bar popover
+        ("Everything looks healthy", "Vše vypadá zdravě"),
+        ("A little attention needed", "Chce trochu pozornosti"),
+        ("Dev junk, caches, duplicates & more", "Dev balast, cache, duplikáty a další"),
+        ("Measuring…", "Měřím…"),
+        ("Download & latency", "Stahování a odezva"),
+        ("Open Kestrel", "Otevřít Kestrel"),
+
         // Categories
         ("CATEGORY", "KATEGORIE"),
         ("Everything safe", "Vše bezpečné"),

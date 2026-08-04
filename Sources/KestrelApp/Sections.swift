@@ -331,12 +331,12 @@ struct AssistantSection: View {
                 .background(LinearGradient(colors: [Palette.violet, Palette.accent2], startPoint: .topLeading, endPoint: .bottomTrailing),
                            in: RoundedRectangle(cornerRadius: 9, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
-                Text("Assistant").font(.title3.weight(.bold))
-                Text("Honest AI help · sends metadata only").font(.caption).foregroundStyle(.secondary)
+                Text(L("Assistant")).font(.title3.weight(.bold))
+                Text(L("Honest AI help · sends metadata only")).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
             if model.aiConfigured, !controller.messages.isEmpty {
-                Button { controller.clear() } label: { Label("New chat", systemImage: "square.and.pencil") }
+                Button { controller.clear() } label: { Label(L("New chat"), systemImage: "square.and.pencil") }
                     .buttonStyle(.kestrel(.subtle, size: .small))
             }
         }
@@ -374,12 +374,12 @@ struct AssistantSection: View {
 
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Ask me about your Mac's storage, or analyze a folder.")
+            Text(L("Ask me about your Mac's storage, or analyze a folder."))
                 .font(.title3.weight(.semibold)).foregroundStyle(.secondary)
             FlowLayout(spacing: 8, lineSpacing: 8) {
                 ForEach(suggestions, id: \.self) { s in
                     Button { controller.send(s, assistant: model.aiAssistant, context: model.aiContext()) } label: {
-                        Text(s).font(.callout)
+                        Text(L(s)).font(.callout)
                     }
                     .buttonStyle(.kestrel(.secondary, tint: Palette.violet, size: .small))
                     .disabled(controller.thinking)
@@ -397,17 +397,17 @@ struct AssistantSection: View {
             HStack(spacing: 8) {
                 Button { controller.pickFolder() } label: { Image(systemName: "folder") }
                     .buttonStyle(.kestrel(.subtle, size: .small))
-                    .help("Choose a folder to analyze: \(controller.analyzeRoot.path)")
+                    .help("\(L("Choose a folder to analyze:")) \(controller.analyzeRoot.path)")
                 Button { controller.analyze(assistant: model.aiAssistant, disk: model.disk) } label: {
-                    Label("Analyze \(controller.analyzeRoot.lastPathComponent)", systemImage: "sparkle.magnifyingglass")
+                    Label("\(L("Analyze")) \(controller.analyzeRoot.lastPathComponent)", systemImage: "sparkle.magnifyingglass")
                 }
                 .buttonStyle(.kestrel(.subtle, size: .small))
                 .disabled(controller.thinking)
                 Spacer()
-                Text("metadata only · never file contents").font(.caption2).foregroundStyle(.tertiary)
+                Text(L("metadata only · never file contents")).font(.caption2).foregroundStyle(.tertiary)
             }
             HStack(spacing: 10) {
-                TextField("Ask anything…", text: $controller.draft, axis: .vertical)
+                TextField(L("Ask anything…"), text: $controller.draft, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...5)
                     .padding(.horizontal, 14).padding(.vertical, 10)
@@ -437,14 +437,14 @@ struct AssistantSection: View {
     private var setupCard: some View {
         Card {
             VStack(alignment: .leading, spacing: 10) {
-                Label("Turn on the assistant", systemImage: "key").font(.headline)
-                Text("The assistant is opt-in and off by default. To enable it, put your Google Gemini API key in a file:")
+                Label(L("Turn on the assistant"), systemImage: "key").font(.headline)
+                Text(L("The assistant is opt-in and off by default. To enable it, put your Google Gemini API key in a file:"))
                     .font(.callout).foregroundStyle(.secondary)
                 Text(model.paths.geminiKey.path).font(.caption.monospaced()).textSelection(.enabled)
-                Text("It then sends only metadata (names, sizes, categories) — never file contents.")
+                Text(L("It then sends only metadata (names, sizes, categories) — never file contents."))
                     .font(.caption).foregroundStyle(.secondary)
                 Button { NSWorkspace.shared.activateFileViewerSelecting([model.paths.root]) } label: {
-                    Label("Reveal ~/.kestrel in Finder", systemImage: "folder")
+                    Label(L("Reveal ~/.kestrel in Finder"), systemImage: "folder")
                 }
                 .buttonStyle(.kestrel(.secondary))
             }

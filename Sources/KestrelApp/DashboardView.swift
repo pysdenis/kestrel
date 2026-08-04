@@ -67,27 +67,27 @@ struct MenuBarView: View {
 
     private var caption: String {
         switch model.health?.overall ?? 0 {
-        case 80...: return "Everything looks healthy"
-        case 50..<80: return "A little attention needed"
-        default: return "Needs attention"
+        case 80...: return L("Everything looks healthy")
+        case 50..<80: return L("A little attention needed")
+        default: return L("Needs attention")
         }
     }
 
     private var cluster: some View {
         HStack(spacing: 6) {
             if let d = model.disk {
-                MetricChip(icon: "internaldrive", label: "Disk", value: "\(Int(d.usedFraction * 100))%", fraction: d.usedFraction, tint: Palette.blue, selected: false) { open(.storage) }
+                MetricChip(icon: "internaldrive", label: L("Disk"), value: "\(Int(d.usedFraction * 100))%", fraction: d.usedFraction, tint: Palette.blue, selected: false) { open(.storage) }
             }
             if let m = model.memory {
-                MetricChip(icon: "memorychip", label: "Memory", value: "\(Int(m.usedFraction * 100))%", fraction: m.usedFraction, tint: Palette.violet, selected: false) { open(.memory) }
+                MetricChip(icon: "memorychip", label: L("Memory"), value: "\(Int(m.usedFraction * 100))%", fraction: m.usedFraction, tint: Palette.violet, selected: false) { open(.memory) }
             }
             if let c = model.cpu {
-                MetricChip(icon: "cpu", label: "CPU", value: "\(Int(c.usagePercent.rounded()))%", fraction: c.usagePercent / 100, tint: Palette.warn, selected: false) { open(.cpu) }
+                MetricChip(icon: "cpu", label: L("CPU"), value: "\(Int(c.usagePercent.rounded()))%", fraction: c.usagePercent / 100, tint: Palette.warn, selected: false) { open(.cpu) }
             }
             if let b = model.battery {
-                MetricChip(icon: "bolt.fill", label: "Battery", value: "\(b.percent)%", fraction: Double(b.percent) / 100, tint: Palette.good, selected: false) { open(.battery) }
+                MetricChip(icon: "bolt.fill", label: L("Battery"), value: "\(b.percent)%", fraction: Double(b.percent) / 100, tint: Palette.good, selected: false) { open(.battery) }
             }
-            MetricChip(icon: "wifi", label: "Network", value: netRate, fraction: 0, tint: Palette.accent, selected: false) { open(.network) }
+            MetricChip(icon: "wifi", label: L("Network"), value: netRate, fraction: 0, tint: Palette.accent, selected: false) { open(.network) }
         }
     }
 
@@ -103,15 +103,15 @@ struct MenuBarView: View {
                 HStack(spacing: 11) {
                     Image(systemName: "sparkles").font(.title2).foregroundStyle(Palette.accent)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Free up space").font(.subheadline.weight(.semibold))
-                        Text("Dev junk, caches, duplicates & more").font(.caption).foregroundStyle(.secondary)
+                        Text(L("Free up space")).font(.subheadline.weight(.semibold))
+                        Text(L("Dev junk, caches, duplicates & more")).font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
                 HStack(spacing: 8) {
-                    Button { model.freeDevJunk(openWindow) } label: { Label("Clean dev junk", systemImage: "hammer") }
+                    Button { model.freeDevJunk(openWindow) } label: { Label(L("Clean dev junk"), systemImage: "hammer") }
                         .buttonStyle(.kestrel(.prominent, size: .small))
-                    Button { model.section = .cleanup; model.openMainWindow(openWindow) } label: { Text("Review all") }
+                    Button { model.section = .cleanup; model.openMainWindow(openWindow) } label: { Text(L("Review all")) }
                         .buttonStyle(.kestrel(.secondary, size: .small))
                     Spacer()
                 }
@@ -124,13 +124,13 @@ struct MenuBarView: View {
             HStack(spacing: 13) {
                 SpeedGauge(mbps: model.speedDisplay, testing: model.speedTesting, size: 62)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Internet speed").font(.subheadline.weight(.semibold))
+                    Text(L("Internet speed")).font(.subheadline.weight(.semibold))
                     if let s = model.speed, !model.speedTesting {
                         Text(String(format: "%.0f ms latency", s.latencyMs)).font(.caption).foregroundStyle(.secondary)
                     } else {
-                        Text(model.speedTesting ? "Measuring…" : "Download & latency").font(.caption).foregroundStyle(.secondary)
+                        Text(model.speedTesting ? L("Measuring…") : L("Download & latency")).font(.caption).foregroundStyle(.secondary)
                     }
-                    Button(model.speedTesting ? "Testing…" : "Run test", action: model.runSpeedTest)
+                    Button(model.speedTesting ? L("Testing…") : L("Run test"), action: model.runSpeedTest)
                         .buttonStyle(.kestrel(.prominent, tint: Palette.accent, size: .small)).disabled(model.speedTesting).padding(.top, 1)
                 }
                 Spacer()
@@ -140,10 +140,10 @@ struct MenuBarView: View {
 
     private var footer: some View {
         HStack {
-            Button { model.openMainWindow(openWindow) } label: { Label("Open Kestrel", systemImage: "macwindow") }
+            Button { model.openMainWindow(openWindow) } label: { Label(L("Open Kestrel"), systemImage: "macwindow") }
                 .buttonStyle(.kestrel)
             Spacer()
-            Button("Quit") { model.quit() }.buttonStyle(.kestrel(.subtle, size: .small))
+            Button(L("Quit")) { model.quit() }.buttonStyle(.kestrel(.subtle, size: .small))
         }
     }
 }

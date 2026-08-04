@@ -82,4 +82,16 @@ public struct TCCReader {
         default: return trimmed
         }
     }
+
+    /// The high-impact permissions worth flagging in an exposure map — the ones that let an
+    /// app watch, listen, read everything, or drive the machine.
+    public static let sensitiveServices: Set<String> = [
+        "Camera", "Microphone", "ScreenCapture", "Accessibility",
+        "PostEvent", "ListenEvent", "SystemPolicyAllFiles", "AppleEvents",
+    ]
+
+    public static func isSensitive(_ rawService: String) -> Bool {
+        let trimmed = rawService.hasPrefix("kTCCService") ? String(rawService.dropFirst("kTCCService".count)) : rawService
+        return sensitiveServices.contains(trimmed)
+    }
 }

@@ -12,14 +12,73 @@ import KestrelCore
         var allowedCount: Int { items.filter(\.allowed).count }
     }
 
+    enum ViewMode: String, CaseIterable, Identifiable { case byApp, byPermission; var id: String { rawValue }
+        var label: String { self == .byApp ? "By app" : "By permission" }
+        var icon: String { self == .byApp ? "square.grid.2x2" : "hand.raised" }
+    }
+
+    /// One protected resource and every app that currently holds it — the reverse "exposure"
+    /// map (e.g. "who can see my Camera?").
+    struct PermissionUsage: Identifiable {
+        let service: String
+        let friendly: String
+        let sensitive: Bool
+        let apps: [AppRef]
+        var id: String { service }
+        struct AppRef: Identifiable { let id: String; let name: String; let icon: NSImage?; let client: String }
+    }
+
     @Published var groups: [AppPermissions] = []
     @Published var loading = false
     @Published var query = ""
+    @Published var mode: ViewMode = .byApp
     private var loaded = false
 
     var filteredGroups: [AppPermissions] {
         guard !query.isEmpty else { return groups }
         return groups.filter { $0.name.localizedCaseInsensitiveContains(query) || $0.client.localizedCaseInsensitiveContains(query) }
+    }
+
+    /// Allowed grants regrouped by permission — sensitive ones first, then by how many apps hold them.
+    var byPermission: [PermissionUsage] {
+        var buckets: [String: [PermissionUsage.AppRef]] = [:]
+        for app in groups {
+            for perm in app.items where perm.allowed {
+                buckets[perm.service, default: []].append(.init(id: app.client + "|" + perm.service, name: app.name, icon: app.icon, client: app.client))
+            }
+        }
+        let usages = buckets.map { service, apps in
+            PermissionUsage(service: service, friendly: TCCReader.friendlyService(service),
+                            sensitive: TCCReader.isSensitive(service),
+                            apps: apps.sorted { $0.name.lowercased() < $1.name.lowercased() })
+        }
+        .sorted { ($0.sensitive ? 1 : 0, $0.apps.count) > ($1.sensitive ? 1 : 0, $1.apps.count) }
+        guard !query.isEmpty else { return usages }
+        return usages.filter { $0.friendly.localizedCaseInsensitiveContains(query) || $0.apps.contains { $0.name.localizedCaseInsensitiveContains(query) } }
+    }
+
+    /// Deep-link to the exact Privacy pane so the user can revoke a grant in one hop.
+    static func settingsURL(for rawService: String) -> URL? {
+        let t = rawService.hasPrefix("kTCCService") ? String(rawService.dropFirst("kTCCService".count)) : rawService
+        let anchor: String
+        switch t {
+        case "Camera": anchor = "Privacy_Camera"
+        case "Microphone": anchor = "Privacy_Microphone"
+        case "ScreenCapture": anchor = "Privacy_ScreenCapture"
+        case "Accessibility": anchor = "Privacy_Accessibility"
+        case "SystemPolicyAllFiles": anchor = "Privacy_AllFiles"
+        case "PostEvent", "ListenEvent": anchor = "Privacy_ListenEvent"
+        case "AppleEvents": anchor = "Privacy_Automation"
+        case "Photos", "PhotosAdd": anchor = "Privacy_Photos"
+        case "AddressBook": anchor = "Privacy_Contacts"
+        case "Calendar": anchor = "Privacy_Calendars"
+        case "Reminders": anchor = "Privacy_Reminders"
+        case "Location", "CoreLocation", "Liverpool": anchor = "Privacy_LocationServices"
+        case "MediaLibrary": anchor = "Privacy_Media"
+        case "SpeechRecognition": anchor = "Privacy_SpeechRecognition"
+        default: anchor = "Privacy"
+        }
+        return URL(string: "x-apple.systempreferences:com.apple.preference.security?\(anchor)")
     }
 
     func load() {
@@ -92,15 +151,29 @@ struct PermissionsSection: View {
                 }
             } else {
                 Card(padding: 10) {
-                    HStack(spacing: 9) {
+                    HStack(spacing: 10) {
                         Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                        TextField(L("Search apps…"), text: $controller.query).textFieldStyle(.plain)
+                        TextField(controller.mode == .byApp ? L("Search apps…") : L("Search permissions…"), text: $controller.query).textFieldStyle(.plain)
                         Spacer()
-                        Text("\(controller.filteredGroups.count) \(L("app(s)"))").font(.caption).foregroundStyle(.tertiary)
+                        ForEach(PermissionsController.ViewMode.allCases) { m in
+                            Button { controller.mode = m } label: {
+                                Label(L(m.label), systemImage: m.icon).font(.caption.weight(.medium))
+                                    .padding(.horizontal, 10).padding(.vertical, 5)
+                                    .foregroundStyle(controller.mode == m ? Color.white : Color.secondary)
+                                    .background(controller.mode == m ? AnyShapeStyle(Palette.accent) : AnyShapeStyle(.quaternary), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 12)], spacing: 12) {
-                    ForEach(controller.filteredGroups) { PermissionCard(app: $0) }
+                if controller.mode == .byApp {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 12)], spacing: 12) {
+                        ForEach(controller.filteredGroups) { PermissionCard(app: $0) }
+                    }
+                } else {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 12)], spacing: 12) {
+                        ForEach(controller.byPermission) { PermissionUsageCard(usage: $0) }
+                    }
                 }
             }
         }
@@ -108,9 +181,50 @@ struct PermissionsSection: View {
     }
 }
 
+/// Reverse exposure map: one protected resource and every app that can use it, each with a
+/// one-hop deep-link to revoke it in System Settings.
+struct PermissionUsageCard: View {
+    let usage: PermissionsController.PermissionUsage
+
+    var body: some View {
+        Card(tint: usage.sensitive ? Palette.pink : nil) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    Image(systemName: PermissionPill.icon(for: usage.friendly))
+                        .foregroundStyle(usage.sensitive ? Palette.pink : Palette.accent)
+                    Text(L(usage.friendly)).font(.subheadline.weight(.semibold))
+                    if usage.sensitive {
+                        Text(L("sensitive")).font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                            .padding(.horizontal, 5).padding(.vertical, 1).background(Palette.pink, in: Capsule())
+                    }
+                    Spacer()
+                    Text("\(usage.apps.count)").font(.caption.monospacedDigit().weight(.semibold)).foregroundStyle(.secondary)
+                    Button { if let u = PermissionsController.settingsURL(for: usage.service) { NSWorkspace.shared.open(u) } } label: {
+                        Image(systemName: "arrow.up.forward.app")
+                    }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Manage in System Settings"))
+                }
+                ForEach(usage.apps) { app in
+                    HStack(spacing: 9) {
+                        Group {
+                            if let icon = app.icon { Image(nsImage: icon).resizable() }
+                            else { Image(systemName: "app.fill").resizable().foregroundStyle(.tertiary) }
+                        }
+                        .frame(width: 20, height: 20)
+                        Text(app.name).font(.callout).lineLimit(1).truncationMode(.middle)
+                        Spacer()
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// One app and the protected resources it holds, as pills (green = allowed).
 struct PermissionCard: View {
     let app: PermissionsController.AppPermissions
+
+    private var hasSensitive: Bool { app.items.contains { $0.allowed && TCCReader.isSensitive($0.service) } }
 
     var body: some View {
         Card {
@@ -126,10 +240,16 @@ struct PermissionCard: View {
                         Text(app.client).font(.caption2).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                     }
                     Spacer()
+                    if hasSensitive {
+                        Label(L("sensitive"), systemImage: "eye.trianglebadge.exclamationmark")
+                            .font(.system(size: 9, weight: .bold)).labelStyle(.iconOnly)
+                            .foregroundStyle(Palette.pink).help(L("Holds camera, microphone, screen, input or full-disk access"))
+                    }
                 }
                 FlowLayout(spacing: 8, lineSpacing: 8) {
                     ForEach(Array(app.items.enumerated()), id: \.offset) { _, perm in
-                        PermissionPill(name: TCCReader.friendlyService(perm.service), allowed: perm.allowed)
+                        PermissionPill(name: TCCReader.friendlyService(perm.service), allowed: perm.allowed,
+                                       sensitive: TCCReader.isSensitive(perm.service))
                     }
                 }
             }
@@ -141,6 +261,9 @@ struct PermissionCard: View {
 struct PermissionPill: View {
     let name: String
     let allowed: Bool
+    var sensitive: Bool = false
+
+    private var tint: Color { !allowed ? .secondary : (sensitive ? Palette.pink : Palette.good) }
 
     var body: some View {
         HStack(spacing: 6) {
@@ -148,8 +271,8 @@ struct PermissionPill: View {
             Text(L(name)).font(.caption.weight(.medium))
         }
         .padding(.horizontal, 10).padding(.vertical, 5)
-        .foregroundStyle(allowed ? AnyShapeStyle(Palette.good) : AnyShapeStyle(Color.secondary))
-        .background((allowed ? Palette.good : Color.secondary).opacity(0.14), in: Capsule())
+        .foregroundStyle(AnyShapeStyle(tint))
+        .background(tint.opacity(0.14), in: Capsule())
         .overlay(allowed ? nil : Capsule().strokeBorder(.secondary.opacity(0.2)))
         .opacity(allowed ? 1 : 0.7)
     }

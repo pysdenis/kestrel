@@ -1096,6 +1096,10 @@ withTempDir { tmp in
     check(perms.contains { $0.client == "com.zoom.xos" && $0.allowed }, "camera allowed for zoom")
     check(perms.contains { $0.client == "com.foo.bar" && !$0.allowed }, "mic denied for foo")
     check(TCCReader.friendlyService("kTCCServiceSystemPolicyAllFiles") == "Full Disk Access", "friendly service name")
+    check(TCCReader.isSensitive("kTCCServiceCamera") && TCCReader.isSensitive("kTCCServiceSystemPolicyAllFiles"),
+          "camera + full-disk-access flagged as sensitive")
+    check(!TCCReader.isSensitive("kTCCServiceCalendar") && !TCCReader.isSensitive("kTCCServiceReminders"),
+          "calendar/reminders are not flagged sensitive")
 }
 
 section("TCCReader: missing db returns nothing, never crashes")

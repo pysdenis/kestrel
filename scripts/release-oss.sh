@@ -64,7 +64,7 @@ if gh release view "$TAG" >/dev/null 2>&1; then
     echo "▸ Release $TAG exists — uploading/overwriting assets…"
     gh release upload "$TAG" "$DMG" "$ZIP" --clobber
 else
-    echo "▸ Creating GitHub Release $TAG…"
+    echo "▸ Creating GitHub Release ${TAG}…"
     gh release create "$TAG" "$DMG" "$ZIP" --title "Kestrel ${VERSION}" --generate-notes
 fi
 

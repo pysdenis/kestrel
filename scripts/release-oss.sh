@@ -60,6 +60,19 @@ fi
 command -v gh >/dev/null 2>&1 || { echo "✗ gh CLI not found — install it or publish manually." >&2; exit 1; }
 gh auth status >/dev/null 2>&1 || { echo "✗ gh not authenticated — run: gh auth login" >&2; exit 1; }
 
+# gh's *active* account is a global setting and can silently be the wrong (read-only) one,
+# which otherwise fails late with a confusing "workflow scope may be required" message. Check
+# write access up front and point at the fix.
+REPO_SLUG="$(git remote get-url origin 2>/dev/null | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##')"
+if [[ -n "$REPO_SLUG" ]]; then
+    if [[ "$(gh api "repos/$REPO_SLUG" --jq '.permissions.push' 2>/dev/null)" != "true" ]]; then
+        echo "✗ The active gh account ($(gh api user --jq '.login' 2>/dev/null)) can't push to $REPO_SLUG." >&2
+        echo "  Switch to an account with write access, then re-run:" >&2
+        echo "    gh auth switch --user <owner>" >&2
+        exit 1
+    fi
+fi
+
 if gh release view "$TAG" >/dev/null 2>&1; then
     echo "▸ Release $TAG exists — uploading/overwriting assets…"
     gh release upload "$TAG" "$DMG" "$ZIP" --clobber

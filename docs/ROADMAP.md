@@ -184,8 +184,9 @@ Diferenciátory — většina už hotová, tady jako přehled + zbytek.
       [x] Energy per-app + quit + live time-left, [x] Zero telemetry, [x] plné CLI (skriptovatelné, CI/cron),
       [x] AI asistent + „druhý názor", [x] Storage forecast, [x] Rules engine + launchd, [x] Shredder.
 - [x] Command palette (⌘K, klávesová navigace), [x] Lokální notifikace, [x] Free up RAM, [x] App Permissions (TCC),
-      [x] Login Items viewer, [x] Drag&drop sken složky, [ ] Weekly digest (GUI), [ ] Bandwidth monitor per-app,
-      [ ] Apple Shortcuts integrace, [ ] „Explain this" všude.
+      [x] Login Items viewer, [x] Drag&drop sken složky, [x] **Bandwidth monitor per-app** (`BandwidthMonitor`, nettop),
+      [x] **Batch uninstall** (multi-select + kombinovaný review), [x] „Explain this" (security nálezy),
+      [ ] Weekly digest (GUI), [ ] Apple Shortcuts integrace.
 
 ## Fáze 13 — Hloubková code review & audit 🔍 (průběžně)
 Cíl: nekompromisní audit celého projektu (frontend `KestrelApp` / doména `KestrelCore` /

@@ -575,6 +575,10 @@ struct ActivitySection: View {
                         Text("reclaimed across \(s?.totalActions ?? 0) action(s)").font(.subheadline).foregroundStyle(.secondary)
                     }
                     Spacer()
+                    VStack(alignment: .trailing, spacing: 4) {
+                        CopyButton(text: digestText())
+                        Text("Copy digest").font(.caption2).foregroundStyle(.tertiary)
+                    }
                 }
             }
 
@@ -633,6 +637,30 @@ struct ActivitySection: View {
     }
     private func categoryLabel(_ key: String) -> String {
         KestrelCore.Category(rawValue: key)?.display.title ?? key.capitalized
+    }
+
+    /// A plain-text weekly digest for copying/sharing — built from the same audit-log and
+    /// snapshot data shown above. Local only, nothing invented.
+    private func digestText() -> String {
+        var lines = ["Kestrel digest"]
+        if let s = summary {
+            lines.append("• Reclaimed all-time: \(bytesString(s.reclaimedBytes)) across \(s.totalActions) action(s)")
+            for (key, bytes) in s.bytesByCategory.sorted(by: { $0.value > $1.value }) {
+                lines.append("   – \(categoryLabel(key)): \(bytesString(bytes))")
+            }
+        }
+        if let d = digest {
+            if let g = d.dailyGrowthBytes {
+                var t = "• Storage: \(g >= 0 ? "+" : "−")\(bytesString(abs(g)))/day"
+                if let days = d.daysUntilFull { t += ", full in ~\(Int(days)) days" }
+                lines.append(t)
+            }
+            if !d.recentChanges.isEmpty {
+                lines.append("• Recently grew:")
+                for c in d.recentChanges { lines.append("   – \(c.path): \(c.delta >= 0 ? "+" : "−")\(bytesString(abs(c.delta)))") }
+            }
+        }
+        return lines.joined(separator: "\n")
     }
 }
 

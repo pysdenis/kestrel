@@ -1,14 +1,35 @@
 import SwiftUI
 import AppKit
+import CoreServices
 import KestrelCore
 
-/// A discovered application: its bundle, name, identifier and (lazily measured) size.
+/// A discovered application: its bundle, name, identifier and (lazily measured) size and
+/// last-used date.
 struct AppInfo: Identifiable {
     var id: String { url.path }
     let url: URL
     let name: String
     let bundleId: String?
     var size: Int64?
+    var lastUsed: Date?
+
+    /// Days since the app was last opened (via Spotlight), or nil if unknown.
+    var daysUnused: Int? { lastUsed.map { Int(Date().timeIntervalSince($0) / 86400) } }
+
+    /// The app's last-used date from Spotlight metadata (kMDItemLastUsedDate).
+    static func lastUsed(_ url: URL) -> Date? {
+        guard let item = MDItemCreate(nil, url.path as CFString) else { return nil }
+        return MDItemCopyAttribute(item, kMDItemLastUsedDate) as? Date
+    }
+}
+
+/// How the app list is ordered.
+enum AppSort: String, CaseIterable, Identifiable {
+    case name, size, lastUsed
+    var id: String { rawValue }
+    var label: String {
+        switch self { case .name: return "Name"; case .size: return "Size"; case .lastUsed: return "Last used" }
+    }
 }
 
 @MainActor final class AppsController: ObservableObject {
@@ -18,14 +39,25 @@ struct AppInfo: Identifiable {
     @Published var busy = false
     @Published var message: String?
     @Published var query = ""
+    @Published var sort: AppSort = .name
 
     private let paths: KestrelPaths
     private var loadedUpdates = false
     private var loaded = false
     init(paths: KestrelPaths) { self.paths = paths }
 
+    /// Apps not opened in over 90 days (only counts ones with a known last-used date).
+    static let unusedThresholdDays = 90
+    var unused: [AppInfo] { apps.filter { ($0.daysUnused ?? 0) > Self.unusedThresholdDays } }
+    var totalSize: Int64 { apps.compactMap(\.size).reduce(0, +) }
+
     var filtered: [AppInfo] {
-        query.isEmpty ? apps : apps.filter { $0.name.localizedCaseInsensitiveContains(query) || ($0.bundleId?.localizedCaseInsensitiveContains(query) ?? false) }
+        let matched = query.isEmpty ? apps : apps.filter { $0.name.localizedCaseInsensitiveContains(query) || ($0.bundleId?.localizedCaseInsensitiveContains(query) ?? false) }
+        switch sort {
+        case .name: return matched.sorted { $0.name.lowercased() < $1.name.lowercased() }
+        case .size: return matched.sorted { ($0.size ?? -1) > ($1.size ?? -1) }
+        case .lastUsed: return matched.sorted { ($0.lastUsed ?? .distantPast) > ($1.lastUsed ?? .distantPast) }
+        }
     }
 
     /// Scan installed apps. Guarded so navigating in and out doesn't re-measure every
@@ -42,7 +74,8 @@ struct AppInfo: Identifiable {
                 guard let entries = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { continue }
                 for url in entries where url.pathExtension == "app" {
                     found.append(AppInfo(url: url, name: url.deletingPathExtension().lastPathComponent,
-                                         bundleId: AppUninstaller().bundleIdentifier(of: url), size: nil))
+                                         bundleId: AppUninstaller().bundleIdentifier(of: url), size: nil,
+                                         lastUsed: AppInfo.lastUsed(url)))
                 }
             }
             found.sort { $0.name.lowercased() < $1.name.lowercased() }
@@ -174,8 +207,10 @@ struct ApplicationsSection: View {
             }
 
             if !controller.updates.isEmpty { updatesCard }
+            if !controller.unused.isEmpty { unusedCard }
 
             searchCard
+            statsRow
 
             if !controller.selected.isEmpty { selectionBar }
 
@@ -245,6 +280,34 @@ struct ApplicationsSection: View {
                     .textFieldStyle(.plain)
                 Spacer()
                 Text("\(controller.filtered.count) \(L("app(s)"))").font(.caption).foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private var statsRow: some View {
+        HStack(spacing: 12) {
+            if controller.totalSize > 0 {
+                Label("\(bytesString(controller.totalSize)) \(L("total"))", systemImage: "internaldrive")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(L("Sort")).font(.caption).foregroundStyle(.tertiary)
+            KestrelSelect(items: AppSort.allCases, selection: $controller.sort, label: { L($0.label) })
+        }
+    }
+
+    private var unusedCard: some View {
+        Card(tint: Palette.warn) {
+            HStack(spacing: 12) {
+                Image(systemName: "clock.badge.exclamationmark").font(.title2).foregroundStyle(Palette.warn)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("\(controller.unused.count) \(L("apps unused for 90+ days"))").font(.subheadline.weight(.semibold))
+                    Text("\(bytesString(controller.unused.compactMap(\.size).reduce(0, +))) \(L("— review and uninstall the ones you don't need."))")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button { controller.query = ""; controller.sort = .lastUsed } label: { Label(L("Show oldest"), systemImage: "arrow.up.arrow.down") }
+                    .buttonStyle(.kestrel(.secondary, tint: Palette.warn, size: .small))
             }
         }
     }
@@ -368,7 +431,15 @@ struct AppCard: View {
                     .onAppear { if icon == nil { icon = NSWorkspace.shared.icon(forFile: app.url.path) } }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(app.name).font(.subheadline.weight(.semibold)).lineLimit(1).truncationMode(.middle)
-                        Text(app.bundleId ?? app.url.path).font(.caption2).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        HStack(spacing: 5) {
+                            if let days = app.daysUnused {
+                                Image(systemName: "clock").font(.system(size: 8))
+                                Text(days > (AppsController.unusedThresholdDays) ? "\(L("unused")) \(days)d" : "\(days)d")
+                                    .foregroundStyle(days > AppsController.unusedThresholdDays ? Palette.warn : Color.secondary)
+                            }
+                            Text(app.bundleId ?? app.url.path).lineLimit(1).truncationMode(.middle)
+                        }
+                        .font(.caption2).foregroundStyle(.secondary)
                     }
                     Spacer()
                     if let size = app.size {

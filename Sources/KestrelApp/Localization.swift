@@ -281,6 +281,15 @@ enum Localization {
         ("Close", "Zavřít"),
         ("Select for batch uninstall", "Vybrat pro hromadné odinstalování"),
         ("Reveal in Finder", "Zobrazit ve Finderu"),
+        ("Name", "Název"),
+        ("Size", "Velikost"),
+        ("Last used", "Naposledy použito"),
+        ("total", "celkem"),
+        ("Sort", "Řadit"),
+        ("apps unused for 90+ days", "aplikací nepoužitých 90+ dní"),
+        ("— review and uninstall the ones you don't need.", "— projdi a odinstaluj ty, co nepotřebuješ."),
+        ("Show oldest", "Ukázat nejstarší"),
+        ("unused", "nepoužito"),
 
         // Permissions — TCC service friendly names
         ("Camera", "Kamera"),

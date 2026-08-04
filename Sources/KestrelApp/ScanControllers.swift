@@ -796,6 +796,45 @@ struct ChatMessage: Identifiable, Equatable {
         }
     }
 
+    /// Whether the chosen folder's volume can clone (APFS) — gates the dedupe action.
+    var dupCloneSupported: Bool { APFSCloner.supportsCloning(at: dupFolder) }
+
+    /// Reclaim the selected duplicates' space by cloning them from their originals instead of
+    /// deleting — both files stay, sharing storage until edited. Non-destructive by design.
+    func dedupeDuplicates() {
+        guard !dupRemoval.isEmpty, !dupApplying else { return }
+        dupApplying = true; dupMessage = nil
+        var pairs: [(original: URL, copy: URL)] = []
+        for group in dupGroups {
+            for copy in group.copies where dupRemoval.contains(copy.url) { pairs.append((group.original.url, copy.url)) }
+        }
+        Task.detached { [weak self] in
+            let cloner = APFSCloner()
+            var reclaimed: Int64 = 0
+            var succeeded: [URL] = []
+            var failed = 0
+            for pair in pairs {
+                if let bytes = try? cloner.dedupe(original: pair.original, copy: pair.copy) {
+                    reclaimed += bytes; succeeded.append(pair.copy)
+                } else { failed += 1 }
+            }
+            let done = succeeded.count
+            let handled = Set(succeeded)
+            let totalReclaimed = reclaimed
+            let failedCount = failed
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.dupMessage = "Deduped \(done) file(s), reclaimed \(bytesString(totalReclaimed)) — both copies kept (APFS clone)." + (failedCount > 0 ? " \(failedCount) couldn't be cloned." : "")
+                self.dupGroups = self.dupGroups.compactMap { group in
+                    let copies = group.copies.filter { !handled.contains($0.url) }
+                    return copies.isEmpty ? nil : DuplicateGroup(original: group.original, copies: copies)
+                }
+                self.dupRemoval = []
+                self.dupApplying = false
+            }
+        }
+    }
+
     func pickDupFolder() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true; panel.canChooseFiles = false

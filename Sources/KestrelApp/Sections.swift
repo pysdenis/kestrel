@@ -1310,6 +1310,14 @@ struct ToolsSection: View {
                         Text("\(controller.dupGroups.count) \(L("group(s)")) · \(controller.dupRemoval.count) \(L("selected")) · \(bytesString(controller.dupRemovalBytes))")
                             .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                         Spacer()
+                        if controller.dupCloneSupported {
+                            Button { controller.dedupeDuplicates() } label: {
+                                Label(controller.dupApplying ? L("Working…") : L("Dedupe (APFS)"), systemImage: "square.on.square.dashed")
+                            }
+                            .buttonStyle(.kestrel(.secondary, size: .small))
+                            .disabled(controller.dupRemoval.isEmpty || controller.dupApplying)
+                            .help(L("Reclaim the space but keep both files — they share storage until edited."))
+                        }
                         Button { controller.applyDuplicates() } label: {
                             Label(controller.dupApplying ? L("Moving…") : L("Move to Vault"), systemImage: "tray.and.arrow.down")
                         }

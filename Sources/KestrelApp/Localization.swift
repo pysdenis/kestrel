@@ -285,6 +285,8 @@ enum Localization {
         ("Best", "Nejlepší"),
         ("No similar photos found.", "Žádné podobné fotky nenalezeny."),
         ("Duplicate Files", "Duplicitní soubory"),
+        ("Dedupe (APFS)", "Deduplikovat (APFS)"),
+        ("Reclaim the space but keep both files — they share storage until edited.", "Uvolní místo, ale nechá oba soubory — sdílí úložiště, dokud jeden neupravíš."),
         ("Byte-identical files in a folder you pick. One copy is kept; tap any file to change what moves to the vault.", "Bajt po bajtu shodné soubory ve vybrané složce. Jedna kopie se nechá; klepnutím na soubor změníš, co půjde do trezoru."),
         ("Hashing files…", "Počítám hashe…"),
         ("Scan the folder to find exact duplicates you can remove.", "Prohledej složku a najdi přesné duplicity k odstranění."),

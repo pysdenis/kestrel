@@ -1309,6 +1309,29 @@ withTempDir { tmp in
     SafetyGuard.userExclusions = []  // reset shared state for other tests
 }
 
+// MARK: - APFSCloner (dedupe without deleting)
+
+section("APFSCloner: replaces a copy with a clone, keeping both files identical")
+withTempDir { tmp in
+    let original = makeFile(tmp.appendingPathComponent("original.bin"), "the very same bytes")
+    let copy = makeFile(tmp.appendingPathComponent("copy.bin"), "the very same bytes")
+    if APFSCloner.supportsCloning(at: copy) {
+        let reclaimed = try APFSCloner().dedupe(original: original, copy: copy)
+        check(FileManager.default.fileExists(atPath: original.path), "original still there")
+        check(FileManager.default.fileExists(atPath: copy.path), "copy still there (not deleted)")
+        check((try? String(contentsOf: copy, encoding: .utf8)) == "the very same bytes", "copy's contents intact")
+        check(reclaimed >= 0, "reports reclaimed bytes")
+        // Editing the copy must not change the original (copy-on-write independence).
+        try "changed".write(to: copy, atomically: true, encoding: .utf8)
+        check((try? String(contentsOf: original, encoding: .utf8)) == "the very same bytes", "original unaffected by editing the clone")
+        // No temp clone files left behind.
+        let leftovers = (try? FileManager.default.contentsOfDirectory(atPath: tmp.path))?.filter { $0.hasPrefix(".kestrel-clone-") } ?? []
+        check(leftovers.isEmpty, "no temp clone files left behind")
+    } else {
+        check(true, "volume doesn't support cloning here — skipped")
+    }
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

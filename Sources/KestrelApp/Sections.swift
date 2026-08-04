@@ -1044,11 +1044,48 @@ struct ToolsSection: View {
             }
 
             secretsCard
+            cloudCard
             loginItemsCard
             awakeCard
             maintenanceCard
         }
         .onAppear { controller.loadMeta() }
+    }
+
+    private var cloudCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionTitle("Cloud Cleanup (iCloud)", icon: "icloud")
+                    Spacer()
+                    Button { controller.loadCloud() } label: {
+                        Label(controller.cloudLoading ? L("Scanning…") : L("Scan"), systemImage: "magnifyingglass")
+                    }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).disabled(controller.cloudLoading)
+                }
+                Text(L("Large files iCloud keeps a local copy of — offload to free space; they stay in iCloud.")).font(.caption).foregroundStyle(.secondary)
+                if let m = controller.cloudMessage {
+                    Label(m, systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(Palette.good)
+                }
+                if controller.cloudLoading {
+                    HStack(spacing: 10) { ScanRadar(tint: Palette.accent2, size: 24); Text(L("Scanning iCloud Drive…")).foregroundStyle(.secondary).font(.callout) }
+                } else if controller.cloudFiles.isEmpty {
+                    Text(L("Scan to find large local iCloud copies you can offload.")).font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    ForEach(Array(controller.cloudFiles.prefix(20).enumerated()), id: \.offset) { _, file in
+                        HStack(spacing: 10) {
+                            Image(systemName: "icloud.and.arrow.down").font(.caption).foregroundStyle(Palette.accent2)
+                            Text(file.url.lastPathComponent).font(.callout).lineLimit(1).truncationMode(.middle)
+                            Spacer()
+                            Text(bytesString(file.size)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            Button { controller.offload(file) } label: { Text(L("Offload")) }
+                                .buttonStyle(.kestrel(.secondary, tint: Palette.accent2, size: .small))
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+        }
     }
 
     private var loginItemsCard: some View {

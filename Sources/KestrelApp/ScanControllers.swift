@@ -511,6 +511,9 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var sleepers: [SleepAssertion] = []
     @Published var maintenance: [MaintenanceTask] = []
     @Published var loginItems: [LaunchItem] = []
+    @Published var cloudFiles: [FileEntry] = []
+    @Published var cloudLoading = false
+    @Published var cloudMessage: String?
     private var states: [String: ToolRunState] = [:]
     private var loadedMeta = false
 
@@ -533,6 +536,32 @@ struct ChatMessage: Identifiable, Equatable {
             let tasks = MaintenanceService().tasks()
             let items = LaunchAgentAuditor().audit()
             await MainActor.run { [weak self] in self?.sleepers = sleep; self?.maintenance = tasks; self?.loginItems = items }
+        }
+    }
+
+    /// Scan iCloud Drive for large files with a local copy (evictable to free space).
+    func loadCloud() {
+        guard !cloudLoading else { return }
+        cloudLoading = true
+        Task.detached { [weak self] in
+            let files = CloudOffloadFinder().find().sorted { $0.size > $1.size }
+            await MainActor.run { [weak self] in self?.cloudFiles = files; self?.cloudLoading = false }
+        }
+    }
+
+    /// Offload (evict) a file's local copy — it stays in iCloud. Non-destructive.
+    func offload(_ file: FileEntry) {
+        cloudMessage = nil
+        let url = file.url
+        Task.detached { [weak self] in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/brctl")
+            process.arguments = ["evict", url.path]
+            let ok = (try? { try process.run(); process.waitUntilExit(); return process.terminationStatus == 0 }()) ?? false
+            await MainActor.run { [weak self] in
+                self?.cloudMessage = ok ? "Offloaded “\(url.lastPathComponent)” — it stays in iCloud." : "Couldn't offload “\(url.lastPathComponent)”."
+                self?.cloudFiles.removeAll { $0.url == url }
+            }
         }
     }
 

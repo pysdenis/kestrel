@@ -198,6 +198,7 @@ struct SectionScaffold<Content: View>: View {
 struct DashboardSection: View {
     @EnvironmentObject private var model: AppModel
     @ObservedObject var controller: DashboardController
+    @State private var detailKind: DetailKind?
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: 12)]
 
     private var score: Int { model.health?.overall ?? 0 }
@@ -212,6 +213,11 @@ struct DashboardSection: View {
                 ProtectionCard(status: controller.protection) { model.section = .security }
             }
             SpeedTestCard()
+        }
+        .sheet(item: $detailKind) { kind in
+            DetailPanel(kind: kind, onBack: { detailKind = nil })
+                .environmentObject(model)
+                .padding(20).frame(width: 460, height: 470)
         }
         .onAppear { controller.load(disk: model.disk) }
         .onChange(of: model.disk?.total) { _ in
@@ -293,22 +299,26 @@ struct DashboardSection: View {
             if let d = model.disk {
                 RadialMetricTile(icon: "internaldrive", title: L("Disk"), centerValue: "\(Int(d.usedFraction * 100))%",
                                  fraction: d.usedFraction,
-                                 detail: "\(bytesString(d.available)) \(L("free"))", iconTint: Palette.blue, ringColor: fractionColor(d.usedFraction))
+                                 detail: "\(bytesString(d.available)) \(L("free"))", iconTint: Palette.blue, ringColor: fractionColor(d.usedFraction),
+                                 onTap: { detailKind = .storage })
             }
             if let m = model.memory {
                 RadialMetricTile(icon: "memorychip", title: L("Memory"), centerValue: "\(Int(m.usedFraction * 100))%",
                                  fraction: m.usedFraction,
-                                 detail: "\(bytesString(m.used)) \(L("used"))", iconTint: Palette.violet, ringColor: fractionColor(m.usedFraction))
+                                 detail: "\(bytesString(m.used)) \(L("used"))", iconTint: Palette.violet, ringColor: fractionColor(m.usedFraction),
+                                 onTap: { detailKind = .memory })
             }
             if let c = model.cpu {
                 RadialMetricTile(icon: "cpu", title: L("CPU"), centerValue: "\(Int(c.usagePercent.rounded()))%",
                                  fraction: c.usagePercent / 100,
-                                 detail: "\(c.coreCount) \(L("cores"))", iconTint: Palette.warn, ringColor: fractionColor(c.usagePercent / 100))
+                                 detail: "\(c.coreCount) \(L("cores"))", iconTint: Palette.warn, ringColor: fractionColor(c.usagePercent / 100),
+                                 onTap: { detailKind = .cpu })
             }
             if let b = model.battery {
                 RadialMetricTile(icon: b.isCharging ? "battery.100.bolt" : "battery.75", title: L("Battery"), centerValue: "\(b.percent)%",
                                  fraction: Double(b.percent) / 100,
-                                 detail: model.batteryCaptionText, iconTint: Palette.good, ringColor: b.percent > 20 ? Palette.good : Palette.crit)
+                                 detail: model.batteryCaptionText, iconTint: Palette.good, ringColor: b.percent > 20 ? Palette.good : Palette.crit,
+                                 onTap: { detailKind = .battery })
             }
             if model.network != nil {
                 NetworkTile(ssid: model.network?.ssid, downBps: model.netDownBps,

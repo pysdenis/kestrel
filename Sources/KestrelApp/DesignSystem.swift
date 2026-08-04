@@ -191,14 +191,24 @@ struct RadialMetricTile: View {
     var detail: String = ""
     var iconTint: Color = Palette.accent
     var ringColor: Color = Palette.accent
+    var onTap: (() -> Void)? = nil
 
     var body: some View {
+        if let onTap {
+            Button(action: onTap) { card }.buttonStyle(.plain)
+        } else {
+            card
+        }
+    }
+
+    private var card: some View {
         Card {
             VStack(spacing: 9) {
                 HStack(spacing: 6) {
                     Image(systemName: icon).foregroundStyle(iconTint).imageScale(.small)
                     Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     Spacer()
+                    if onTap != nil { Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary) }
                 }
                 ZStack {
                     Circle().stroke(Color.primary.opacity(0.1), lineWidth: 8)

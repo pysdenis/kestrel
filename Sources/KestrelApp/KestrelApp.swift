@@ -42,6 +42,11 @@ struct KestrelApp: App {
             CommandMenu("Actions") {
                 Button("Command Palette…") { model.showPalette = true }
                     .keyboardShortcut("k", modifiers: .command)
+                Divider()
+                ForEach(Array(AppSection.allCases.prefix(9).enumerated()), id: \.element) { i, section in
+                    Button(section.title) { model.section = section }
+                        .keyboardShortcut(KeyEquivalent(Character("\(i + 1)")), modifiers: .command)
+                }
             }
         }
 

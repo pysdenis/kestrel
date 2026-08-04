@@ -501,6 +501,7 @@ struct SpaceSection: View {
                 }
             }
         }
+        .onAppear { controller.loadDriveHealth() }
     }
 
     private func capacityCard(_ d: DiskSpace) -> some View {
@@ -517,7 +518,25 @@ struct SpaceSection: View {
                     legendDot(.primary.opacity(0.2), L("Free"), bytesString(d.available))
                     if d.purgeable > 0 { legendDot(Palette.warn, L("Purgeable"), bytesString(d.purgeable)) }
                     Spacer()
+                    driveHealthPill()
                 }
+            }
+        }
+    }
+
+    /// Honest hardware signal — shown only when the drive actually reports SMART, so VMs and
+    /// external disks (which report "not supported") add no noise. Never used to scare.
+    @ViewBuilder private func driveHealthPill() -> some View {
+        if let h = controller.driveHealth {
+            switch h.status {
+            case .verified:
+                Label("\(L("Drive health")): \(L("Verified"))", systemImage: "checkmark.shield.fill")
+                    .font(.caption.weight(.medium)).foregroundStyle(Palette.good)
+            case .failing:
+                Label("\(L("Drive health")): \(L("Failing — back up now"))", systemImage: "exclamationmark.shield.fill")
+                    .font(.caption.weight(.medium)).foregroundStyle(Palette.warn)
+            default:
+                EmptyView()
             }
         }
     }

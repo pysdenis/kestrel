@@ -1150,6 +1150,17 @@ withTempDir { tmp in
     check(found.count == 1 && found.first?.path.hasSuffix("installer.dmg") == true, "scan finds only the quarantined file")
 }
 
+// MARK: - DriveHealth (SMART parser)
+
+section("DriveHealth: parses the SMART Status line honestly")
+check(DriveHealth.parse("   Device / Media Name:      APPLE SSD\n   SMART Status:             Verified\n").status == .verified,
+      "Verified → .verified")
+check(DriveHealth.parse("   SMART Status:             Failing!\n").status == .failing, "Failing → .failing")
+check(DriveHealth.parse("   SMART Status:             Not Supported\n").status == .notSupported, "Not Supported → .notSupported")
+check(DriveHealth.parse("   SMART Status:             Something Else\n").status == .unknown, "unexpected value → .unknown")
+check(DriveHealth.parse("no smart line here").status == .notSupported, "missing line → .notSupported (never invents health)")
+check(DriveHealth.parse("   SMART Status:  Verified\n").raw == "Verified", "keeps the raw reported value")
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

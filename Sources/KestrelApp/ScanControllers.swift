@@ -313,9 +313,19 @@ import KestrelCore
     @Published var scanTotal = 0
     @Published var scanStatus = ""
     @Published var message: String?
+    @Published var driveHealth: DriveHealth?
 
     private let paths: KestrelPaths
     init(paths: KestrelPaths) { self.paths = paths }
+
+    /// Read the boot drive's SMART status once — honest hardware signal, read-only.
+    func loadDriveHealth() {
+        guard driveHealth == nil else { return }
+        Task.detached { [weak self] in
+            let health = DriveHealth.read()
+            await MainActor.run { [weak self] in self?.driveHealth = health }
+        }
+    }
 
     /// Move a block from the map to the vault (undoable, audited). Refuses protected
     /// locations via SafetyGuard, then rescans so the map reflects reality.

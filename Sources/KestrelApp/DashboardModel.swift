@@ -25,6 +25,13 @@ final class AppModel: ObservableObject {
     /// Drives Kestrel's own confirmation modal (see `ConfirmHost`). Nil = nothing shown.
     @Published var confirmRequest: ConfirmRequest?
 
+    /// First-run onboarding — shown once until the user gets started.
+    @Published var showOnboarding = !UserDefaults.standard.bool(forKey: "kestrel.onboarded")
+    func finishOnboarding() {
+        showOnboarding = false
+        UserDefaults.standard.set(true, forKey: "kestrel.onboarded")
+    }
+
     /// Present the custom confirm modal for a destructive/irreversible action.
     func requestConfirm(_ request: ConfirmRequest) { confirmRequest = request }
 

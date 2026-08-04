@@ -153,6 +153,7 @@ struct MainWindow: View {
         .onAppear { model.surfaceAppeared() }
         .onDisappear { model.surfaceDisappeared(); model.mainWindowClosed() }
         .sheet(isPresented: $model.showPalette) { CommandPaletteView().environmentObject(model) }
+        .sheet(isPresented: $model.showOnboarding) { OnboardingView().environmentObject(model) }
     }
 
     @ViewBuilder private var detail: some View {

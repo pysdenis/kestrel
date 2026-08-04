@@ -408,6 +408,18 @@ enum Localization {
         ("Nothing matches right now", "Teď nic neodpovídá"),
         ("Run now", "Spustit teď"),
 
+        // Onboarding
+        ("Welcome to Kestrel", "Vítej v Kestrelu"),
+        ("A fast, honest Mac cleaner. Nothing is deleted outright — everything moves to a vault you can undo, and nothing ever leaves this Mac.", "Rychlý, poctivý čistič Macu. Nic se nemaže napřímo — vše jde do trezoru, který lze vrátit, a nic nikdy neopustí tento Mac."),
+        ("Safe by design", "Bezpečný z principu"),
+        ("Dry-run by default, vault + undo, honest reports — no scare tactics.", "Defaultně nanečisto, trezor + vrácení, poctivé reporty — žádné strašení."),
+        ("Full Disk Access (optional)", "Plný přístup k disku (volitelně)"),
+        ("Lets Kestrel see the Trash, Mail and some caches. Grant it in System Settings, then relaunch.", "Umožní Kestrelu vidět Koš, Mail a některé cache. Uděl v Nastavení systému a spusť znovu."),
+        ("Open settings", "Otevřít nastavení"),
+        ("AI assistant (optional, off)", "AI asistent (volitelný, vypnutý)"),
+        ("Add a Gemini key to enable it. It only ever sends metadata — never file contents.", "Zapneš ho přidáním Gemini klíče. Posílá jen metadata — nikdy obsah souborů."),
+        ("Get started", "Začít"),
+
         // Categories
         ("CATEGORY", "KATEGORIE"),
         ("Everything safe", "Vše bezpečné"),

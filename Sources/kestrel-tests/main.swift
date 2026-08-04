@@ -57,6 +57,22 @@ withTempDir { tmp in
     check((try? String(contentsOf: file, encoding: .utf8)) == "important", "contents intact")
 }
 
+section("VaultService: restoreItem brings back one file, leaves the session intact")
+withTempDir { tmp in
+    let vault = VaultService(vaultRoot: tmp.appendingPathComponent("vault"))
+    let a = makeFile(tmp.appendingPathComponent("a.txt"), "aaa")
+    let b = makeFile(tmp.appendingPathComponent("b.txt"), "bbb")
+    let session = try vault.beginSession()
+    try vault.move(url: a, session: session)
+    try vault.move(url: b, session: session)
+    let outcome = try vault.restoreItem(originalPath: a.path, session: session)
+    check(outcome.restored == 1, "only the one item restored")
+    check(fm.fileExists(atPath: a.path), "a.txt is back")
+    check(!fm.fileExists(atPath: b.path), "b.txt stays in the vault")
+    let remaining = try vault.listSessions().first { $0.id == session }
+    check(remaining?.count == 1 && remaining?.records.first?.originalPath == b.path, "session keeps only b.txt")
+}
+
 section("VaultService: undo never overwrites an existing file, and keeps it in the vault")
 withTempDir { tmp in
     let vaultRoot = tmp.appendingPathComponent("vault")

@@ -93,6 +93,7 @@ final class AppModel: ObservableObject {
     lazy var tools = ToolsController(paths: paths)
     lazy var automation = AutomationController(paths: paths)
     lazy var assistant = AssistantController()
+    lazy var timemachine = TimeMachineController(paths: paths)
     lazy var settingsController = SettingsController(paths: paths)
 
     /// Whether the app can read Full-Disk-Access-gated locations (Trash, Mail, some

@@ -1030,17 +1030,16 @@ struct ToolsSection: View {
         SectionScaffold(title: "Tools", subtitle: "One-click cleanup tools and developer utilities") {
             if !model.fullDiskAccess { FullDiskAccessBanner() }
 
-            SectionTitle("My Tools", icon: "wrench.and.screwdriver")
+            HStack {
+                SectionTitle("My Tools", icon: "wrench.and.screwdriver")
+                Spacer()
+                Button { for t in tools { controller.runTool(t.id, scan: t.scan) } } label: { Label(L("Scan all"), systemImage: "square.stack.3d.up") }
+                    .buttonStyle(.kestrel(.secondary, size: .small))
+            }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
-                toolCard(L("Trash Bins"), L("Empty every Trash — undoable via the vault"), "trash", Palette.good) { TrashFinder().find() }
-                toolCard(L("App Leftovers"), L("Data left behind by removed apps"), "app.badge.checkmark", Palette.accent) { OrphanFinder().find() }
-                toolCard(L("Old Installers"), L(".dmg / .pkg / .iso in Downloads"), "shippingbox", Palette.accent2) { ClutterFinder().oldInstallers(under: home.appendingPathComponent("Downloads")) }
-                toolCard(L("Screenshots"), L("Screenshots on the Desktop"), "camera.viewfinder", Palette.accent) { ClutterFinder().screenshots(under: home.appendingPathComponent("Desktop")) }
-                toolCard(L("Downloads"), L("Files older than 30 days"), "arrow.down.circle", Palette.accent2) { ClutterFinder().oldDownloads(under: home.appendingPathComponent("Downloads")) }
-                toolCard(L("Mail Attachments"), L("Locally cached, re-downloadable"), "paperclip", Palette.accent) { ClutterFinder().mailAttachments(under: home.appendingPathComponent("Library/Mail")) }
-                toolCard(L("Similar Images"), L("Keep the best of each group"), "photo.on.rectangle.angled", Palette.accent2) {
-                    let files = (try? Scanner().scanFiles(under: home.appendingPathComponent("Pictures"), pruning: [], includingHidden: false)) ?? []
-                    return SimilarImageFinder().plan(in: files)
+                ForEach(tools) { t in
+                    PlanToolCard(id: t.id, title: t.title, subtitle: t.subtitle, icon: t.icon, tint: t.tint,
+                                 state: controller.state(t.id), scan: t.scan)
                 }
             }
 
@@ -1165,12 +1164,30 @@ struct ToolsSection: View {
         }
     }
 
-    /// Build a `PlanToolCard` bound to a persistent per-tool state, so its scan survives
-    /// navigating away and back.
-    private func toolCard(_ title: String, _ subtitle: String, _ icon: String, _ tint: Color,
-                          scan: @escaping @Sendable () -> CleanupPlan) -> some View {
-        PlanToolCard(id: title, title: title, subtitle: subtitle, icon: icon, tint: tint,
-                     state: controller.state(title), scan: scan)
+    /// One toolbox tool: a stable English `id` (used as the persistent state + scan-all
+    /// key) and a localized title/subtitle.
+    private struct ToolDef: Identifiable {
+        let id: String
+        let title: String
+        let subtitle: String
+        let icon: String
+        let tint: Color
+        let scan: @Sendable () -> CleanupPlan
+    }
+
+    private var tools: [ToolDef] {
+        [
+            ToolDef(id: "Trash Bins", title: L("Trash Bins"), subtitle: L("Empty every Trash — undoable via the vault"), icon: "trash", tint: Palette.good) { TrashFinder().find() },
+            ToolDef(id: "App Leftovers", title: L("App Leftovers"), subtitle: L("Data left behind by removed apps"), icon: "app.badge.checkmark", tint: Palette.accent) { OrphanFinder().find() },
+            ToolDef(id: "Old Installers", title: L("Old Installers"), subtitle: L(".dmg / .pkg / .iso in Downloads"), icon: "shippingbox", tint: Palette.accent2) { ClutterFinder().oldInstallers(under: home.appendingPathComponent("Downloads")) },
+            ToolDef(id: "Screenshots", title: L("Screenshots"), subtitle: L("Screenshots on the Desktop"), icon: "camera.viewfinder", tint: Palette.accent) { ClutterFinder().screenshots(under: home.appendingPathComponent("Desktop")) },
+            ToolDef(id: "Downloads", title: L("Downloads"), subtitle: L("Files older than 30 days"), icon: "arrow.down.circle", tint: Palette.accent2) { ClutterFinder().oldDownloads(under: home.appendingPathComponent("Downloads")) },
+            ToolDef(id: "Mail Attachments", title: L("Mail Attachments"), subtitle: L("Locally cached, re-downloadable"), icon: "paperclip", tint: Palette.accent) { ClutterFinder().mailAttachments(under: home.appendingPathComponent("Library/Mail")) },
+            ToolDef(id: "Similar Images", title: L("Similar Images"), subtitle: L("Keep the best of each group"), icon: "photo.on.rectangle.angled", tint: Palette.accent2) {
+                let files = (try? Scanner().scanFiles(under: home.appendingPathComponent("Pictures"), pruning: [], includingHidden: false)) ?? []
+                return SimilarImageFinder().plan(in: files)
+            },
+        ]
     }
 }
 

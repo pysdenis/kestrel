@@ -259,6 +259,7 @@ enum Localization {
         ("Locally cached, re-downloadable", "Lokální kopie, znovu stažitelné"),
         ("Similar Images", "Podobné obrázky"),
         ("Keep the best of each group", "Ponechat nejlepší z každé skupiny"),
+        ("Scan all", "Skenovat vše"),
         ("No launch agents found.", "Žádní launch agenti nenalezeni."),
         ("Launch agents that run when you log in. Ones pointing at a missing program are flagged.", "Launch agenti spouštění při přihlášení. Ti mířící na chybějící program jsou označeni."),
         ("Scan for leaked credentials", "Skenovat uniklé údaje"),

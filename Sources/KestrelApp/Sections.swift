@@ -521,6 +521,7 @@ struct EnergySection: View {
             if let b = model.battery { batteryCard(b) }
             if let m = model.memory { memoryCard(m) }
             drainingCard
+            bandwidthCard
             historyCard
         }
         .onAppear { model.energyAppeared() }
@@ -613,6 +614,36 @@ struct EnergySection: View {
                         if i > 0 { Hairline() }
                         EnergyRow(rank: i + 1, proc: proc, fraction: proc.energyImpact / maxNow) { confirmQuit(proc) }
                     }
+                }
+            }
+        }
+    }
+
+    private var bandwidthCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionTitle("Network usage by app", icon: "network")
+                if model.bandwidth.isEmpty {
+                    HStack(spacing: 10) {
+                        ScanRadar(tint: Palette.accent2, size: 24)
+                        Text("Measuring per-app traffic…").foregroundStyle(.secondary).font(.callout)
+                    }
+                } else {
+                    let maxTotal = max(1, model.bandwidth.map(\.total).max() ?? 1)
+                    ForEach(model.bandwidth) { app in
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack {
+                                Text(app.name).font(.callout).lineLimit(1).truncationMode(.middle)
+                                Spacer()
+                                Text("↓ \(bytesString(app.bytesIn))  ↑ \(bytesString(app.bytesOut))")
+                                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            }
+                            MiniBar(fraction: Double(app.total) / Double(maxTotal), tint: Palette.accent2)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    Text("Cumulative traffic since each process started (via nettop). Read-only.")
+                        .font(.caption2).foregroundStyle(.tertiary)
                 }
             }
         }

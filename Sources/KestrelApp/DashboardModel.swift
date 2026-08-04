@@ -31,6 +31,7 @@ final class AppModel: ObservableObject {
     @Published var energyNow: [ProcessEnergy] = []
     @Published var energy24h: [EnergyUsage] = []
     @Published var energyStart: Date?
+    @Published var bandwidth: [AppBandwidth] = []
 
     @Published var netDownBps: Double = 0
     @Published var netUpBps: Double = 0
@@ -174,10 +175,12 @@ final class AppModel: ObservableObject {
             log.append(consumers)
             let usage = log.usage()
             let earliest = log.earliestSample()
+            let bw = BandwidthMonitor().topConsumers(limit: 10)
             await MainActor.run {
                 self.energyNow = consumers
                 self.energy24h = usage
                 self.energyStart = earliest
+                self.bandwidth = bw
             }
         }
     }

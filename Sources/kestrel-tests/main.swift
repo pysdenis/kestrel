@@ -1114,6 +1114,25 @@ do {
     check(AppUpdater(runner: NoBrew()).outdatedCasks().isEmpty, "no brew → empty")
 }
 
+// MARK: - BandwidthMonitor
+
+section("BandwidthMonitor: parses nettop CSV, skips header, aggregates & sorts")
+do {
+    let sample = """
+    ,bytes_in,bytes_out,
+    mDNSResponder.514,180421991,49632120,
+    apsd.371,9805,253739,
+    airportd.461,0,0,
+    com.apple.WebKit.Networking.12345,1000,2000,
+    """
+    let top = BandwidthMonitor.parse(sample, limit: 10)
+    check(top.count == 3, "header + zero-total row dropped")
+    check(top.first?.name == "mDNSResponder", "sorted by total, biggest first")
+    check(top.first?.total == 180421991 + 49632120, "in+out summed")
+    check(top.contains { $0.name == "com.apple.WebKit.Networking" }, "multi-dot name keeps everything but the pid")
+    check(!top.contains { $0.name == "airportd" }, "zero-traffic process filtered out")
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ImageIO
 import KestrelCore
 
 /// Display metadata for a cleanup category — a friendly name, an icon and a tint — so the
@@ -1043,6 +1044,7 @@ struct ToolsSection: View {
                 }
             }
 
+            photosCard
             secretsCard
             cloudCard
             loginItemsCard
@@ -1050,6 +1052,82 @@ struct ToolsSection: View {
             maintenanceCard
         }
         .onAppear { controller.loadMeta() }
+    }
+
+    private var photosCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    SectionTitle("Similar Images", icon: "photo.on.rectangle.angled")
+                    Spacer()
+                    Button { controller.scanPhotos() } label: {
+                        Label(controller.photoScanning ? L("Scanning…") : L("Scan"), systemImage: "magnifyingglass")
+                    }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).disabled(controller.photoScanning)
+                }
+                Text(L("Finds look-alike photos in your Pictures. The best of each group is kept; tap a photo to change what moves to the vault.")).font(.caption).foregroundStyle(.secondary)
+                if let m = controller.photoMessage {
+                    Label(m, systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(Palette.good)
+                }
+                if controller.photoScanning {
+                    HStack(spacing: 10) { ScanRadar(tint: Palette.accent2, size: 24); Text(L("Scanning your photos…")).foregroundStyle(.secondary).font(.callout) }
+                } else if controller.photoGroups.isEmpty {
+                    Text(L("Scan to find similar or duplicate photos you can thin out.")).font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    HStack {
+                        Text("\(controller.photoGroups.count) \(L("group(s)")) · \(controller.photoRemoval.count) \(L("selected")) · \(bytesString(controller.photoRemovalBytes))")
+                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        Spacer()
+                        Button { controller.applyPhotos() } label: {
+                            Label(controller.photoApplying ? L("Moving…") : L("Move to Vault"), systemImage: "tray.and.arrow.down")
+                        }
+                        .buttonStyle(.kestrel(.prominent, size: .small))
+                        .disabled(controller.photoRemoval.isEmpty || controller.photoApplying)
+                    }
+                    ForEach(Array(controller.photoGroups.prefix(12).enumerated()), id: \.offset) { gi, group in
+                        if gi > 0 { Hairline() }
+                        photoGroupRow(group)
+                    }
+                    if controller.photoGroups.count > 12 {
+                        Text("+\(controller.photoGroups.count - 12) \(L("more group(s)"))").font(.caption2).foregroundStyle(.tertiary)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private func photoGroupRow(_ group: [FileEntry]) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(Array(group.enumerated()), id: \.offset) { idx, file in
+                    let removing = controller.photoRemoval.contains(file.url)
+                    VStack(spacing: 4) {
+                        PhotoThumb(url: file.url)
+                            .frame(width: 90, height: 90)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .strokeBorder(removing ? Palette.crit : Palette.good, lineWidth: 2))
+                            .overlay(alignment: .topTrailing) {
+                                Image(systemName: removing ? "trash.circle.fill" : "checkmark.circle.fill")
+                                    .font(.system(size: 15)).foregroundStyle(removing ? Palette.crit : Palette.good)
+                                    .background(Circle().fill(Color(nsColor: .windowBackgroundColor))).padding(3)
+                            }
+                            .overlay(alignment: .bottomLeading) {
+                                if idx == 0 {
+                                    Text(L("Best")).font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                                        .padding(.horizontal, 4).padding(.vertical, 1)
+                                        .background(Palette.good, in: Capsule()).padding(3)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture { controller.togglePhoto(file.url) }
+                            .help(file.url.lastPathComponent)
+                        Text(bytesString(file.size)).font(.system(size: 9).monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.vertical, 2)
+        }
     }
 
     private var cloudCard: some View {
@@ -1220,11 +1298,39 @@ struct ToolsSection: View {
             ToolDef(id: "Screenshots", title: L("Screenshots"), subtitle: L("Screenshots on the Desktop"), icon: "camera.viewfinder", tint: Palette.accent) { ClutterFinder().screenshots(under: home.appendingPathComponent("Desktop")) },
             ToolDef(id: "Downloads", title: L("Downloads"), subtitle: L("Files older than 30 days"), icon: "arrow.down.circle", tint: Palette.accent2) { ClutterFinder().oldDownloads(under: home.appendingPathComponent("Downloads")) },
             ToolDef(id: "Mail Attachments", title: L("Mail Attachments"), subtitle: L("Locally cached, re-downloadable"), icon: "paperclip", tint: Palette.accent) { ClutterFinder().mailAttachments(under: home.appendingPathComponent("Library/Mail")) },
-            ToolDef(id: "Similar Images", title: L("Similar Images"), subtitle: L("Keep the best of each group"), icon: "photo.on.rectangle.angled", tint: Palette.accent2) {
-                let files = (try? Scanner().scanFiles(under: home.appendingPathComponent("Pictures"), pruning: [], includingHidden: false)) ?? []
-                return SimilarImageFinder().plan(in: files)
-            },
         ]
+    }
+}
+
+/// A lazily-loaded, downscaled thumbnail for a local image file. Uses ImageIO (thread-safe,
+/// reuses any embedded thumbnail) off the main actor so scrolling a group stays smooth.
+struct PhotoThumb: View {
+    let url: URL
+    @State private var image: NSImage?
+
+    var body: some View {
+        ZStack {
+            if let image {
+                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
+            } else {
+                Rectangle().fill(.quaternary)
+                    .overlay(Image(systemName: "photo").foregroundStyle(.tertiary))
+            }
+        }
+        .task(id: url) { image = await Self.thumbnail(url) }
+    }
+
+    static func thumbnail(_ url: URL, maxPixel: CGFloat = 200) async -> NSImage? {
+        await Task.detached(priority: .utility) {
+            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+            ]
+            guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+            return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+        }.value
     }
 }
 

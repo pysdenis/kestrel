@@ -524,6 +524,12 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var cloudFiles: [FileEntry] = []
     @Published var cloudLoading = false
     @Published var cloudMessage: String?
+    // Similar-images review: groups of look-alikes, and which images the user marked to remove.
+    @Published var photoGroups: [[FileEntry]] = []
+    @Published var photoScanning = false
+    @Published var photoApplying = false
+    @Published var photoMessage: String?
+    @Published var photoRemoval: Set<URL> = []
     private var states: [String: ToolRunState] = [:]
     private var loadedMeta = false
 
@@ -571,6 +577,54 @@ struct ChatMessage: Identifiable, Equatable {
             await MainActor.run { [weak self] in
                 self?.cloudMessage = ok ? "Offloaded “\(url.lastPathComponent)” — it stays in iCloud." : "Couldn't offload “\(url.lastPathComponent)”."
                 self?.cloudFiles.removeAll { $0.url == url }
+            }
+        }
+    }
+
+    /// Scan Pictures for perceptually-similar photos, grouped. Defaults to keeping the largest
+    /// of each group and marking the rest for removal — the user tweaks per image before applying.
+    func scanPhotos() {
+        guard !photoScanning else { return }
+        photoScanning = true; photoMessage = nil; photoGroups = []; photoRemoval = []
+        let home = paths.home
+        Task.detached { [weak self] in
+            let files = (try? Scanner().scanFiles(under: home.appendingPathComponent("Pictures"), pruning: [], includingHidden: false)) ?? []
+            let groups = SimilarImageFinder().find(in: files)
+            let removal = Set(groups.flatMap { $0.dropFirst().map(\.url) })  // keep the largest (index 0)
+            await MainActor.run { [weak self] in
+                self?.photoGroups = groups
+                self?.photoRemoval = removal
+                self?.photoScanning = false
+                if groups.isEmpty { self?.photoMessage = "No similar photos found." }
+            }
+        }
+    }
+
+    func togglePhoto(_ url: URL) {
+        if photoRemoval.contains(url) { photoRemoval.remove(url) } else { photoRemoval.insert(url) }
+    }
+
+    var photoRemovalBytes: Int64 {
+        let sizes = Dictionary(photoGroups.flatMap { $0 }.map { ($0.url, $0.size) }, uniquingKeysWith: { a, _ in a })
+        return photoRemoval.reduce(0) { $0 + (sizes[$1] ?? 0) }
+    }
+
+    /// Move the marked images to the vault (undoable), then drop them from the groups.
+    func applyPhotos() {
+        guard !photoRemoval.isEmpty, !photoApplying else { return }
+        photoApplying = true
+        let entries = photoGroups.flatMap { $0 }.filter { photoRemoval.contains($0.url) }
+        let plan = CleanupPlan(items: entries.map { CleanupItem(entry: $0, category: .duplicate, reason: "Similar/duplicate image") })
+        let vaultURL = paths.vault, auditURL = paths.auditLog
+        Task.detached { [weak self] in
+            let result = try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
+            let removed = Set(entries.map(\.url))
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.photoMessage = result.map { "Moved \($0.movedCount) photo(s), \(bytesString($0.movedBytes)) → vault\($0.failureSuffix)" } ?? "Failed"
+                self.photoGroups = self.photoGroups.map { $0.filter { !removed.contains($0.url) } }.filter { $0.count > 1 }
+                self.photoRemoval = []
+                self.photoApplying = false
             }
         }
     }

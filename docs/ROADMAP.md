@@ -203,6 +203,9 @@ Diferenciátory — většina už hotová, tady jako přehled + zbytek.
       **Permissions hledání**, **Tools „Scan all"**, **Cloud Cleanup** (offload iCloud přes `CloudOffloadFinder`/`brctl evict`).
 - [x] **Export reportu aktivity** (Markdown, save panel — health/reclaimed/trend/ledger, lokálně), **živý health-ring v menu baru**
       (proporce podle Mac Health, čitelný i monochromaticky), **SMART zdraví disku** (`DriveHealth` přes `diskutil`, jen verified/failing).
+- [x] **Allowlist vyloučení** (`ExclusionStore` → `SafetyGuard.userExclusions`, Settings karta — cesty, kterých se Kestrel nikdy nedotkne),
+      **Cleanup per-položkový výběr** (checkbox + reveal u každého souboru), **menu-bar cockpit** (Uvolnit RAM / Vysypat koš / Smart Care),
+      **akční health na Dashboardu** (co sráží skóre → tlačítka opravit). Fix: „Show oldest" v Applications řadilo obráceně.
 - [x] Command palette (⌘K, klávesová navigace), [x] Lokální notifikace, [x] Free up RAM, [x] App Permissions (TCC),
       [x] Login Items viewer, [x] Drag&drop sken složky, [x] **Bandwidth monitor per-app** (`BandwidthMonitor`, nettop),
       [x] **Batch uninstall** (multi-select + kombinovaný review), [x] „Explain this" (security nálezy),

@@ -64,7 +64,11 @@ import KestrelCore
             let executor = CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL))
             let result = try? executor.execute(plan, apply: true)
             await MainActor.run {
-                self?.message = result.map { "Moved \($0.movedCount) item(s), \(bytesString($0.movedBytes)) to the vault (undoable)." } ?? "Cleanup failed."
+                self?.message = result.map { r in
+                    var m = "Moved \(r.movedCount) item(s), \(bytesString(r.movedBytes)) to the vault (undoable)."
+                    if !r.failures.isEmpty { m += " \(r.failures.count) couldn't be moved — likely permissions." }
+                    return m
+                } ?? "Cleanup failed."
                 self?.plan = nil
                 self?.applying = false
             }
@@ -138,7 +142,11 @@ import KestrelCore
             let executor = CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL))
             let result = try? executor.execute(plan, apply: true)
             await MainActor.run {
-                self?.message = result.map { "Moved \($0.movedCount) item(s), \(bytesString($0.movedBytes)) to the vault (undoable)." } ?? "Cleanup failed."
+                self?.message = result.map { r in
+                    var m = "Moved \(r.movedCount) item(s), \(bytesString(r.movedBytes)) to the vault (undoable)."
+                    if !r.failures.isEmpty { m += " \(r.failures.count) couldn't be moved — likely permissions." }
+                    return m
+                } ?? "Cleanup failed."
                 self?.plan = nil
                 self?.applying = false
             }
@@ -487,7 +495,11 @@ struct ChatMessage: Identifiable, Equatable {
         Task.detached {
             let result = try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
             await MainActor.run {
-                s.message = result.map { "Cleaned \($0.movedCount), \(bytesString($0.movedBytes)) → vault" } ?? "Failed"
+                s.message = result.map { r in
+                    var m = "Cleaned \(r.movedCount), \(bytesString(r.movedBytes)) → vault"
+                    if !r.failures.isEmpty { m += " · \(r.failures.count) failed" }
+                    return m
+                } ?? "Failed"
                 s.plan = nil
                 s.applying = false
             }

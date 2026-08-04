@@ -22,14 +22,18 @@ struct AppInfo: Identifiable {
 
     private let paths: KestrelPaths
     private var loadedUpdates = false
+    private var loaded = false
     init(paths: KestrelPaths) { self.paths = paths }
 
     var filtered: [AppInfo] {
         query.isEmpty ? apps : apps.filter { $0.name.localizedCaseInsensitiveContains(query) || ($0.bundleId?.localizedCaseInsensitiveContains(query) ?? false) }
     }
 
-    func load() {
-        guard !loading else { return }
+    /// Scan installed apps. Guarded so navigating in and out doesn't re-measure every
+    /// bundle each time; pass `force` after an uninstall to refresh.
+    func load(force: Bool = false) {
+        guard force || (!loaded && !loading) else { return }
+        loaded = true
         loading = true
         let dirs = AppUninstaller().applicationDirectories
         Task.detached { [weak self] in
@@ -110,9 +114,13 @@ struct AppInfo: Identifiable {
             await MainActor.run {
                 let verb = reset ? "Reset" : "Uninstalled"
                 self?.message = plan.items.isEmpty ? "\(name) had nothing to \(reset ? "reset" : "remove")."
-                    : (result.map { "\(verb) \(name) — moved \($0.movedCount) item(s), \(bytesString($0.movedBytes)) to the vault (undoable)." } ?? "Couldn't \(reset ? "reset" : "uninstall") \(name).")
+                    : (result.map { r in
+                        var m = "\(verb) \(name) — moved \(r.movedCount) item(s), \(bytesString(r.movedBytes)) to the vault (undoable)."
+                        if !r.failures.isEmpty { m += " \(r.failures.count) couldn't be moved (permissions?)." }
+                        return m
+                    } ?? "Couldn't \(reset ? "reset" : "uninstall") \(name).")
                 self?.busy = false
-                if !reset { self?.load() }
+                if !reset { self?.load(force: true) }
             }
         }
     }

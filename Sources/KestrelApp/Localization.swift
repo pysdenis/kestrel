@@ -383,6 +383,8 @@ enum Localization {
         ("Stealth mode", "Skrytý režim"),
         ("The request failed — try again.", "Požadavek selhal — zkus to znovu."),
         ("The assistant didn't respond. Check its setup in Settings and your connection.", "Asistent neodpověděl. Zkontroluj jeho nastavení v Nastavení a připojení."),
+        ("Best option (free & offline): install Ollama and pull a model — nothing leaves your Mac, no API key.", "Nejlepší volba (zdarma & offline): nainstaluj Ollamu a stáhni model — nic neopustí tvůj Mac, žádný API klíč."),
+        ("Kestrel detects a running Ollama automatically. Or, to use Google Gemini (cloud), put your API key in a file:", "Kestrel běžící Ollamu detekuje sám. Nebo, pokud chceš Google Gemini (cloud), vlož svůj API klíč do souboru:"),
         ("On-device (offline)", "V zařízení (offline)"),
         ("Gemini (cloud)", "Gemini (cloud)"),
         ("Off", "Vypnuto"),

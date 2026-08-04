@@ -1349,6 +1349,17 @@ withTempDir { tmp in
     }
 }
 
+// MARK: - OllamaClient (local, offline AI)
+
+section("OllamaClient: parses chat + model list")
+let chatJSON = Data(#"{"model":"llama3.2","message":{"role":"assistant","content":"  Hello from Ollama  "},"done":true}"#.utf8)
+check((try? OllamaClient.parseChat(chatJSON)) == "Hello from Ollama", "chat content parsed + trimmed")
+check((try? OllamaClient.parseChat(Data(#"{"message":{"content":""}}"#.utf8))) == nil, "empty content → error")
+check((try? OllamaClient.parseChat(Data("nope".utf8))) == nil, "garbage → error (never invents a reply)")
+let tagsJSON = Data(#"{"models":[{"name":"llama3.2:latest"},{"name":"qwen2.5:7b"}]}"#.utf8)
+check(OllamaClient.parseModels(tagsJSON) == ["llama3.2:latest", "qwen2.5:7b"], "lists installed models")
+check(OllamaClient.parseModels(Data("{}".utf8)).isEmpty, "no models key → empty")
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

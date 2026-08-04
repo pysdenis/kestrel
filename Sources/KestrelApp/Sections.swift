@@ -361,13 +361,13 @@ struct AssistantSection: View {
                 HStack(spacing: 8) {
                     Text(L("Assistant")).font(.title3.weight(.bold))
                     if model.aiConfigured {
-                        Label(model.aiBackendLabel, systemImage: model.onDeviceAIAvailable ? "cpu" : "cloud")
-                            .font(.system(size: 10, weight: .bold)).foregroundStyle(model.onDeviceAIAvailable ? Palette.good : Palette.accent2)
+                        Label(model.aiBackendLabel, systemImage: model.aiIsLocal ? "cpu" : "cloud")
+                            .font(.system(size: 10, weight: .bold)).foregroundStyle(model.aiIsLocal ? Palette.good : Palette.accent2)
                             .padding(.horizontal, 7).padding(.vertical, 2)
-                            .background((model.onDeviceAIAvailable ? Palette.good : Palette.accent2).opacity(0.14), in: Capsule())
+                            .background((model.aiIsLocal ? Palette.good : Palette.accent2).opacity(0.14), in: Capsule())
                     }
                 }
-                Text(model.onDeviceAIAvailable ? L("Honest AI help · fully on-device, nothing leaves your Mac") : L("Honest AI help · sends metadata only"))
+                Text(model.aiIsLocal ? L("Honest AI help · fully on-device, nothing leaves your Mac") : L("Honest AI help · sends metadata only"))
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
@@ -473,10 +473,11 @@ struct AssistantSection: View {
     private var setupCard: some View {
         Card {
             VStack(alignment: .leading, spacing: 10) {
-                Label(L("Turn on the assistant"), systemImage: "key").font(.headline)
-                Text(L("Best option: turn on Apple Intelligence in System Settings — Kestrel then runs the assistant fully on-device, with no key and nothing leaving your Mac."))
+                Label(L("Turn on the assistant"), systemImage: "sparkles").font(.headline)
+                Text(L("Best option (free & offline): install Ollama and pull a model — nothing leaves your Mac, no API key."))
                     .font(.callout).foregroundStyle(Palette.good).fixedSize(horizontal: false, vertical: true)
-                Text(L("Or, to use Google Gemini instead, put your API key in a file:"))
+                Text("brew install ollama && ollama pull llama3.2").font(.caption.monospaced()).textSelection(.enabled)
+                Text(L("Kestrel detects a running Ollama automatically. Or, to use Google Gemini (cloud), put your API key in a file:"))
                     .font(.callout).foregroundStyle(.secondary)
                 Text(model.paths.geminiKey.path).font(.caption.monospaced()).textSelection(.enabled)
                 Text(L("It then sends only metadata (names, sizes, categories) — never file contents."))

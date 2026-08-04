@@ -476,12 +476,27 @@ final class AppModel: ObservableObject {
         }
     }
 
-    var aiConfigured: Bool { onDeviceAIAvailable || !geminiKey().isEmpty }
+    /// A locally-running Ollama model (offline, free), discovered by a quick probe. `nil` when
+    /// Ollama isn't running / has no model pulled.
+    @Published private(set) var ollamaModel: String?
+    private var ollamaProbed = false
 
-    /// Which backend answers. Prefers the **on-device** model (offline, private) over Gemini,
+    func probeOllama() {
+        guard !ollamaProbed else { return }
+        ollamaProbed = true
+        Task { @MainActor in ollamaModel = await OllamaClient.firstAvailableModel() }
+    }
+
+    var aiConfigured: Bool { onDeviceAIAvailable || ollamaModel != nil || !geminiKey().isEmpty }
+
+    /// True when the active backend runs locally — nothing leaves the Mac (on-device or Ollama).
+    var aiIsLocal: Bool { onDeviceAIAvailable || ollamaModel != nil }
+
+    /// Which backend answers. Prefers **local** backends (on-device, then Ollama) over Gemini,
     /// matching Kestrel's zero-telemetry stance; falls back to Gemini only if it's the one set up.
     var aiBackendLabel: String {
         if onDeviceAIAvailable { return L("On-device (offline)") }
+        if let model = ollamaModel { return "Ollama · \(model)" }
         if !geminiKey().isEmpty { return L("Gemini (cloud)") }
         return L("Off")
     }
@@ -489,6 +504,7 @@ final class AppModel: ObservableObject {
     var aiAssistant: AIAssistant? {
         let lang = Localization.effective == .czech ? "Czech" : "English"
         if onDeviceAIAvailable { return AIAssistant(client: OnDeviceLLM(), responseLanguage: lang) }
+        if let model = ollamaModel { return AIAssistant(client: OllamaClient(model: model), responseLanguage: lang) }
         let key = geminiKey()
         return key.isEmpty ? nil : AIAssistant(client: GeminiClient(apiKey: key), responseLanguage: lang)
     }

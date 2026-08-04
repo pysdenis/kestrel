@@ -158,7 +158,7 @@ struct MainWindow: View {
         .frame(minWidth: 900, minHeight: 640)
         .confirmHost()
         .onAppear { model.surfaceAppeared() }
-        .task { model.autoCheckOnLaunchIfEnabled(); model.probeOnDeviceAI() }
+        .task { model.autoCheckOnLaunchIfEnabled(); model.probeOnDeviceAI(); model.probeOllama() }
         .onDisappear { model.surfaceDisappeared(); model.mainWindowClosed() }
         .sheet(isPresented: $model.showPalette) { CommandPaletteView().environmentObject(model) }
         .sheet(isPresented: $model.showOnboarding) { OnboardingView().environmentObject(model) }

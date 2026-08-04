@@ -217,6 +217,7 @@ enum Localization {
         ("Compressed", "Komprimováno"),
         ("Free", "Volné"),
         ("Reading energy usage…", "Načítám spotřebu energie…"),
+        ("Why is this using power?", "Proč to spotřebovává energii?"),
         ("Measuring per-app traffic…", "Měřím provoz podle aplikace…"),
         ("Cumulative traffic since each process started (via nettop). Read-only.", "Kumulativní provoz od spuštění procesu (přes nettop). Jen ke čtení."),
         ("Building history… this fills in while Kestrel is running.", "Sbírám historii… doplní se, dokud Kestrel běží."),

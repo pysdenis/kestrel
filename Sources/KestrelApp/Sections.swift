@@ -612,7 +612,10 @@ struct EnergySection: View {
                 } else {
                     ForEach(Array(model.energyNow.enumerated()), id: \.element.id) { i, proc in
                         if i > 0 { Hairline() }
-                        EnergyRow(rank: i + 1, proc: proc, fraction: proc.energyImpact / maxNow) { confirmQuit(proc) }
+                        EnergyRow(rank: i + 1, proc: proc, fraction: proc.energyImpact / maxNow,
+                                  controller: model.energy, canExplain: model.aiConfigured,
+                                  onExplain: { model.energy.explain(proc, assistant: model.aiAssistant) },
+                                  onQuit: { confirmQuit(proc) })
                     }
                 }
             }
@@ -700,32 +703,73 @@ struct EnergyStat: View {
     }
 }
 
-/// A "draining right now" row: rank, name, live CPU%, an impact bar, and a quit button.
+/// A "draining right now" row: the owning app's icon + name (with the raw process name as
+/// a subtitle), live CPU%, an impact bar, an optional AI "why?" explanation, and a quit
+/// button. The app icon/name are resolved per-row on appear.
 struct EnergyRow: View {
     let rank: Int
     let proc: ProcessEnergy
     let fraction: Double
+    @ObservedObject var controller: EnergyController
+    let canExplain: Bool
+    let onExplain: () -> Void
     let onQuit: () -> Void
 
+    @State private var appName = ""
+    @State private var appIcon: NSImage?
+
     private var tint: Color { fraction > 0.66 ? Palette.crit : (fraction > 0.33 ? Palette.orange : Palette.accent) }
+    private var displayName: String { appName.isEmpty ? proc.name : appName }
+    private var isApp: Bool { !appName.isEmpty }
 
     var body: some View {
-        HStack(spacing: 12) {
-            Text("\(rank)").font(.caption.monospacedDigit().weight(.bold)).foregroundStyle(.tertiary).frame(width: 16)
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(proc.name).font(.callout).lineLimit(1).truncationMode(.middle)
-                    Spacer()
-                    Text(String(format: "%.0f%% CPU", proc.cpuPercent)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 11) {
+                Text("\(rank)").font(.caption.monospacedDigit().weight(.bold)).foregroundStyle(.tertiary).frame(width: 14)
+                Group {
+                    if let appIcon { Image(nsImage: appIcon).resizable() }
+                    else { Image(systemName: "gearshape.2").resizable().foregroundStyle(.secondary).padding(3) }
                 }
-                MiniBar(fraction: fraction, tint: tint)
+                .frame(width: 26, height: 26)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(displayName).font(.callout.weight(.medium)).lineLimit(1).truncationMode(.middle)
+                            if isApp, proc.name != appName {
+                                Text(proc.name).font(.caption2).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
+                            }
+                        }
+                        Spacer()
+                        Text(String(format: "%.0f%% CPU", proc.cpuPercent)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                    MiniBar(fraction: fraction, tint: tint)
+                }
+                if canExplain && controller.explanations[proc.pid] == nil {
+                    Button(action: onExplain) {
+                        if controller.explaining.contains(proc.pid) { KestrelSpinner(tint: Palette.violet, size: 13) }
+                        else { Image(systemName: "sparkles").foregroundStyle(Palette.violet) }
+                    }
+                    .buttonStyle(.plain).help(L("Why is this using power?"))
+                }
+                Button(action: onQuit) {
+                    Image(systemName: "xmark.circle.fill").font(.title3).foregroundStyle(Palette.crit)
+                }
+                .buttonStyle(.plain).help("\(L("Quit")) \(displayName)")
             }
-            Button(action: onQuit) {
-                Image(systemName: "xmark.circle.fill").font(.title3).foregroundStyle(Palette.crit)
+            if let explanation = controller.explanations[proc.pid] {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "sparkles").font(.caption2).foregroundStyle(Palette.violet)
+                    Text(explanation).font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                }
+                .padding(.leading, 51).padding(.trailing, 4)
             }
-            .buttonStyle(.plain).help("Quit \(proc.name)")
         }
         .padding(.vertical, 5)
+        .onAppear {
+            let info = AppResolver.appInfo(forPid: proc.pid)
+            appName = info.name
+            if let url = info.url { appIcon = NSWorkspace.shared.icon(forFile: url.path) }
+        }
     }
 }
 

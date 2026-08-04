@@ -81,6 +81,7 @@ final class AppModel: ObservableObject {
     lazy var security = SecurityController()
     lazy var apps = AppsController(paths: paths)
     lazy var permissions = PermissionsController()
+    lazy var energy = EnergyController()
     lazy var space = SpaceController(paths: paths)
     lazy var tools = ToolsController(paths: paths)
     lazy var assistant = AssistantController()

@@ -325,7 +325,7 @@ struct HealthChip: View {
     var body: some View {
         HStack(spacing: 7) {
             Circle().fill(healthColor(score)).frame(width: 7, height: 7)
-            Text(name).font(.caption.weight(.medium))
+            Text(L(name)).font(.caption.weight(.medium))
             Text("\(score)").font(.caption.monospacedDigit().weight(.semibold)).foregroundStyle(.secondary)
         }
         .padding(.horizontal, 11).padding(.vertical, 6)

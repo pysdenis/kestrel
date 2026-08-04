@@ -175,7 +175,7 @@ struct HealthRing: View {
                 .animation(.easeOut(duration: 0.6), value: score)
             VStack(spacing: 0) {
                 Text("\(score)").font(.system(size: size * 0.34, weight: .bold, design: .rounded)).monospacedDigit()
-                Text("HEALTH").font(.system(size: size * 0.11, weight: .semibold)).foregroundStyle(.secondary).kerning(1)
+                Text(L("HEALTH")).font(.system(size: size * 0.11, weight: .semibold)).foregroundStyle(.secondary).kerning(1)
             }
         }
         .frame(width: size, height: size)
@@ -714,7 +714,7 @@ struct HeroGauge: View {
                 .animation(.easeOut(duration: 0.75), value: score)
             VStack(spacing: size * 0.01) {
                 Text("\(score)").font(.system(size: size * 0.3, weight: .bold, design: .rounded)).monospacedDigit()
-                Text("HEALTH").font(.system(size: size * 0.072, weight: .bold)).kerning(1.6).foregroundStyle(.secondary)
+                Text(L("HEALTH")).font(.system(size: size * 0.072, weight: .bold)).kerning(1.6).foregroundStyle(.secondary)
             }
         }
         .frame(width: size, height: size)

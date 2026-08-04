@@ -68,6 +68,7 @@ enum Localization {
         ("Preferences, the vault, and where Kestrel stores things", "Předvolby, trezor a kam Kestrel ukládá data"),
         // Dashboard / health
         ("Mac Health", "Stav Macu"),
+        ("HEALTH", "STAV"),
         ("Free up space", "Uvolnit místo"),
         ("Run Smart Care", "Spustit Smart Care"),
         ("Get insight", "Získat postřeh"),

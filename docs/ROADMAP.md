@@ -71,7 +71,7 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 - [x] **Secrets/credential scanner** pro projekty (`SecretsScanner`, `kestrel secrets`).
 - [ ] **Apple Shortcuts integrace** (vystavené akce).
 - [x] **Homebrew maintenance** (advisory `HomebrewAdapter` + `AppUpdater` outdated casks).
-- [ ] Duplicitní & podobné fotky (perceptual hash) — zbývá; Screenshoty ✅ (`ClutterFinder`).
+- [x] Duplicitní & podobné fotky (perceptual hash) — grouped preview s náhledy v Tools. Screenshoty ✅ (`ClutterFinder`).
 - [x] Old installers/.dmg/.pkg finder (`ClutterFinder`, `kestrel installers`).
 - [~] System extensions audit (`SystemExtensionAuditor`, `kestrel sysext`); config profiles zbývá.
 - [x] Sensitive file shredder (`Shredder`, `kestrel shred`, honest o SSD/FileVault).
@@ -100,7 +100,7 @@ Detaily viz brainstorm; AI je vždy opt-in a posílá jen metadata (invariant #7
 - [x] **Přirozený jazyk → rule** (`AIAssistant.suggestRule`, `kestrel rules suggest`) — AI navrhne, uživatel potvrdí.
 - [x] **Weekly digest** (`DigestReporter`, `kestrel digest` — úspory + trend + co narostlo).
 - [x] **`launchd` automatizace** pro rules (`RulesScheduler`, `kestrel rules install-agent`).
-- [ ] **Perceptuální hash** na podobné fotky + seskupení screenshotů.
+- [x] **Perceptuální hash** na podobné fotky + **grouped preview s náhledy** v Tools (per-foto výběr → trezor).
 - [x] **System extensions audit** (`SystemExtensionAuditor`, `kestrel sysext`); config profiles zbývá.
 - [x] **Lokální notifikace** (`Notifier`, UserNotifications) — málo místa (opt-in toggle v Settings, bundle-guarded).
 - [x] **Menu bar quick action** „Clean dev junk" (popover → Cleanup dev sken k review).
@@ -153,7 +153,8 @@ Vše drží invarianty: dry-run default, vault + undo, audit, unknown se nemaže
 - [x] **Duplicate Finder** (size→partial→full hash).
 - [x] **Large & Old Files** (konfig. prahy).
 - [x] **Screenshots / Old installers** (`ClutterFinder`) — *navíc oproti CMM granularitě*.
-- [x] **Similar Images** — `SimilarImageFinder` (perceptuální aHash), `kestrel photos`.
+- [x] **Similar Images** — `SimilarImageFinder` (perceptuální aHash), `kestrel photos`; GUI **grouped preview**
+      (náhledy skupin, „Best" se nechá, per-foto výběr klepnutím, Move-to-Vault přes trezor).
 - [x] **Downloads** — `ClutterFinder.oldDownloads`, `kestrel downloads`.
 - [x] **Mail Attachments** — `ClutterFinder.mailAttachments`, `kestrel mail`.
 

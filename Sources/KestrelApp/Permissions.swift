@@ -131,7 +131,7 @@ struct PermissionPill: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: Self.icon(for: name)).imageScale(.small)
-            Text(name).font(.caption.weight(.medium))
+            Text(L(name)).font(.caption.weight(.medium))
         }
         .padding(.horizontal, 10).padding(.vertical, 5)
         .foregroundStyle(allowed ? AnyShapeStyle(Palette.good) : AnyShapeStyle(Color.secondary))

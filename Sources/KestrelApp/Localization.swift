@@ -278,6 +278,27 @@ enum Localization {
         ("Select for batch uninstall", "Vybrat pro hromadné odinstalování"),
         ("Reveal in Finder", "Zobrazit ve Finderu"),
 
+        // Permissions — TCC service friendly names
+        ("Camera", "Kamera"),
+        ("Microphone", "Mikrofon"),
+        ("Full Disk Access", "Plný přístup k disku"),
+        ("Desktop folder", "Složka Plocha"),
+        ("Documents folder", "Složka Dokumenty"),
+        ("Downloads folder", "Složka Stažené"),
+        ("Network volumes", "Síťové svazky"),
+        ("Removable volumes", "Vyměnitelné svazky"),
+        ("Accessibility", "Zpřístupnění"),
+        ("Input monitoring", "Sledování vstupu"),
+        ("Screen recording", "Nahrávání obrazovky"),
+        ("Automation", "Automatizace"),
+        ("Photos", "Fotky"),
+        ("Contacts", "Kontakty"),
+        ("Calendar", "Kalendář"),
+        ("Reminders", "Připomínky"),
+        ("Location", "Poloha"),
+        ("Media library", "Knihovna médií"),
+        ("Speech recognition", "Rozpoznávání řeči"),
+
         // Permissions
         ("Per-user privacy grants, read-only from your TCC database. System-level ones like Full Disk Access and Accessibility live in a root-only database and may not all appear here — manage everything in System Settings.", "Oprávnění na úrovni uživatele, jen ke čtení z tvé TCC databáze. Systémová jako plný přístup k disku a zpřístupnění žijí v databázi jen pro root a nemusí se tu všechna zobrazit — spravuj vše v Nastavení systému."),
         ("No app permissions found", "Žádná oprávnění aplikací"),

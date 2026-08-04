@@ -42,7 +42,7 @@ import KestrelCore
                 Task { @MainActor in self?.scanStatus = "Scanned \(count) files · \(name)" }
             }) ?? []
             let result = Planner().plan(classified, categories: categories)
-            await MainActor.run { self?.plan = result; self?.scanning = false }
+            await MainActor.run { [weak self] in self?.plan = result; self?.scanning = false }
         }
     }
 
@@ -51,7 +51,7 @@ import KestrelCore
         reviewing = true; aiReview = nil
         Task { [weak self] in
             let text = (try? await assistant.review(plan: plan)) ?? "AI review failed. Check your key and connection."
-            await MainActor.run { self?.aiReview = text; self?.reviewing = false }
+            await MainActor.run { [weak self] in self?.aiReview = text; self?.reviewing = false }
         }
     }
 
@@ -63,7 +63,7 @@ import KestrelCore
         Task.detached { [weak self] in
             let executor = CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL))
             let result = try? executor.execute(plan, apply: true)
-            await MainActor.run {
+            await MainActor.run { [weak self] in
                 self?.message = result.map { "Moved \($0.movedCount) item(s), \(bytesString($0.movedBytes)) to the vault (undoable).\($0.failureSuffix)" } ?? "Cleanup failed."
                 self?.plan = nil
                 self?.applying = false
@@ -108,13 +108,13 @@ import KestrelCore
                 Task { @MainActor in self?.status = "Scanned \(count) files · \(url.lastPathComponent)" }
             }) ?? []
             let plan = Planner().plan(classified)
-            await MainActor.run {
+            await MainActor.run { [weak self] in
                 self?.plan = plan; self?.cleanupStep = .done
                 self?.protectionStep = .running; self?.status = "Checking macOS protection…"
             }
 
             let protection = SystemProtectionReader().status()
-            await MainActor.run {
+            await MainActor.run { [weak self] in
                 self?.protection = protection; self?.protectionStep = .done
                 self?.malwareStep = .running; self?.status = "Scanning Downloads for malware…"
             }
@@ -122,7 +122,7 @@ import KestrelCore
             let report = AntivirusEngine().scan(root: downloads) { done, total, url in
                 Task { @MainActor in self?.status = "Malware scan \(done)/\(total) · \(url.lastPathComponent)" }
             }
-            await MainActor.run {
+            await MainActor.run { [weak self] in
                 self?.report = report; self?.malwareStep = .done
                 self?.running = false; self?.finished = true; self?.status = ""
             }
@@ -137,7 +137,7 @@ import KestrelCore
         Task.detached { [weak self] in
             let executor = CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL))
             let result = try? executor.execute(plan, apply: true)
-            await MainActor.run {
+            await MainActor.run { [weak self] in
                 self?.message = result.map { "Moved \($0.movedCount) item(s), \(bytesString($0.movedBytes)) to the vault (undoable).\($0.failureSuffix)" } ?? "Cleanup failed."
                 self?.plan = nil
                 self?.applying = false
@@ -168,7 +168,7 @@ import KestrelCore
         Task { [weak self] in
             let prompt = "In one or two sentences, give the single most useful, honest, practical insight about this Mac's storage and health right now. Be specific."
             let text = (try? await assistant.ask(prompt, context: context)) ?? "Couldn't reach the assistant — check your key and connection."
-            await MainActor.run { self?.insight = text; self?.insightLoading = false }
+            await MainActor.run { [weak self] in self?.insight = text; self?.insightLoading = false }
         }
     }
 
@@ -187,7 +187,7 @@ import KestrelCore
             }
             let trend = try? store.trend()
             let series = snapshots.suffix(30).map { Double($0.space.used) }
-            await MainActor.run {
+            await MainActor.run { [weak self] in
                 self?.trend = trend
                 self?.usedSeries = series
             }
@@ -197,7 +197,7 @@ import KestrelCore
         loadedProtection = true
         Task.detached { [weak self] in
             let status = SystemProtectionReader().status()
-            await MainActor.run { self?.protection = status }
+            await MainActor.run { [weak self] in self?.protection = status }
         }
     }
 
@@ -234,7 +234,7 @@ import KestrelCore
         explaining.insert(key)
         Task { [weak self] in
             let text = (try? await assistant.explainFinding(finding)) ?? "Couldn't reach the assistant — check your key and connection."
-            await MainActor.run { self?.explanations[key] = text; self?.explaining.remove(key) }
+            await MainActor.run { [weak self] in self?.explanations[key] = text; self?.explaining.remove(key) }
         }
     }
 
@@ -245,7 +245,7 @@ import KestrelCore
         Task.detached { [weak self] in
             let orphaned = LaunchAgentAuditor().orphans()
             let exts = SystemExtensionAuditor().list()
-            await MainActor.run { self?.orphans = orphaned; self?.extensions = exts }
+            await MainActor.run { [weak self] in self?.orphans = orphaned; self?.extensions = exts }
         }
     }
 
@@ -270,7 +270,7 @@ import KestrelCore
                     self?.scanStatus = "\(done) / \(total) files · \(name)"
                 }
             }
-            await MainActor.run { self?.report = result; self?.scanning = false }
+            await MainActor.run { [weak self] in self?.report = result; self?.scanning = false }
         }
     }
 }
@@ -299,7 +299,7 @@ import KestrelCore
                     self?.scanStatus = "Measured \(name) · \(done)/\(total)"
                 }
             }
-            await MainActor.run { self?.tree = measured; self?.loading = false }
+            await MainActor.run { [weak self] in self?.tree = measured; self?.loading = false }
         }
     }
 }
@@ -329,7 +329,7 @@ struct ChatMessage: Identifiable, Equatable {
         thinking = true
         Task { [weak self] in
             let reply = (try? await assistant.ask(q, context: context)) ?? "The request failed. Check your API key and connection."
-            await MainActor.run { self?.messages.append(ChatMessage(role: .assistant, text: reply)); self?.thinking = false }
+            await MainActor.run { [weak self] in self?.messages.append(ChatMessage(role: .assistant, text: reply)); self?.thinking = false }
         }
     }
 
@@ -342,7 +342,7 @@ struct ChatMessage: Identifiable, Equatable {
             let classified = (try? ScanCoordinator().scan(root: target)) ?? []
             let plan = Planner().plan(classified)
             let reply = (try? await assistant.summarize(plan: plan, disk: disk)) ?? "The request failed. Check your API key and connection."
-            await MainActor.run { self?.messages.append(ChatMessage(role: .assistant, text: reply)); self?.thinking = false }
+            await MainActor.run { [weak self] in self?.messages.append(ChatMessage(role: .assistant, text: reply)); self?.thinking = false }
         }
     }
 
@@ -376,7 +376,7 @@ struct ChatMessage: Identifiable, Equatable {
         let vaultURL = paths.vault
         Task.detached { [weak self] in
             let sessions = (try? VaultService(vaultRoot: vaultURL).listSessions()) ?? []
-            await MainActor.run { self?.sessions = sessions }
+            await MainActor.run { [weak self] in self?.sessions = sessions }
         }
     }
 
@@ -420,7 +420,7 @@ struct ChatMessage: Identifiable, Equatable {
                 text = "Restore failed: \((error as NSError).localizedDescription)"
             }
             let sessions = (try? VaultService(vaultRoot: vaultURL).listSessions()) ?? []
-            await MainActor.run {
+            await MainActor.run { [weak self] in
                 self?.message = text; self?.lastRestoreOK = ok
                 self?.sessions = sessions; self?.busy = false
             }
@@ -436,7 +436,7 @@ struct ChatMessage: Identifiable, Equatable {
             let purged = (try? VaultService(vaultRoot: vaultURL).purge(olderThan: interval)) ?? []
             let sessions = (try? VaultService(vaultRoot: vaultURL).listSessions()) ?? []
             let bytes = purged.reduce(Int64(0)) { $0 + $1.totalBytes }
-            await MainActor.run {
+            await MainActor.run { [weak self] in
                 self?.message = purged.isEmpty ? "Nothing old enough to purge yet." : "Permanently removed \(purged.count) session(s), \(bytesString(bytes)) freed."
                 self?.sessions = sessions; self?.busy = false
             }
@@ -482,7 +482,7 @@ struct ChatMessage: Identifiable, Equatable {
             let sleep = PowerAuditor().assertionsPreventingSleep()
             let tasks = MaintenanceService().tasks()
             let items = LaunchAgentAuditor().audit()
-            await MainActor.run { self?.sleepers = sleep; self?.maintenance = tasks; self?.loginItems = items }
+            await MainActor.run { [weak self] in self?.sleepers = sleep; self?.maintenance = tasks; self?.loginItems = items }
         }
     }
 
@@ -526,7 +526,7 @@ struct ChatMessage: Identifiable, Equatable {
         let root = project
         Task.detached { [weak self] in
             let matches = SecretsScanner().scan(root: root)
-            await MainActor.run { self?.secrets = matches; self?.secretsScanning = false }
+            await MainActor.run { [weak self] in self?.secrets = matches; self?.secretsScanning = false }
         }
     }
 }

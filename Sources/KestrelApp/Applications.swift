@@ -46,21 +46,21 @@ struct AppInfo: Identifiable {
                 }
             }
             found.sort { $0.name.lowercased() < $1.name.lowercased() }
-            await MainActor.run {
+            await MainActor.run { [weak self] in
                 self?.apps = found
                 self?.loading = false
             }
             // Measure sizes in the background, then merge them in one update.
             var sizes: [String: Int64] = [:]
             for info in found { sizes[info.url.path] = Self.bundleSize(info.url) }
-            await MainActor.run { self?.applySizes(sizes) }
+            await MainActor.run { [weak self] in self?.applySizes(sizes) }
         }
 
         guard !loadedUpdates else { return }
         loadedUpdates = true
         Task.detached { [weak self] in
             let casks = AppUpdater().outdatedCasks()
-            await MainActor.run { self?.updates = casks }
+            await MainActor.run { [weak self] in self?.updates = casks }
         }
     }
 
@@ -89,7 +89,7 @@ struct AppInfo: Identifiable {
         let url = app.url
         Task.detached { [weak self] in
             let plan = (try? (reset ? AppUninstaller().resetPlan(for: url) : AppUninstaller().plan(for: url))) ?? CleanupPlan(items: [])
-            await MainActor.run { self?.pending = Pending(app: app, plan: plan, reset: reset); self?.preparing = false }
+            await MainActor.run { [weak self] in self?.pending = Pending(app: app, plan: plan, reset: reset); self?.preparing = false }
         }
     }
 
@@ -103,7 +103,7 @@ struct AppInfo: Identifiable {
         Task.detached { [weak self] in
             let result: ExecutionResult? = plan.items.isEmpty ? nil
                 : try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
-            await MainActor.run {
+            await MainActor.run { [weak self] in
                 let verb = reset ? "Reset" : "Uninstalled"
                 self?.message = plan.items.isEmpty ? "\(name) had nothing to \(reset ? "reset" : "remove")."
                     : (result.map { "\(verb) \(name) — moved \($0.movedCount) item(s), \(bytesString($0.movedBytes)) to the vault (undoable).\($0.failureSuffix)" }

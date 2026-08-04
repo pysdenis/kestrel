@@ -24,7 +24,7 @@ import KestrelCore
             let perms = TCCReader().permissions()
             let grouped = Dictionary(grouping: perms, by: { $0.client })
                 .map { (client: $0.key, items: $0.value.sorted { $0.service < $1.service }) }
-            await MainActor.run { self?.resolve(grouped) }
+            await MainActor.run { [weak self] in self?.resolve(grouped) }
         }
     }
 

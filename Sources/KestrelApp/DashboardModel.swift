@@ -196,7 +196,7 @@ final class AppModel: ObservableObject {
         freeingMemory = true
         Task.detached { [weak self] in
             _ = MemoryReliever().freeInactiveMemory()
-            await MainActor.run { self?.freeingMemory = false; self?.refresh() }
+            await MainActor.run { [weak self] in self?.freeingMemory = false; self?.refresh() }
         }
     }
 

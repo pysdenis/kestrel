@@ -14,7 +14,13 @@ import KestrelCore
 
     @Published var groups: [AppPermissions] = []
     @Published var loading = false
+    @Published var query = ""
     private var loaded = false
+
+    var filteredGroups: [AppPermissions] {
+        guard !query.isEmpty else { return groups }
+        return groups.filter { $0.name.localizedCaseInsensitiveContains(query) || $0.client.localizedCaseInsensitiveContains(query) }
+    }
 
     func load() {
         guard !loaded else { return }
@@ -85,8 +91,16 @@ struct PermissionsSection: View {
                                tint: Palette.accent)
                 }
             } else {
+                Card(padding: 10) {
+                    HStack(spacing: 9) {
+                        Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                        TextField(L("Search apps…"), text: $controller.query).textFieldStyle(.plain)
+                        Spacer()
+                        Text("\(controller.filteredGroups.count) \(L("app(s)"))").font(.caption).foregroundStyle(.tertiary)
+                    }
+                }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 12)], spacing: 12) {
-                    ForEach(controller.groups) { PermissionCard(app: $0) }
+                    ForEach(controller.filteredGroups) { PermissionCard(app: $0) }
                 }
             }
         }

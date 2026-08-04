@@ -312,9 +312,30 @@ import KestrelCore
     @Published var scanDone = 0
     @Published var scanTotal = 0
     @Published var scanStatus = ""
+    @Published var message: String?
 
     private let paths: KestrelPaths
     init(paths: KestrelPaths) { self.paths = paths }
+
+    /// Move a block from the map to the vault (undoable, audited). Refuses protected
+    /// locations via SafetyGuard, then rescans so the map reflects reality.
+    func moveToVault(_ node: DirNode) {
+        guard !loading else { return }
+        guard !SafetyGuard.isProtected(node.url) else {
+            message = "“\(node.name)” is a protected location — Kestrel won't move it."
+            return
+        }
+        let entry = FileEntry(url: node.url, size: node.size, modified: Date(), isDirectory: node.isDirectory)
+        let plan = CleanupPlan(items: [CleanupItem(entry: entry, category: .largeOld, reason: "Removed from the Space map")])
+        let vaultURL = paths.vault, auditURL = paths.auditLog, name = node.name
+        Task.detached { [weak self] in
+            let result = try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
+            await MainActor.run { [weak self] in
+                self?.message = (result?.movedCount ?? 0) > 0 ? "Moved “\(name)” to the vault (undoable). Rescanning…" : "Couldn't move “\(name)”."
+                self?.load()
+            }
+        }
+    }
 
     func load() {
         guard !loading else { return }

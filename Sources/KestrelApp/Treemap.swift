@@ -72,6 +72,8 @@ enum Treemap {
 struct TreemapView: View {
     let node: DirNode
     let onSelect: (DirNode) -> Void
+    var onReveal: ((DirNode) -> Void)? = nil
+    var onClean: ((DirNode) -> Void)? = nil
 
     private let tints: [Color] = [Palette.accent, Palette.accent2, Palette.violet, Palette.warn, Palette.good, Palette.pink]
 
@@ -80,26 +82,37 @@ struct TreemapView: View {
             let cells = Treemap.layout(node.children, in: CGRect(origin: .zero, size: geo.size))
             ZStack(alignment: .topLeading) {
                 ForEach(Array(cells.enumerated()), id: \.offset) { index, cell in
-                    let tint = tints[index % tints.count]
-                    RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .fill(tint.opacity(0.55))
-                        .overlay(RoundedRectangle(cornerRadius: 3, style: .continuous).strokeBorder(.black.opacity(0.25), lineWidth: 0.5))
-                        .overlay(alignment: .topLeading) {
-                            if cell.rect.width > 58, cell.rect.height > 26 {
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(cell.node.name).font(.system(size: 10, weight: .semibold)).lineLimit(1)
-                                    Text(bytesString(cell.node.size)).font(.system(size: 9)).opacity(0.85)
-                                }
-                                .foregroundStyle(.white)
-                                .padding(5)
-                            }
-                        }
-                        .frame(width: max(1, cell.rect.width), height: max(1, cell.rect.height))
-                        .position(x: cell.rect.midX, y: cell.rect.midY)
-                        .onTapGesture { if !cell.node.children.isEmpty { onSelect(cell.node) } }
-                        .help("\(cell.node.name) — \(bytesString(cell.node.size))")
+                    cellView(cell, tint: tints[index % tints.count])
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func cellView(_ cell: Treemap.Cell, tint: Color) -> some View {
+        RoundedRectangle(cornerRadius: 3, style: .continuous)
+            .fill(tint.opacity(0.55))
+            .overlay(RoundedRectangle(cornerRadius: 3, style: .continuous).strokeBorder(.black.opacity(0.25), lineWidth: 0.5))
+            .overlay(alignment: .topLeading) { cellLabel(cell) }
+            .frame(width: max(1, cell.rect.width), height: max(1, cell.rect.height))
+            .position(x: cell.rect.midX, y: cell.rect.midY)
+            .onTapGesture { if !cell.node.children.isEmpty { onSelect(cell.node) } }
+            .help("\(cell.node.name) — \(bytesString(cell.node.size))")
+            .contextMenu {
+                if let onReveal { Button { onReveal(cell.node) } label: { Label(L("Reveal in Finder"), systemImage: "magnifyingglass") } }
+                if let onClean { Button(role: .destructive) { onClean(cell.node) } label: { Label(L("Move to Vault"), systemImage: "tray.and.arrow.down") } }
+            }
+    }
+
+    @ViewBuilder
+    private func cellLabel(_ cell: Treemap.Cell) -> some View {
+        if cell.rect.width > 58, cell.rect.height > 26 {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(cell.node.name).font(.system(size: 10, weight: .semibold)).lineLimit(1)
+                Text(bytesString(cell.node.size)).font(.system(size: 9)).opacity(0.85)
+            }
+            .foregroundStyle(.white)
+            .padding(5)
         }
     }
 }

@@ -471,6 +471,10 @@ struct SpaceSection: View {
                     .disabled(controller.loading)
             }
 
+            if let message = controller.message {
+                Label(message, systemImage: "checkmark.circle.fill").foregroundStyle(Palette.good).font(.callout)
+            }
+
             if controller.loading {
                 ScanningBanner(title: "Measuring your Home folder…",
                                detail: controller.scanStatus.isEmpty ? L("Reading top-level folders…") : controller.scanStatus,
@@ -480,10 +484,13 @@ struct SpaceSection: View {
                 let current = controller.path.last ?? tree
                 breadcrumb(current)
                 Card(padding: 6) {
-                    TreemapView(node: current) { child in controller.path.append(child) }
+                    TreemapView(node: current,
+                                onSelect: { child in controller.path.append(child) },
+                                onReveal: { NSWorkspace.shared.activateFileViewerSelecting([$0.url]) },
+                                onClean: { confirmMove($0) })
                         .frame(height: 340)
                 }
-                Text(L("Sized by real on-disk usage (allocated bytes), so sparse files like Docker.raw show their true footprint. Click a block to drill in."))
+                Text(L("Sized by real on-disk usage (allocated bytes), so sparse files like Docker.raw show their true footprint. Click a block to drill in. Right-click a block to reveal or move it to the vault."))
                     .font(.caption2).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
                 largestCard(current)
             } else {
@@ -521,6 +528,16 @@ struct SpaceSection: View {
             Text(label).font(.caption).foregroundStyle(.secondary)
             Text(value).font(.caption.monospacedDigit().weight(.medium))
         }
+    }
+
+    private func confirmMove(_ node: DirNode) {
+        model.requestConfirm(ConfirmRequest(
+            icon: "tray.and.arrow.down", tint: Palette.crit,
+            title: "\(L("Move to Vault"))?",
+            message: "\(node.name) · \(bytesString(node.size)) — \(L("moves to the vault (undoable). Protected locations are refused."))",
+            confirmLabel: L("Move to Vault"), destructive: true,
+            onConfirm: { controller.moveToVault(node) }
+        ))
     }
 
     private func breadcrumb(_ current: DirNode) -> some View {
@@ -577,6 +594,7 @@ struct ActivitySection: View {
     @State private var summary: ActivitySummary?
     @State private var digest: Digest?
     @State private var sessions: [VaultSession] = []
+    @State private var entries: [AuditEntry] = []
 
     private let columns = [GridItem(.adaptive(minimum: 320), spacing: 14)]
     private var totalVaultBytes: Int64 { sessions.reduce(0) { $0 + $1.totalBytes } }
@@ -590,16 +608,45 @@ struct ActivitySection: View {
                 recommendationsCard
                 vaultCard
             }
+            if !entries.isEmpty { ledgerCard }
         }
         .onAppear {
             summary = ActivityReporter(audit: AuditLog(url: model.paths.auditLog)).summary()
             digest = DigestReporter(audit: AuditLog(url: model.paths.auditLog), snapshots: SnapshotStore(directory: model.paths.snapshots)).generate()
-            let vaultURL = model.paths.vault
+            let vaultURL = model.paths.vault, auditURL = model.paths.auditLog
             Task.detached {
                 let list = (try? VaultService(vaultRoot: vaultURL).listSessions()) ?? []
-                await MainActor.run { sessions = list }
+                let log = (try? AuditLog(url: auditURL).readAll()) ?? []
+                await MainActor.run { sessions = list; entries = Array(log.suffix(40).reversed()) }
             }
         }
+    }
+
+    private var ledgerCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("Recent activity", icon: "list.bullet.rectangle")
+                ForEach(Array(entries.enumerated()), id: \.offset) { i, e in
+                    if i > 0 { Hairline() }
+                    HStack(spacing: 10) {
+                        Image(systemName: e.result.hasPrefix("ok") ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .font(.caption).foregroundStyle(e.result.hasPrefix("ok") ? Palette.good : Palette.warn)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("\(L(ledgerAction(e.action)))\(e.category.map { " · \(categoryLabel($0))" } ?? "")").font(.callout).lineLimit(1)
+                            Text((e.paths.first as NSString?)?.lastPathComponent ?? "").font(.caption2.monospaced()).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
+                        }
+                        Spacer()
+                        if e.bytes > 0 { Text(bytesString(e.bytes)).font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
+                        Text(e.timestamp.formatted(date: .abbreviated, time: .shortened)).font(.caption2).foregroundStyle(.tertiary)
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+
+    private func ledgerAction(_ raw: String) -> String {
+        switch raw { case "vault-move": return "Moved to vault"; case "vault-undo": return "Restored"; case "vault-purge": return "Purged"; default: return raw }
     }
 
     // MARK: cards

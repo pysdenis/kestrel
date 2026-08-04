@@ -420,6 +420,15 @@ enum Localization {
         ("Add a Gemini key to enable it. It only ever sends metadata — never file contents.", "Zapneš ho přidáním Gemini klíče. Posílá jen metadata — nikdy obsah souborů."),
         ("Get started", "Začít"),
 
+        // Space treemap actions / Activity ledger / Permissions search
+        ("Sized by real on-disk usage (allocated bytes), so sparse files like Docker.raw show their true footprint. Click a block to drill in. Right-click a block to reveal or move it to the vault.", "Velikost podle reálného využití disku (alokované bajty), takže řídké soubory jako Docker.raw ukazují skutečnou stopu. Klikni na blok pro zanoření, pravým tlačítkem pro zobrazení nebo přesun do trezoru."),
+        ("moves to the vault (undoable). Protected locations are refused.", "přesune se do trezoru (vratné). Chráněná místa jsou odmítnuta."),
+        ("Recent activity", "Nedávná aktivita"),
+        ("Moved to vault", "Přesunuto do trezoru"),
+        ("Restored", "Obnoveno"),
+        ("Purged", "Protříděno"),
+        ("Search apps…", "Hledat aplikace…"),
+
         // Categories
         ("CATEGORY", "KATEGORIE"),
         ("Everything safe", "Vše bezpečné"),

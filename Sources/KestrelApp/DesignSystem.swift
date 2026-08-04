@@ -719,8 +719,12 @@ struct HeroGauge: View {
                 Circle()
                     .trim(from: 0, to: frac)
                     .stroke(
-                        AngularGradient(colors: [color.opacity(0.45), color, color.opacity(0.85)],
-                                        center: .center, startAngle: .degrees(-90), endAngle: .degrees(270)),
+                        // Symmetric endpoints (same opacity at 0° and 360°) so the angular
+                        // gradient has no visible seam, and the wrap sits at 0° — which the
+                        // `-90°` rotation moves to the ring's start cap at the top, hiding it.
+                        // (Previously the seam landed at 9 o'clock and read as a broken step.)
+                        AngularGradient(colors: [color.opacity(0.5), color, color.opacity(0.5)],
+                                        center: .center, startAngle: .degrees(0), endAngle: .degrees(360)),
                         style: StrokeStyle(lineWidth: size * 0.085, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))

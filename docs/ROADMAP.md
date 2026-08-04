@@ -106,9 +106,11 @@ Detaily viz brainstorm; AI je vždy opt-in a posílá jen metadata (invariant #7
 - [x] **Menu bar quick action** „Clean dev junk" (popover → Cleanup dev sken k review).
 
 ## Fáze 7 — Vydání 📦 (rozpracováno)
-- [ ] Vlastní branding + ikony (NE od CleanMyMac) — zatím SF Symbol `bird.fill`.
-- [ ] Developer ID podpis + notarizace + stapling — postup v `docs/RELEASE.md`.
-- [x] App bundle skript (`scripts/build-app.sh` → `dist/Kestrel.app`, ad-hoc podpis, LSUIElement).
+- [x] Vlastní branding + ikona (`Resources/AppIcon.icns` — teal→indigo squircle + pták v gauge prstenci,
+      žádné CleanMyMac assety). Generátor `scripts/make-icon.swift` + `scripts/make-icns.sh`. Menubar = živý health-ring.
+- [x] Release automation (`scripts/release.sh`): Developer ID podpis (hardened runtime) → notarizace → stapling → `.dmg`.
+      Parametrizovaný přes `SIGN_IDENTITY`/`NOTARY_PROFILE`; bez nich nic neposílá. Zbývá jen dodat Apple cert a spustit.
+- [x] App bundle skript (`scripts/build-app.sh` → `dist/Kestrel.app`, vkládá ikonu, ad-hoc podpis).
 - [ ] Sparkle auto-update NEBO GitHub Releases — `AppUpdater.sparkleFeed` už čte `SUFeedURL`.
 - [x] LICENSE (MIT), README pro veřejnost s reálným použitím. Zbývají screenshoty.
 - [ ] Rozhodnout model: čistě OSS / OSS + placené buildy / donationware.

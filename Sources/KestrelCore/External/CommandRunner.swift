@@ -14,6 +14,14 @@ public struct ProcessRunner: CommandRunner {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = [tool] + arguments
+        // A GUI app launched from Finder / `open` inherits a minimal PATH that lacks
+        // Homebrew and other user tool dirs, so `brew`, `freshclam`, `clamscan`, `docker`
+        // etc. wouldn't resolve — advisory features would silently do nothing. Prepend the
+        // common tool locations so external tools are found however the app was launched.
+        var env = ProcessInfo.processInfo.environment
+        let toolDirs = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin"
+        env["PATH"] = toolDirs + ":" + (env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin")
+        process.environment = env
         let stdout = Pipe()
         process.standardOutput = stdout
         process.standardError = Pipe() // swallow tool chatter

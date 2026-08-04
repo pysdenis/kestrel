@@ -487,9 +487,10 @@ final class AppModel: ObservableObject {
     }
 
     var aiAssistant: AIAssistant? {
-        if onDeviceAIAvailable { return AIAssistant(client: OnDeviceLLM()) }
+        let lang = Localization.effective == .czech ? "Czech" : "English"
+        if onDeviceAIAvailable { return AIAssistant(client: OnDeviceLLM(), responseLanguage: lang) }
         let key = geminiKey()
-        return key.isEmpty ? nil : AIAssistant(client: GeminiClient(apiKey: key))
+        return key.isEmpty ? nil : AIAssistant(client: GeminiClient(apiKey: key), responseLanguage: lang)
     }
 
     func aiContext() -> String {

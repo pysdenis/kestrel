@@ -6,16 +6,20 @@ import Foundation
 /// invented threats, no fake urgency.
 public struct AIAssistant {
     private let client: LLMBackend
+    private let systemPrompt: String
 
-    public static let systemPrompt = """
+    public static let basePrompt = """
     You are Kestrel, an honest macOS maintenance assistant. Be concise and factual. \
     Never invent malware, threats, or urgency. Only reason about the metadata you are \
     given (names and sizes) — you cannot see file contents. When you are unsure whether \
     something is safe to remove, say so and recommend keeping it. Prefer plain language.
     """
 
-    public init(client: LLMBackend) {
+    /// `responseLanguage` (e.g. "Czech", "English") makes the assistant answer in the user's UI
+    /// language — the model otherwise defaults to English regardless of the question's language.
+    public init(client: LLMBackend, responseLanguage: String = "English") {
         self.client = client
+        self.systemPrompt = "\(Self.basePrompt) Always reply in \(responseLanguage), regardless of the language of the question."
     }
 
     public var isConfigured: Bool { client.isConfigured }
@@ -42,7 +46,7 @@ public struct AIAssistant {
         In 3–5 short sentences, summarize what this means for the user and give a couple \
         of prioritized, safe suggestions. Do not overstate urgency.
         """
-        return try await client.generate(prompt, system: Self.systemPrompt)
+        return try await client.generate(prompt, system: systemPrompt)
     }
 
     /// A second opinion before applying a cleanup: flag anything that looks risky.
@@ -57,7 +61,7 @@ public struct AIAssistant {
         Briefly: does anything here look risky or like it shouldn't be removed? If it all \
         looks safe to move to a reversible vault, say so in one line. Be honest and concise.
         """
-        return try await client.generate(prompt, system: Self.systemPrompt)
+        return try await client.generate(prompt, system: systemPrompt)
     }
 
     /// Explain what a single item is and whether it is safe to remove.
@@ -69,7 +73,7 @@ public struct AIAssistant {
         - Kestrel category: \(category.rawValue)
         - Kestrel's note: \(reason)
         """
-        return try await client.generate(prompt, system: Self.systemPrompt)
+        return try await client.generate(prompt, system: systemPrompt)
     }
 
     /// Explain an antivirus finding in plain language — what it likely means and what to
@@ -84,7 +88,7 @@ public struct AIAssistant {
         - file name: \((finding.path as NSString).lastPathComponent)
         Be calm and honest — if it is the harmless EICAR anti-malware test file, say so plainly.
         """
-        return try await client.generate(prompt, system: Self.systemPrompt)
+        return try await client.generate(prompt, system: systemPrompt)
     }
 
     /// Turn a plain-language cleanup request into a Kestrel rule as JSON. The user reviews
@@ -98,7 +102,7 @@ public struct AIAssistant {
         Request: "\(description)"
         Output only the JSON object.
         """
-        let text = try await client.generate(prompt, system: Self.systemPrompt)
+        let text = try await client.generate(prompt, system: systemPrompt)
         // Strip any accidental code fences.
         return text
             .replacingOccurrences(of: "```json", with: "")
@@ -114,7 +118,7 @@ public struct AIAssistant {
 
         Question: \(question)
         """
-        return try await client.generate(prompt, system: Self.systemPrompt)
+        return try await client.generate(prompt, system: systemPrompt)
     }
 
     private func bytes(_ value: Int64) -> String {

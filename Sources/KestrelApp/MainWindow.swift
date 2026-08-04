@@ -565,6 +565,7 @@ struct SpaceSection: View {
     var body: some View {
         SectionScaffold(title: "Space", subtitle: "Where your storage is going") {
             if let d = model.disk { capacityCard(d) }
+            if !controller.hotspots.isEmpty { hotspotsCard }
 
             HStack {
                 SectionTitle("Storage map", icon: "square.grid.3x3.fill")
@@ -604,7 +605,60 @@ struct SpaceSection: View {
                 }
             }
         }
-        .onAppear { controller.loadDriveHealth() }
+        .onAppear { controller.loadDriveHealth(); controller.loadHotspots() }
+    }
+
+    /// The folders most likely to balloon, measured daily — with a ↑ when one grew since the
+    /// last snapshot, so growth gets attributed to a culprit ("Xcode DerivedData +12 GB").
+    private var hotspotsCard: some View {
+        let rows = controller.hotspots.sorted { $0.value > $1.value }
+        return Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("Storage hotspots", icon: "flame")
+                Text(L("The folders most likely to balloon, measured daily. A ↑ shows what grew since the last check — all regeneratable.")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
+                    if i > 0 { Hairline() }
+                    let grew = controller.growth[row.key] ?? 0
+                    HStack(spacing: 10) {
+                        Image(systemName: hotspotIcon(row.key)).foregroundStyle(Palette.accent2).frame(width: 22)
+                        Text(L(row.key)).font(.callout.weight(.medium))
+                        if grew > 0 {
+                            Label("+\(bytesString(grew))", systemImage: "arrow.up.right")
+                                .font(.caption2.weight(.bold)).foregroundStyle(Palette.warn)
+                                .padding(.horizontal, 6).padding(.vertical, 1).background(Palette.warn.opacity(0.14), in: Capsule())
+                        }
+                        Spacer()
+                        Text(bytesString(row.value)).font(.callout.monospacedDigit().weight(.semibold)).foregroundStyle(.secondary)
+                        if let act = hotspotAction(row.key) {
+                            Button(action: act.run) { Text(act.label) }.buttonStyle(.kestrel(.secondary, size: .small))
+                        }
+                        Button { NSWorkspace.shared.activateFileViewerSelecting([model.paths.home.appendingPathComponent(SpaceBreakdown.locations.first { $0.label == row.key }?.path ?? "")]) } label: {
+                            Image(systemName: "magnifyingglass")
+                        }
+                        .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Reveal in Finder"))
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+
+    private func hotspotIcon(_ label: String) -> String {
+        switch label {
+        case "Xcode DerivedData", "Xcode device support": return "hammer.fill"
+        case "iOS backups": return "iphone"
+        case "Caches": return "shippingbox.fill"
+        case "Trash": return "trash"
+        default: return "folder.fill"
+        }
+    }
+
+    private func hotspotAction(_ label: String) -> (label: String, run: () -> Void)? {
+        switch label {
+        case "Xcode DerivedData", "Xcode device support": return (L("Clean"), { model.section = .tools })
+        case "Caches": return (L("Clean"), { model.section = .cleanup })
+        default: return nil
+        }
     }
 
     private func capacityCard(_ d: DiskSpace) -> some View {

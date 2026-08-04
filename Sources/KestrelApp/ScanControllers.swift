@@ -241,17 +241,18 @@ import KestrelCore
         }
     }
 
-    /// Load the storage forecast and macOS protection status. Also records today's
-    /// snapshot (disk capacity only — no directory walk, so it never prompts for access
-    /// and never overwrites a richer snapshot the CLI may have written today), so the
-    /// forecast becomes real on its own over a few days.
+    /// Load the storage forecast and macOS protection status. Also records today's snapshot —
+    /// disk capacity plus a light breakdown of a few prompt-free `~/Library` hog folders (once a
+    /// day, in the background), so the forecast and growth attribution become real over a few days.
     func load(disk: DiskSpace?) {
         let dir = paths.snapshots
+        let home = paths.home
         Task.detached { [weak self] in
             let store = SnapshotStore(directory: dir)
             var snapshots = (try? store.all()) ?? []
             if let disk, !Self.hasSnapshotToday(snapshots) {
-                try? store.save(DiskSnapshot(date: Date(), space: disk, breakdown: [:]))
+                let breakdown = SpaceBreakdown.measure(home: home)
+                try? store.save(DiskSnapshot(date: Date(), space: disk, breakdown: breakdown))
                 snapshots = (try? store.all()) ?? snapshots
             }
             let trend = try? store.trend()
@@ -363,9 +364,23 @@ import KestrelCore
     @Published var scanStatus = ""
     @Published var message: String?
     @Published var driveHealth: DriveHealth?
+    /// Latest measured sizes of the hog folders, and how much each grew since the last snapshot.
+    @Published var hotspots: [String: Int64] = [:]
+    @Published var growth: [String: Int64] = [:]
 
     private let paths: KestrelPaths
     init(paths: KestrelPaths) { self.paths = paths }
+
+    /// Load the storage hotspots (latest snapshot breakdown) and day-over-day growth.
+    func loadHotspots() {
+        let dir = paths.snapshots
+        Task.detached { [weak self] in
+            let store = SnapshotStore(directory: dir)
+            let latest = (try? store.all())?.last?.breakdown ?? [:]
+            let deltas = ((try? store.recentChanges()) ?? []).reduce(into: [String: Int64]()) { $0[$1.path] = $1.delta }
+            await MainActor.run { [weak self] in self?.hotspots = latest; self?.growth = deltas }
+        }
+    }
 
     /// Read the boot drive's SMART status once — honest hardware signal, read-only.
     func loadDriveHealth() {

@@ -1309,6 +1309,23 @@ withTempDir { tmp in
     SafetyGuard.userExclusions = []  // reset shared state for other tests
 }
 
+// MARK: - SpaceBreakdown (growth attribution)
+
+section("SpaceBreakdown: sizes curated hog folders, skips missing/empty")
+withTempDir { home in
+    let derived = home.appendingPathComponent("Library/Developer/Xcode/DerivedData")
+    try? FileManager.default.createDirectory(at: derived, withIntermediateDirectories: true)
+    _ = makeFile(derived.appendingPathComponent("build.o"), "compiled artifact bytes")
+    let trash = home.appendingPathComponent(".Trash")
+    try? FileManager.default.createDirectory(at: trash, withIntermediateDirectories: true) // empty
+
+    let breakdown = SpaceBreakdown.measure(home: home)
+    check(breakdown["Xcode DerivedData"] ?? 0 > 0, "measures DerivedData")
+    check(breakdown["Trash"] == nil, "empty folder omitted")
+    check(breakdown["Caches"] == nil, "missing folder omitted (never invents a size)")
+}
+check(SpaceBreakdown.locations.contains { $0.label == "iOS backups" }, "curated list includes iOS backups")
+
 // MARK: - APFSCloner (dedupe without deleting)
 
 section("APFSCloner: replaces a copy with a clone, keeping both files identical")

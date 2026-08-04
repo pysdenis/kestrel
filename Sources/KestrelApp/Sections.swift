@@ -1646,9 +1646,12 @@ struct ToolsSection: View {
         let scan: @Sendable () -> CleanupPlan
     }
 
-    private var tools: [ToolDef] {
-        let home = home   // capture the URL once so the @Sendable scan closures don't touch the actor
-        return [
+    private var tools: [ToolDef] { Self.toolDefs(home: home) }
+
+    // Built off the main actor so the @Sendable scan closures capture only the passed-in URL
+    // (no actor state), keeping the whole thing free of data-race warnings.
+    nonisolated private static func toolDefs(home: URL) -> [ToolDef] {
+        [
             ToolDef(id: "Trash Bins", title: L("Trash Bins"), subtitle: L("Empty every Trash — undoable via the vault"), icon: "trash", tint: Palette.good) { TrashFinder().find() },
             ToolDef(id: "App Leftovers", title: L("App Leftovers"), subtitle: L("Data left behind by removed apps"), icon: "app.badge.checkmark", tint: Palette.accent) { OrphanFinder().find() },
             ToolDef(id: "Old Installers", title: L("Old Installers"), subtitle: L(".dmg / .pkg / .iso in Downloads"), icon: "shippingbox", tint: Palette.accent2) { ClutterFinder().oldInstallers(under: home.appendingPathComponent("Downloads")) },

@@ -25,7 +25,7 @@ public struct DuplicateGroup: Sendable, Equatable, Identifiable {
     public var reclaimable: Int64 { copies.reduce(0) { $0 + $1.size } }
 }
 
-public struct DuplicateFinder {
+public struct DuplicateFinder: Sendable {
     public let partialBytes: Int
 
     public init(partialBytes: Int = 4096) {

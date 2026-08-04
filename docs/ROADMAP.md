@@ -244,6 +244,10 @@ Allocations, SwiftUI). Vše drží invarianty (žádné blokování main threadu
 - [ ] **Throttle živých dat** — sparkliny/gauge animace omezit, respektovat Reduce Motion; batchovat `@Published` update.
 - [ ] **Startup** — měřit čas do prvního snímku; odložit nenutnou práci (snapshoty, audit read) za první render.
 
+### Strict concurrency (Swift 6 připravenost)
+- [~] Vyčistit `Sendable` varování (hotovo: `LargeOldClassifier`/`DuplicateFinder`). Zbývá 1 benigní
+      („non-sendable → @Sendable () -> CleanupPlan" u `PlanToolCard.scan`, cesta je main-actor-safe).
+
 ### Měření & regrese
 - [ ] Baseline v Instruments (idle CPU %, RSS paměť, fps při scrollování gridů); zapsat čísla do `docs/`.
 - [ ] Lehký in-app „perf mód" pro dev (log intervalů/aktivních monitorů), ať jde regrese poznat.

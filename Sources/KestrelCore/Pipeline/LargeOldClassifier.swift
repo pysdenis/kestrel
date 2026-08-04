@@ -6,7 +6,7 @@ import Foundation
 /// a disk image). It is offered as a list the user opts into with `--category large`.
 ///
 /// Thresholds are configurable so callers can tune what counts as "large" and "old".
-public struct LargeOldClassifier: Classifier {
+public struct LargeOldClassifier: Classifier, Sendable {
     public let minSize: Int64
     public let minAge: TimeInterval
     private let now: Date

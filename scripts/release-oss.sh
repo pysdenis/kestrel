@@ -64,6 +64,16 @@ gh auth status >/dev/null 2>&1 || { echo "✗ gh not authenticated — run: gh a
 # which otherwise fails late with a confusing "workflow scope may be required" message. Check
 # write access up front and point at the fix.
 REPO_SLUG="$(git remote get-url origin 2>/dev/null | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##')"
+
+# Pin gh to the repo owner's account via GH_TOKEN — independent of gh's global active account,
+# which can silently revert to the wrong one. Mirrors the per-folder git credential helper.
+# Falls back to the active account when the owner isn't a logged-in gh account (e.g. orgs).
+OWNER="${REPO_SLUG%%/*}"
+if [[ -n "$OWNER" ]] && _owner_token="$(gh auth token --user "$OWNER" 2>/dev/null)" && [[ -n "$_owner_token" ]]; then
+    export GH_TOKEN="$_owner_token"
+    echo "▸ Publishing as: $(gh api user --jq '.login' 2>/dev/null)"
+fi
+
 if [[ -n "$REPO_SLUG" ]]; then
     if [[ "$(gh api "repos/$REPO_SLUG" --jq '.permissions.push' 2>/dev/null)" != "true" ]]; then
         echo "✗ The active gh account ($(gh api user --jq '.login' 2>/dev/null)) can't push to $REPO_SLUG." >&2

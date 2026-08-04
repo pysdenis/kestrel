@@ -226,7 +226,25 @@ import KestrelCore
     @Published var extensions: [SystemExtension] = []
     @Published var scanProgress: Double = 0
     @Published var scanStatus = ""
+    @Published var explanations: [String: String] = [:]   // finding key → AI explanation
+    @Published var explaining: Set<String> = []
     private var loadedMeta = false
+
+    static func findingKey(_ f: ScanFinding) -> String { "\(f.path)|\(f.rule)" }
+
+    /// On-demand only (invariant #7): ask the opt-in assistant to explain a finding in
+    /// plain language. Sends just the finding metadata (rule/path/evidence), never file
+    /// contents.
+    func explain(_ finding: ScanFinding, assistant: AIAssistant?) {
+        guard let assistant else { return }
+        let key = Self.findingKey(finding)
+        guard explanations[key] == nil, !explaining.contains(key) else { return }
+        explaining.insert(key)
+        Task { [weak self] in
+            let text = (try? await assistant.explainFinding(finding)) ?? "Couldn't reach the assistant — check your key and connection."
+            await MainActor.run { self?.explanations[key] = text; self?.explaining.remove(key) }
+        }
+    }
 
     func loadMeta() {
         guard !loadedMeta else { return }

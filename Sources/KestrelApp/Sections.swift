@@ -770,7 +770,14 @@ struct SecuritySection: View {
                     } else {
                         Label("\(report.findings.count) finding(s), each with evidence", systemImage: "exclamationmark.triangle.fill")
                             .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.orange)
-                        ForEach(Array(report.findings.enumerated()), id: \.offset) { _, f in FindingRow(finding: f) }
+                        ForEach(Array(report.findings.enumerated()), id: \.offset) { _, f in
+                            let key = SecurityController.findingKey(f)
+                            FindingRow(finding: f,
+                                       explanation: controller.explanations[key],
+                                       explaining: controller.explaining.contains(key),
+                                       canExplain: model.aiConfigured,
+                                       onExplain: { controller.explain(f, assistant: model.aiAssistant) })
+                        }
                     }
                 }
             }
@@ -849,10 +856,17 @@ struct StatePill: View {
     }
 }
 
-/// One malware finding, as an evidence card with a severity stripe.
+/// One malware finding, as an evidence card with a severity stripe. When the assistant is
+/// configured it offers an on-demand "Explain" (metadata-only, invariant #7).
 struct FindingRow: View {
     let finding: ScanFinding
+    var explanation: String? = nil
+    var explaining: Bool = false
+    var canExplain: Bool = false
+    var onExplain: () -> Void = {}
+
     private var crit: Bool { finding.severity == .malicious }
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             RoundedRectangle(cornerRadius: 2).fill(crit ? Palette.crit : Palette.orange).frame(width: 3)
@@ -862,11 +876,26 @@ struct FindingRow: View {
                 HStack(spacing: 8) {
                     Text(finding.rule).font(.callout.weight(.semibold))
                     StatePill(text: finding.severity.rawValue, ok: false)
+                    Spacer()
+                    if canExplain && explanation == nil {
+                        Button(action: onExplain) {
+                            if explaining { KestrelSpinner(tint: Palette.violet, size: 12) }
+                            else { Label("Explain", systemImage: "sparkles") }
+                        }
+                        .buttonStyle(.kestrel(.subtle, tint: Palette.violet, size: .small))
+                        .disabled(explaining)
+                    }
                 }
                 Text(finding.path).font(.caption).foregroundStyle(.secondary).textSelection(.enabled).lineLimit(1).truncationMode(.middle)
                 Text(finding.evidence).font(.caption2.monospaced()).foregroundStyle(.tertiary).lineLimit(2)
+                if let explanation {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "sparkles").font(.caption2).foregroundStyle(Palette.violet)
+                        Text(explanation).font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                    }
+                    .padding(.top, 3)
+                }
             }
-            Spacer()
         }
         .padding(11)
         .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 11, style: .continuous))

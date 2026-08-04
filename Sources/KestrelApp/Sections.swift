@@ -113,9 +113,9 @@ struct CleanupSection: View {
     private var configCard: some View {
         Card {
             VStack(alignment: .leading, spacing: 13) {
-                Text("CATEGORY").font(.system(size: 10.5, weight: .bold)).kerning(0.8).foregroundStyle(.tertiary)
+                Text(model.t("CATEGORY")).font(.system(size: 10.5, weight: .bold)).kerning(0.8).foregroundStyle(.tertiary)
                 KestrelSelect(items: CleanupChoice.allCases, selection: $controller.choice,
-                              label: { $0.title }, icon: { $0.icon })
+                              label: { model.t($0.title) }, icon: { $0.icon })
 
                 FolderChip(url: controller.root) { controller.pickFolder() }
 

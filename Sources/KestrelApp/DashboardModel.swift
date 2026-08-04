@@ -94,6 +94,22 @@ final class AppModel: ObservableObject {
     @Published var notificationsEnabled = UserDefaults.standard.bool(forKey: "kestrel.notifications")
     private var lowDiskNotified = false
 
+    /// UI language. Changing it republishes the model, so every view re-renders in the new
+    /// language. `t(_:)` translates a source string via the lightweight table.
+    @Published var language: AppLanguage = AppLanguage(rawValue: UserDefaults.standard.string(forKey: "kestrel.language") ?? "") ?? .system
+
+    func setLanguage(_ l: AppLanguage) {
+        language = l
+        UserDefaults.standard.set(l.rawValue, forKey: "kestrel.language")
+    }
+
+    var effectiveLanguage: AppLanguage {
+        guard language == .system else { return language }
+        return Locale.current.language.languageCode?.identifier == "cs" ? .czech : .english
+    }
+
+    func t(_ en: String) -> String { Localization.translate(en, to: effectiveLanguage) }
+
     func setNotifications(_ on: Bool) {
         notificationsEnabled = on
         UserDefaults.standard.set(on, forKey: "kestrel.notifications")

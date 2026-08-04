@@ -87,7 +87,7 @@ struct SidebarView: View {
     private func group(_ title: String?, _ items: [AppSection]) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             if let title {
-                Text(title.uppercased()).font(.system(size: 10.5, weight: .bold)).kerning(0.8)
+                Text(model.t(title).uppercased()).font(.system(size: 10.5, weight: .bold)).kerning(0.8)
                     .foregroundStyle(.tertiary).padding(.horizontal, 10).padding(.top, 12).padding(.bottom, 3)
             }
             ForEach(items) { navRow($0) }
@@ -100,7 +100,7 @@ struct SidebarView: View {
             HStack(spacing: 11) {
                 Image(systemName: item.icon).font(.system(size: 14))
                     .foregroundStyle(selected ? Palette.accent : Color.secondary).frame(width: 18)
-                Text(item.title).font(.system(size: 13.5, weight: .medium))
+                Text(model.t(item.title)).font(.system(size: 13.5, weight: .medium))
                     .foregroundStyle(selected ? Color.primary : Color.secondary)
                 Spacer()
             }
@@ -121,7 +121,7 @@ struct SidebarView: View {
         Button { model.showPalette = true } label: {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(.secondary)
-                Text("Commands").font(.caption).foregroundStyle(.secondary)
+                Text(model.t("Commands")).font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Text("⌘K").font(.caption2.monospaced()).foregroundStyle(.tertiary)
                     .padding(.horizontal, 5).padding(.vertical, 1)
@@ -173,6 +173,7 @@ struct MainWindow: View {
 
 /// A scroll container with a consistent title + padding for every section.
 struct SectionScaffold<Content: View>: View {
+    @EnvironmentObject private var model: AppModel
     let title: String
     let subtitle: String
     @ViewBuilder var content: Content
@@ -181,8 +182,8 @@ struct SectionScaffold<Content: View>: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.largeTitle.weight(.bold))
-                    Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
+                    Text(model.t(title)).font(.largeTitle.weight(.bold))
+                    Text(model.t(subtitle)).font(.subheadline).foregroundStyle(.secondary)
                 }
                 content
             }
@@ -226,8 +227,8 @@ struct DashboardSection: View {
                 HeroGauge(score: score, size: 168)
                 VStack(alignment: .leading, spacing: 14) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Mac Health").font(.title2.weight(.bold))
-                        Text(healthVerdict(score)).font(.subheadline.weight(.medium)).foregroundStyle(healthColor(score))
+                        Text(model.t("Mac Health")).font(.title2.weight(.bold))
+                        Text(model.t(healthVerdict(score))).font(.subheadline.weight(.medium)).foregroundStyle(healthColor(score))
                     }
                     FlowLayout(spacing: 8, lineSpacing: 8) {
                         ForEach(model.health?.components ?? [], id: \.name) { c in
@@ -236,9 +237,9 @@ struct DashboardSection: View {
                     }
                     Spacer(minLength: 0)
                     HStack(spacing: 10) {
-                        Button { model.section = .cleanup } label: { Label("Free up space", systemImage: "sparkles") }
+                        Button { model.section = .cleanup } label: { Label(model.t("Free up space"), systemImage: "sparkles") }
                             .buttonStyle(.kestrel(.prominent))
-                        Button(action: runSmartCare) { Label("Run Smart Care", systemImage: "wand.and.stars") }
+                        Button(action: runSmartCare) { Label(model.t("Run Smart Care"), systemImage: "wand.and.stars") }
                             .buttonStyle(.kestrel(.secondary))
                     }
                 }
@@ -809,11 +810,20 @@ struct SettingsSection: View {
     private var preferencesCard: some View {
         Card {
             VStack(alignment: .leading, spacing: 12) {
-                SectionTitle("Preferences", icon: "slider.horizontal.3")
+                SectionTitle(model.t("Preferences"), icon: "slider.horizontal.3")
+                VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(model.t("Language")).font(.callout.weight(.medium))
+                        Text(model.t("Choose the interface language. System follows your Mac.")).font(.caption).foregroundStyle(.secondary)
+                    }
+                    KestrelSelect(items: AppLanguage.allCases, selection: Binding(get: { model.language }, set: { model.setLanguage($0) }),
+                                  label: { $0.label })
+                }
+                Hairline()
                 HStack {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Launch at login").font(.callout.weight(.medium))
-                        Text("Start Kestrel automatically when you log in.").font(.caption).foregroundStyle(.secondary)
+                        Text(model.t("Launch at login")).font(.callout.weight(.medium))
+                        Text(model.t("Start Kestrel automatically when you log in.")).font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
                     KestrelToggle(isOn: Binding(get: { controller.launchAtLogin },
@@ -822,8 +832,8 @@ struct SettingsSection: View {
                 Hairline()
                 HStack {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Low-space notifications").font(.callout.weight(.medium))
-                        Text("A local alert when the disk is nearly full. Nothing leaves this Mac.").font(.caption).foregroundStyle(.secondary)
+                        Text(model.t("Low-space notifications")).font(.callout.weight(.medium))
+                        Text(model.t("A local alert when the disk is nearly full. Nothing leaves this Mac.")).font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
                     KestrelToggle(isOn: Binding(get: { model.notificationsEnabled },
@@ -832,11 +842,11 @@ struct SettingsSection: View {
                 Hairline()
                 VStack(alignment: .leading, spacing: 8) {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Vault retention").font(.callout.weight(.medium))
-                        Text("How long cleaned items stay restorable before they can be purged.").font(.caption).foregroundStyle(.secondary)
+                        Text(model.t("Vault retention")).font(.callout.weight(.medium))
+                        Text(model.t("How long cleaned items stay restorable before they can be purged.")).font(.caption).foregroundStyle(.secondary)
                     }
                     KestrelSelect(items: controller.retentionOptions, selection: $controller.retentionDays,
-                                  label: { "\($0) days" })
+                                  label: { "\($0) \(model.t("days"))" })
                 }
             }
         }

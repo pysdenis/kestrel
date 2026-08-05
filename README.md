@@ -83,10 +83,10 @@ Kestrel stáhne doporučený model a sám se zapne. Nebo z terminálu:
 ```bash
 brew install ollama            # nebo stáhni z ollama.com
 brew services start ollama     # server na localhost:11434 (naběhne i po restartu)
-ollama pull qwen2.5:7b         # ~4,7 GB, dobrá čeština i logika (doporučeno)
+ollama pull qwen3:8b           # ~5,2 GB, dobrá čeština i logika (doporučeno)
 ```
 
-Kestrel si sám vybere **kvalitní vícejazyčný model** (qwen2.5:7b, gemma2, llama3.1) — malé modely
+Kestrel si sám vybere **kvalitní vícejazyčný model** (qwen3:8b, qwen2.5:7b, gemma2, llama3.1) — malé modely
 (3B) totiž češtinu komolí. Těžké coder/reasoning modely nechává na tvoje vlastní použití. Model se
 po ~90 s nečinnosti **sám uvolní z RAM**, takže na pozadí nebere baterku ani paměť.
 
@@ -96,7 +96,7 @@ po ~90 s nečinnosti **sám uvolní z RAM**, takže na pozadí nebere baterku an
 **Pořadí backendů:** on-device (Apple Foundation Models) → Ollama → Gemini. První dostupný vyhrává.
 
 > Doporučení podle RAM: **8 GB** → `llama3.2:3b` / `phi3.5` (lehčí, čeština slabší); **16 GB** →
-> `qwen2.5:7b` na asistenta + `qwen2.5-coder:14b` na kód; **32 GB+** → `qwen2.5-coder:32b`. Velký
+> `qwen3:8b` na asistenta + `qwen2.5-coder:7b` na kód; **32 GB+** → `qwen2.5-coder:32b`. Velký
 > model na malé RAM swapuje a je pomalý — proto Kestrel pro sebe volí ten vhodný k dané RAM.
 
 ---

@@ -98,12 +98,13 @@ public struct OllamaClient: LLMBackend {
     /// Pick a good general chat model for Kestrel's assistant. Ordered for **multilingual quality
     /// that still runs light** — small models like llama3.2:3b garble non-English (e.g. Czech), so a
     /// solid 7–9B multilingual model is preferred when present, falling back to the small ones, and
-    /// always avoiding a heavy coder/reasoning model. Prefixes are specific (e.g. "qwen2.5:7b") so a
-    /// bare-family match never accidentally selects "qwen2.5-coder:14b". Pure — unit-testable.
+    /// always avoiding a heavy coder/reasoning model. Prefixes are specific (e.g. "qwen3:8b") so a
+    /// bare-family match never accidentally selects "qwen3:14b" or "qwen2.5-coder:14b".
+    /// Pure — unit-testable.
     public static func preferredModel(from names: [String]) -> String? {
         guard !names.isEmpty else { return nil }
         let preferred = [
-            "qwen2.5:7b", "gemma2:9b", "llama3.1:8b", "mistral-nemo",   // strong multilingual, ~mid weight
+            "qwen3:8b", "qwen2.5:7b", "gemma2:9b", "llama3.1:8b", "mistral-nemo",   // strong multilingual, ~mid weight
             "qwen2.5:3b", "llama3.2", "phi3.5", "phi3", "gemma2:2b",     // lighter fallbacks
             "llama3.1", "mistral", "llama3",
         ]

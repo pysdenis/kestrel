@@ -246,7 +246,7 @@ func usage() {
       kestrel photos [path] [--apply]           (similar images; keeps the best of each)
       kestrel secrets <path>                    (scan a project for leaked credentials)
       kestrel power                             (what is keeping the Mac awake)
-      kestrel canary plant | status | disarm    (ransomware canary — decoys + tamper alert)
+      kestrel canary plant | status | watch | disarm  (ransomware canary — decoys + tamper alert)
       kestrel localsnapshots                    (APFS/Time Machine local snapshots)
       kestrel shred <path> --apply              (secure permanent delete — no undo)
       kestrel rules list | run [name] [--apply] (declarative maintenance rules)
@@ -830,11 +830,25 @@ do {
                 print("\nSomething may be modifying your files. Consider disconnecting from the network")
                 print("and checking recent activity before doing anything else.")
             }
+        case "watch":
+            guard guardService.isArmed else {
+                print("No canaries planted. Arm protection first with:  kestrel canary plant"); break
+            }
+            setvbuf(stdout, nil, _IOLBF, 0)   // line-buffer so live output flushes (e.g. piped to a log)
+            let watcher = CanaryWatcher(guardService: guardService) { report in
+                print("\n⚠️  CANARY TRIPPED — \(report.alerts.count) of \(report.checked) decoy(s) changed:")
+                for a in report.alerts { print("  • [\(a.kind.rawValue)] \(a.path)") }
+                print("Something may be modifying your files. Consider disconnecting from the network.")
+                fflush(stdout)
+            }
+            watcher.start()
+            print("Watching \(guardService.plantedFiles().count) canary decoy(s) live… (Ctrl-C to stop)")
+            RunLoop.current.run()
         case "disarm", "remove":
             guardService.disarm()
             print("Removed all canary decoys and stopped watching.")
         default:
-            print("Unknown canary subcommand '\(sub)'. Use: plant|status|disarm"); exit(2)
+            print("Unknown canary subcommand '\(sub)'. Use: plant|status|watch|disarm"); exit(2)
         }
 
     case "shred":

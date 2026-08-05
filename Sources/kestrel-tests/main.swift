@@ -1432,6 +1432,8 @@ check(OllamaClient.preferredModel(from: ["qwen2.5-coder:14b", "llama3.2:3b"]) ==
 check(OllamaClient.preferredModel(from: ["qwen2.5-coder:14b"]) == "qwen2.5-coder:14b", "falls back to the only model even if heavy")
 check(OllamaClient.preferredModel(from: ["llama3.2:3b", "qwen2.5:7b"]) == "qwen2.5:7b", "prefers a stronger multilingual model over a tiny one")
 check(OllamaClient.preferredModel(from: ["qwen2.5:7b", "qwen2.5-coder:14b"]) == "qwen2.5:7b", "the qwen2.5:7b prefix never matches qwen2.5-coder:14b")
+check(OllamaClient.preferredModel(from: ["qwen2.5:7b", "qwen3:8b"]) == "qwen3:8b", "qwen3:8b outranks the older qwen2.5:7b")
+check(OllamaClient.preferredModel(from: ["llama3.2:3b", "qwen3:14b"]) == "llama3.2:3b", "the qwen3:8b prefix never matches the heavy qwen3:14b")
 check(OllamaClient.preferredModel(from: []) == nil, "no models → nil")
 check(OllamaClient.stripReasoning("<think>\nlet me reason\n</think>\n\nThe answer is 42.") == "\n\nThe answer is 42.", "strips a closed <think> block, keeps the answer")
 check(OllamaClient.stripReasoning("No reasoning here.") == "No reasoning here.", "leaves normal content untouched")

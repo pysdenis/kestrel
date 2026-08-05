@@ -421,6 +421,8 @@ enum Localization {
         ("Remove", "Odebrat"),
         ("Security posture", "Stav ochrany"),
         ("Ransomware canary", "Ransomware kanárek"),
+        ("Kestrel: possible ransomware", "Kestrel: možný ransomware"),
+        ("Decoy files changed unexpectedly — something may be encrypting your files. Open Kestrel → Security.", "Návnadové soubory se nečekaně změnily — něco možná šifruje tvoje soubory. Otevři Kestrel → Security."),
         ("Armed", "Aktivní"),
         ("Tampered!", "Napadeno!"),
         ("Arm protection", "Aktivovat ochranu"),

@@ -310,6 +310,8 @@ import KestrelCore
     @Published var canaryArmed = false
     @Published var canaryReport: CanaryReport?
     @Published var canaryBusy = false
+    private var canaryWatcher: CanaryWatcher?
+    private var canaryNotified = false
     private var loadedMeta = false
 
     private let paths: KestrelPaths
@@ -349,6 +351,7 @@ import KestrelCore
                 self?.orphans = orphaned; self?.extensions = exts
                 self?.quarantine = quarantined; self?.posture = posture
                 self?.canaryArmed = armed; self?.canaryReport = report
+                self?.startCanaryWatchIfArmed()
             }
         }
     }
@@ -364,7 +367,11 @@ import KestrelCore
             let armed = guardService.isArmed
             let report = armed ? guardService.verify() : nil
             await MainActor.run { [weak self] in
+                self?.canaryNotified = false
                 self?.canaryArmed = armed; self?.canaryReport = report; self?.canaryBusy = false
+                // Arming the alarm is an explicit opt-in to being alerted, so ask for permission now.
+                if armed { Notifier.shared.requestAuthorization() }
+                self?.startCanaryWatchIfArmed()
             }
         }
     }
@@ -376,20 +383,56 @@ import KestrelCore
         let guardService = canaryGuard
         Task.detached { [weak self] in
             let report = guardService.verify()
-            await MainActor.run { [weak self] in self?.canaryReport = report; self?.canaryBusy = false }
+            await MainActor.run { [weak self] in
+                self?.canaryReport = report; self?.canaryBusy = false
+                if !report.isTripped { self?.canaryNotified = false }   // re-arm the one-shot alert
+            }
         }
     }
 
     func disarmCanary() {
         guard !canaryBusy else { return }
         canaryBusy = true
+        stopCanaryWatch()
         let guardService = canaryGuard
         Task.detached { [weak self] in
             guardService.disarm()
             await MainActor.run { [weak self] in
                 self?.canaryArmed = false; self?.canaryReport = nil; self?.canaryBusy = false
+                self?.canaryNotified = false
             }
         }
+    }
+
+    /// Start live FSEvents watching when canaries are armed — called at launch and after arming —
+    /// so a mass-encryption event trips within a fraction of a second even if the Security tab
+    /// isn't open. Idempotent; safe to call repeatedly.
+    func startCanaryWatchIfArmed() {
+        guard canaryWatcher == nil, canaryGuard.isArmed else { return }
+        let watcher = CanaryWatcher(guardService: canaryGuard) { [weak self] report in
+            Task { @MainActor in self?.handleCanaryTrip(report) }
+        }
+        canaryWatcher = watcher
+        watcher.start()
+    }
+
+    private func stopCanaryWatch() {
+        canaryWatcher?.stop()
+        canaryWatcher = nil
+    }
+
+    /// A decoy changed while watching: reflect it in the UI and fire one local alert (FSEvents can
+    /// fire many times during an encryption sweep — we notify once until the canary reads clean or
+    /// is re-armed). Detection only; Kestrel takes no action on the user's files.
+    private func handleCanaryTrip(_ report: CanaryReport) {
+        canaryReport = report
+        guard report.isTripped, !canaryNotified else { return }
+        canaryNotified = true
+        Notifier.shared.notify(
+            title: L("Kestrel: possible ransomware"),
+            body: L("Decoy files changed unexpectedly — something may be encrypting your files. Open Kestrel → Security."),
+            id: "kestrel.canary.trip"
+        )
     }
 
     func pickFolder() {

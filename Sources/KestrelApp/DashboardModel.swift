@@ -538,8 +538,8 @@ final class AppModel: ObservableObject {
     // MARK: - Local-AI setup (in-app onboarding for Ollama)
 
     /// The model Kestrel recommends for its assistant: strong multilingual quality (good Czech),
-    /// still light enough for a typical Mac. ~4.7 GB.
-    static let recommendedOllamaModel = "qwen2.5:7b"
+    /// still light enough for a typical Mac. ~5.2 GB.
+    static let recommendedOllamaModel = "qwen3:8b"
 
     /// Path to the `ollama` binary if it's installed, else nil (Ollama not present).
     var ollamaBinaryPath: String? {

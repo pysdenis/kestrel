@@ -54,6 +54,25 @@ import KestrelCore
         if panel.runModal() == .OK, let url = panel.url { root = url; plan = nil; message = nil }
     }
 
+    /// One-tap "reclaim the safe stuff": pre-select only the clearly-safe (regenerable) categories
+    /// present in the plan and uncheck everything that warrants review. Deterministic — it does not
+    /// depend on the AI's prose — and still routes through the reversible vault on apply.
+    func selectSafeOnly() {
+        guard let plan else { return }
+        let present = Set(plan.items.map(\.category))
+        excluded = present.filter { !$0.isClearlySafe }
+        excludedItems = []
+    }
+
+    /// Total bytes in the plan that are clearly safe to reclaim (for the button label).
+    var safeReclaimBytes: Int64 {
+        guard let plan else { return 0 }
+        return plan.items.filter { $0.category.isClearlySafe }.reduce(0) { $0 + $1.entry.size }
+    }
+
+    /// Whether the plan has any clearly-safe items to offer a one-tap for.
+    var hasSafeItems: Bool { (plan?.items.contains { $0.category.isClearlySafe }) ?? false }
+
     func scan() {
         guard !scanning else { return }
         scanning = true; plan = nil; message = nil; messageIsError = false; aiReview = nil; scanStatus = ""; excluded = []; excludedItems = []

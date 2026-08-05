@@ -51,6 +51,17 @@ public enum Category: String, Codable, Sendable, CaseIterable {
     public var requiresExplicitSelection: Bool {
         self == .duplicate || self == .largeOld || self == .privacy
     }
+
+    /// Regenerable, low-risk categories that a one-tap "reclaim the safe stuff" may pre-select:
+    /// caches, logs, build artifacts, trash, and leftover data of already-removed apps. Excludes
+    /// the judgment-call categories (duplicates, large & old, privacy) and unknowns. Still moves
+    /// to the vault — "safe" means low-regret, not unrecoverable.
+    public var isClearlySafe: Bool {
+        switch self {
+        case .safeCache, .logs, .devArtifact, .trash, .appLeftover: return true
+        case .duplicate, .largeOld, .privacy, .unknown: return false
+        }
+    }
 }
 
 /// A `FileEntry` plus the classifier's verdict and human-readable justification.

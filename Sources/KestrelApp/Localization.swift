@@ -214,6 +214,8 @@ enum Localization {
         ("Include in cleanup", "Zahrnout do úklidu"),
         ("AI second opinion", "AI druhý názor"),
         ("AI cleanup plan", "AI plán úklidu"),
+        ("Select the safe stuff", "Vybrat bezpečné"),
+        ("pre-checks only regenerable items — review below, then Move to Vault", "předvybere jen znovu-generovatelné položky — zkontroluj níže, pak Přesunout do trezoru"),
         ("on-device", "na zařízení"),
         ("Automatic", "Automaticky"),
         ("Local", "Lokální"),

@@ -106,6 +106,16 @@ struct CleanupSection: View {
                             }
                         }
                         Text(advice).font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                        if controller.hasSafeItems {
+                            Divider().opacity(0.4)
+                            HStack(spacing: 8) {
+                                Button { controller.selectSafeOnly() } label: {
+                                    Label("\(L("Select the safe stuff")) (\(bytesString(controller.safeReclaimBytes)))", systemImage: "checkmark.circle")
+                                }
+                                .buttonStyle(.kestrel(.prominent, tint: Palette.violet, size: .small))
+                                Text(L("pre-checks only regenerable items — review below, then Move to Vault")).font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
                     }
                 }
             }

@@ -334,7 +334,20 @@ import KestrelCore
     // Per-app code signatures
     @Published var signatures: [CodeSignature] = []
     @Published var signaturesLoading = false
+    // Outbound connections + download provenance
+    @Published var connections: [OutboundConnection] = []
+    @Published var connectionsLoading = false
+    @Published var quarantineOrigins: [String: String] = [:]   // quarantined path → origin URL
     private var loadedMeta = false
+
+    /// Snapshot which apps are talking to the network right now (read-only; observability, not blocking).
+    func loadConnections() {
+        connectionsLoading = true
+        Task.detached { [weak self] in
+            let conns = ConnectionAuditor().established()
+            await MainActor.run { [weak self] in self?.connections = conns; self?.connectionsLoading = false }
+        }
+    }
 
     /// Apps whose signature doesn't verify — the only signature verdict worth flagging.
     var signatureAlerts: [CodeSignature] { signatures.filter { $0.status.isNoteworthy } }
@@ -398,6 +411,9 @@ import KestrelCore
             let orphaned = LaunchAgentAuditor().orphans()
             let exts = SystemExtensionAuditor().list()
             let quarantined = QuarantineReader().scan(root: downloads)
+            let origins = Dictionary(uniqueKeysWithValues: quarantined.compactMap { q -> (String, String)? in
+                WhereFromReader.source(of: URL(fileURLWithPath: q.path)).map { (q.path, $0) }
+            })
             let posture = SecurityPostureReader().read()
             let armed = guardService.isArmed
             let report = armed ? guardService.verify() : nil
@@ -405,6 +421,7 @@ import KestrelCore
                 self?.status = protection
                 self?.orphans = orphaned; self?.extensions = exts
                 self?.quarantine = quarantined; self?.posture = posture
+                self?.quarantineOrigins = origins
                 self?.canaryArmed = armed; self?.canaryReport = report
                 self?.startCanaryWatchIfArmed()
             }

@@ -990,6 +990,7 @@ struct SecuritySection: View {
 
             canaryCard
             signaturesCard
+            connectionsCard
 
             scanCard
 
@@ -999,6 +1000,43 @@ struct SecuritySection: View {
         }
         .dropFolder { url in controller.root = url; controller.report = nil; controller.scan() }
         .onAppear { controller.loadMeta(); controller.loadSignatures() }
+    }
+
+    /// The host part of an origin URL string, for a compact provenance label.
+    private func originHost(_ raw: String) -> String? {
+        URL(string: raw)?.host ?? raw.split(separator: "/").dropFirst(2).first.map(String.init)
+    }
+
+    /// Honest, read-only snapshot of which apps are talking to the network right now — the
+    /// observability half of a firewall (it reports; blocking would need a Network Extension).
+    private var connectionsCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionTitle("Network connections", icon: "network")
+                    Spacer()
+                    Button { controller.loadConnections() } label: {
+                        Label(controller.connectionsLoading ? L("Checking…") : L("Check now"), systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).disabled(controller.connectionsLoading)
+                }
+                Text(L("Which apps have an open outbound connection right now, and to where. Read-only — Kestrel reports, it never blocks.")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if controller.connections.isEmpty {
+                    Text(L("Check to see current outbound connections.")).font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    ForEach(Array(controller.connections.prefix(40).enumerated()), id: \.offset) { i, c in
+                        if i > 0 { Hairline() }
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.up.right.circle").font(.caption).foregroundStyle(Palette.accent2)
+                            Text(c.process).font(.callout.weight(.medium)).lineLimit(1)
+                            Spacer()
+                            Text(c.remote).font(.caption2.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        }
+                        .padding(.vertical, 1)
+                    }
+                }
+            }
+        }
     }
 
     /// Per-app code-signing verdict — honest facts, no fearmongering. Only a signature that doesn't
@@ -1111,7 +1149,12 @@ struct SecuritySection: View {
                     if i > 0 { Hairline() }
                     HStack(spacing: 8) {
                         Image(systemName: "arrow.down.doc").font(.caption).foregroundStyle(Palette.accent2)
-                        Text((q.path as NSString).lastPathComponent).font(.callout).lineLimit(1).truncationMode(.middle)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text((q.path as NSString).lastPathComponent).font(.callout).lineLimit(1).truncationMode(.middle)
+                            if let origin = controller.quarantineOrigins[q.path], let host = originHost(origin) {
+                                Label(host, systemImage: "link").font(.caption2).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
+                            }
+                        }
                         Spacer()
                         if let agent = q.agent { StatePill(text: agent, ok: false) }
                         Button { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: q.path)]) } label: {

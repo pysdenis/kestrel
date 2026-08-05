@@ -32,6 +32,8 @@ import KestrelCore
     @Published var loading = false
     @Published var query = ""
     @Published var mode: ViewMode = .byApp
+    /// Trust profile: the code-signing verdict per app, joined to its permissions by client.
+    @Published var signaturesByClient: [String: CodeSignature] = [:]
     private var loaded = false
 
     var filteredGroups: [AppPermissions] {
@@ -100,6 +102,25 @@ import KestrelCore
         }
         .sorted { $0.allowedCount != $1.allowedCount ? $0.allowedCount > $1.allowedCount : $0.name.lowercased() < $1.name.lowercased() }
         loading = false
+        loadSignatures(for: groups.map(\.client))
+    }
+
+    /// Read each app's code signature off-main and join it to its permissions — the honest
+    /// "trust profile": what an app can access + who signed it, side by side (no composite score).
+    private func loadSignatures(for clients: [String]) {
+        let pairs = clients.map { ($0, Self.appURL(for: $0)) }
+        Task.detached {
+            let reader = CodeSignatureReader()
+            var map: [String: CodeSignature] = [:]
+            for (client, url) in pairs { if let url { map[client] = reader.read(url) } }
+            await MainActor.run { self.signaturesByClient = map }
+        }
+    }
+
+    /// Resolve a TCC client (bundle id or path) to the app bundle URL, if it can be found.
+    static func appURL(for client: String) -> URL? {
+        if client.contains("/") { return URL(fileURLWithPath: client) }
+        return NSWorkspace.shared.urlForApplication(withBundleIdentifier: client)
     }
 
     /// Resolve a TCC client (bundle id or path) to a display name and icon.
@@ -168,7 +189,7 @@ struct PermissionsSection: View {
                 }
                 if controller.mode == .byApp {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 12)], spacing: 12) {
-                        ForEach(controller.filteredGroups) { PermissionCard(app: $0) }
+                        ForEach(controller.filteredGroups) { PermissionCard(app: $0, signature: controller.signaturesByClient[$0.client]) }
                     }
                 } else {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 12)], spacing: 12) {
@@ -220,9 +241,11 @@ struct PermissionUsageCard: View {
     }
 }
 
-/// One app and the protected resources it holds, as pills (green = allowed).
+/// One app and the protected resources it holds, as pills (green = allowed) — plus its code-signing
+/// verdict, so "what it can access" and "who signed it" sit side by side (the honest trust profile).
 struct PermissionCard: View {
     let app: PermissionsController.AppPermissions
+    var signature: CodeSignature?
 
     private var hasSensitive: Bool { app.items.contains { $0.allowed && TCCReader.isSensitive($0.service) } }
 
@@ -235,9 +258,16 @@ struct PermissionCard: View {
                         else { Image(systemName: "app.fill").resizable().foregroundStyle(.tertiary) }
                     }
                     .frame(width: 34, height: 34)
-                    VStack(alignment: .leading, spacing: 1) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(app.name).font(.subheadline.weight(.semibold)).lineLimit(1).truncationMode(.middle)
-                        Text(app.client).font(.caption2).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        if let sig = signature {
+                            let bad = sig.status.isNoteworthy
+                            Label("\(L(sig.status.label))\(sig.teamID.map { " · \($0)" } ?? "")", systemImage: bad ? "exclamationmark.shield" : "checkmark.seal")
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(bad ? Palette.warn : .secondary).lineLimit(1)
+                        } else {
+                            Text(app.client).font(.caption2).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        }
                     }
                     Spacer()
                     if hasSensitive {

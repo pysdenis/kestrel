@@ -49,6 +49,41 @@ public struct AIAssistant {
         return try await client.generate(prompt, system: systemPrompt)
     }
 
+    /// A prioritized, honest cleanup plan sorted into three buckets — **safe to reclaim**, **review
+    /// manually**, and **leave alone** — each item with a one-line reason and a total that's safe to
+    /// free. Metadata only (names, sizes, categories, Kestrel's own notes; never file contents), so
+    /// it's safe on any backend, local or cloud. The prompt biases toward caution: anything unclear
+    /// or possibly personal lands in "leave alone".
+    public func cleanupAdvice(plan: CleanupPlan, disk: DiskSpace?) async throws -> String {
+        var lines: [String] = []
+        if let disk {
+            lines.append("Disk: \(bytes(disk.used)) used of \(bytes(disk.total)), \(bytes(disk.available)) free.")
+        }
+        lines.append("Reclaimable now: \(bytes(plan.totalBytes)) across \(plan.count) items.")
+        for (category, size) in plan.bytesByCategory.sorted(by: { $0.value > $1.value }) {
+            lines.append("  • \(category.rawValue): \(bytes(size))")
+        }
+        let top = plan.items.sorted { $0.entry.size > $1.entry.size }.prefix(20)
+        if !top.isEmpty {
+            lines.append("Largest items (name — size [category] — Kestrel's note):")
+            for item in top {
+                lines.append("  • \(item.entry.url.lastPathComponent) — \(bytes(item.entry.size)) [\(item.category.rawValue)] — \(item.reason)")
+            }
+        }
+        let prompt = """
+        Here is a macOS cleanup scan (metadata only — names, sizes, categories, notes; no file contents):
+        \(lines.joined(separator: "\n"))
+
+        Organize an honest cleanup plan into exactly these three buckets, each a short bullet list:
+        1) Safe to reclaim — regenerable caches/build artifacts clearly safe to move to Kestrel's reversible vault.
+        2) Review manually — probably fine, but the user should glance first.
+        3) Leave alone — anything possibly personal, a source file, or unclear; when unsure, put it HERE.
+        For each bullet name the item or category and give a very short reason. End with one line: the
+        total size that is safe to reclaim. Do not overstate urgency or invent risks.
+        """
+        return try await client.generate(prompt, system: systemPrompt)
+    }
+
     /// A second opinion before applying a cleanup: flag anything that looks risky.
     public func review(plan: CleanupPlan) async throws -> String {
         let items = plan.items.sorted { $0.entry.size > $1.entry.size }.prefix(30)

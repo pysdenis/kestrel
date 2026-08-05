@@ -19,6 +19,8 @@ import KestrelCore
     @Published var messageIsError = false
     @Published var aiReview: String?
     @Published var reviewing = false
+    @Published var aiAdvice: String?
+    @Published var advising = false
     @Published var scanStatus = ""
 
     /// Categories the user has unchecked — excluded from the apply. Empty = clean everything.
@@ -82,6 +84,18 @@ import KestrelCore
         Task { [weak self] in
             let text = (try? await assistant.review(plan: plan)) ?? "AI review failed. Check your key and connection."
             await MainActor.run { [weak self] in self?.aiReview = text; self?.reviewing = false }
+        }
+    }
+
+    /// Ask the assistant for an honest three-bucket cleanup plan (safe / review / leave alone).
+    /// Local-first backend means this stays on-device when Ollama or on-device AI is available.
+    func advise(assistant: AIAssistant?, disk: DiskSpace?) {
+        guard let plan, let assistant, !advising else { return }
+        advising = true; aiAdvice = nil
+        Task { [weak self] in
+            let text = (try? await assistant.cleanupAdvice(plan: plan, disk: disk))
+                ?? L("The assistant didn't respond. Check its setup in Settings and your connection.")
+            await MainActor.run { [weak self] in self?.aiAdvice = text; self?.advising = false }
         }
     }
 

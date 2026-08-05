@@ -92,6 +92,24 @@ struct CleanupSection: View {
                 }
             }
 
+            if let advice = controller.aiAdvice {
+                Card(tint: Palette.violet) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "list.bullet.clipboard").foregroundStyle(Palette.violet)
+                            Text(L("AI cleanup plan")).font(.subheadline.weight(.semibold))
+                            if model.aiIsLocal {
+                                Text(L("on-device")).font(.caption2.weight(.medium))
+                                    .padding(.horizontal, 6).padding(.vertical, 2)
+                                    .background(Palette.good.opacity(0.15), in: Capsule())
+                                    .foregroundStyle(Palette.good)
+                            }
+                        }
+                        Text(advice).font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+
             if let plan = controller.plan, !controller.scanning {
                 if plan.items.isEmpty {
                     EmptyState(icon: "checkmark.seal.fill", title: "Nothing to clean here",
@@ -158,6 +176,13 @@ struct CleanupSection: View {
                         .disabled(controller.applying || selected.items.isEmpty)
 
                         if model.aiConfigured {
+                            Button { controller.advise(assistant: model.aiAssistant, disk: model.disk) } label: {
+                                if controller.advising { KestrelSpinner(tint: Palette.violet, size: 14) }
+                                else { Label(L("AI cleanup plan"), systemImage: "list.bullet.clipboard") }
+                            }
+                            .buttonStyle(.kestrel(.subtle, tint: Palette.violet, size: .small))
+                            .disabled(controller.advising)
+
                             Button { controller.review(assistant: model.aiAssistant) } label: {
                                 if controller.reviewing { KestrelSpinner(tint: Palette.violet, size: 14) }
                                 else { Label(L("AI second opinion"), systemImage: "sparkles") }

@@ -963,6 +963,34 @@ do {
     check(httpErr, "non-200 surfaces as http error")
 }
 
+section("AIAssistant: cleanup advisor asks for three honest buckets, metadata only")
+do {
+    // A capturing stub backend so we can assert what leaves the assistant (never file contents).
+    final class CapturingLLM: LLMBackend, @unchecked Sendable {
+        var lastPrompt = ""
+        var lastSystem: String?
+        var isConfigured: Bool { true }
+        func generate(_ prompt: String, system: String?) async throws -> String {
+            lastPrompt = prompt; lastSystem = system; return "advice"
+        }
+    }
+    withTempDir { tmp in
+        let nm = tmp.appendingPathComponent("node_modules")
+        try? fm.createDirectory(at: nm, withIntermediateDirectories: true)
+        makeFile(nm.appendingPathComponent("index.js"), "x")
+        let entries = (try? Scanner().scanChildren(of: tmp)) ?? []
+        let plan = Planner().plan(entries.map(RuleClassifier().classify))
+        let stub = CapturingLLM()
+        let assistant = AIAssistant(client: stub, responseLanguage: "Czech")
+        let reply = awaitResult { try? await assistant.cleanupAdvice(plan: plan, disk: nil) }
+        check(reply == "advice", "advisor returns the backend's reply")
+        check(stub.lastPrompt.contains("Safe to reclaim") && stub.lastPrompt.contains("Leave alone"),
+              "prompt asks for the three honest buckets")
+        check(stub.lastPrompt.contains("no file contents"), "prompt states metadata-only, no contents")
+        check(stub.lastSystem?.contains("Czech") == true, "system prompt carries the response language")
+    }
+}
+
 // MARK: - System extensions
 
 section("SystemExtensionAuditor: parses systemextensionsctl output")

@@ -195,6 +195,8 @@ enum Localization {
         ("Move to Vault", "Přesunout do trezoru"),
         ("Include in cleanup", "Zahrnout do úklidu"),
         ("AI second opinion", "AI druhý názor"),
+        ("AI cleanup plan", "AI plán úklidu"),
+        ("on-device", "na zařízení"),
         ("Uninstall selected", "Odinstalovat vybrané"),
         ("selected", "vybráno"),
         ("Search applications…", "Hledat aplikace…"),

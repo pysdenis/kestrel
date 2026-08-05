@@ -433,6 +433,7 @@ enum Localization {
         ("Kestrel: possible ransomware", "Kestrel: možný ransomware"),
         ("Kestrel weekly digest", "Kestrel týdenní souhrn"),
         ("Your weekly Kestrel summary is ready.", "Tvůj týdenní souhrn Kestrelu je připravený."),
+        ("reclaimed", "uvolněno"),
         ("day", "den"),
         ("Local notifications", "Lokální notifikace"),
         ("Local alerts: low disk space, a weekly digest, and ransomware-canary trips. Nothing leaves this Mac.", "Lokální upozornění: docházející místo, týdenní souhrn a spuštění ransomware kanárka. Nic neopustí tento Mac."),

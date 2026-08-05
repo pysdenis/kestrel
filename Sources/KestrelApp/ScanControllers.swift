@@ -356,10 +356,12 @@ import KestrelCore
     func loadMeta() {
         guard !loadedMeta else { return }
         loadedMeta = true
-        status = SystemProtectionReader().status()
         let downloads = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
         let guardService = canaryGuard
         Task.detached { [weak self] in
+            // Gatekeeper/XProtect status spawns `spctl` and reads plists — keep it off the main
+            // actor (as DashboardController and SmartCare do), so opening Security never hitches.
+            let protection = SystemProtectionReader().status()
             let orphaned = LaunchAgentAuditor().orphans()
             let exts = SystemExtensionAuditor().list()
             let quarantined = QuarantineReader().scan(root: downloads)
@@ -367,6 +369,7 @@ import KestrelCore
             let armed = guardService.isArmed
             let report = armed ? guardService.verify() : nil
             await MainActor.run { [weak self] in
+                self?.status = protection
                 self?.orphans = orphaned; self?.extensions = exts
                 self?.quarantine = quarantined; self?.posture = posture
                 self?.canaryArmed = armed; self?.canaryReport = report

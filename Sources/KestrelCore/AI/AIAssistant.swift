@@ -132,8 +132,11 @@ public struct AIAssistant {
         let prompt = """
         Convert this maintenance request into a single Kestrel rule as strict JSON only \
         (no prose, no code fences). Schema:
-        {"name": string, "root": string (a folder path, ~ allowed),
-         "criteria": {"olderThanDays"?: int, "largerThanBytes"?: int, "nameContains"?: string, "extensions"?: [string]}}
+        {"name": string, "root": string, "criteria": {"olderThanDays"?: int, \
+         "largerThanBytes"?: int, "nameContains"?: string, "extensions"?: [string]}}
+        Rules for "root": always use ~ for the user's home folder — e.g. "~/Desktop", \
+        "~/Downloads", "~/Documents". Never write a literal "/Users/<username>" or any placeholder. \
+        Screenshots live in ~/Desktop unless stated otherwise.
         Request: "\(description)"
         Output only the JSON object.
         """

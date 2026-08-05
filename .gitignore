@@ -15,6 +15,9 @@ Package.resolved
 vault/
 snapshots/
 audit.log
+# ...ale runtime pravidlo `vault/` omylem stínilo ZDROJOVÝ adresář — nikdy neignoruj zdrojáky:
+!Sources/KestrelCore/Vault/
+!Sources/KestrelCore/Vault/**
 
 # Third-party engine data (velké, generované)
 Resources/clamav-db/

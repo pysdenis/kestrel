@@ -1471,11 +1471,76 @@ struct ToolsSection: View {
             privacyCard
             secretsCard
             cloudCard
+            extensionsInventoryCard
+            systemTweaksCard
             loginItemsCard
             awakeCard
             maintenanceCard
         }
-        .onAppear { controller.loadMeta() }
+        .onAppear { controller.loadMeta(); controller.loadTweaks() }
+    }
+
+    /// Reversible system tweaks — each toggle records its prior value so it's undoable, and states
+    /// literally what it writes (no placebo). Not file deletion, so undo is via the prior-value store.
+    private var systemTweaksCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("System tweaks", icon: "slider.horizontal.3")
+                Text(L("Reversible power-user settings. Each toggle says exactly what it writes and records its prior value, so it can be turned back off to precisely how it was.")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                ForEach(Array(controller.systemTweaks.enumerated()), id: \.offset) { i, tweak in
+                    if i > 0 { Hairline() }
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(L(tweak.title)).font(.callout.weight(.medium))
+                            Text(tweak.detail).font(.caption2.monospaced()).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
+                        }
+                        Spacer()
+                        KestrelToggle(isOn: Binding(
+                            get: { controller.tweakStates[tweak.id] ?? false },
+                            set: { controller.setTweak(tweak, $0) }))
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+
+    /// Inventory of user add-ons (Quick Look, prefpanes, Audio Units…) — read-only, reveal only.
+    private var extensionsInventoryCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionTitle("Extensions & add-ons", icon: "puzzlepiece.extension")
+                    Spacer()
+                    Button { controller.loadAddons() } label: {
+                        Label(controller.addonsLoading ? L("Scanning…") : L("Scan"), systemImage: "magnifyingglass")
+                    }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).disabled(controller.addonsLoading)
+                }
+                Text(L("Quick Look plugins, preference panes, screen savers, Audio Units and more that accumulate in your Library. Read-only — reveal in Finder to remove.")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if controller.addonsLoading {
+                    HStack(spacing: 10) { ScanRadar(tint: Palette.accent, size: 24); Text(L("Scanning add-ons…")).foregroundStyle(.secondary).font(.callout) }
+                } else if controller.addons.isEmpty {
+                    Text(L("Scan to list your installed add-ons.")).font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    ForEach(controller.addons) { addon in
+                        if addon.id != controller.addons.first?.id { Hairline() }
+                        HStack(spacing: 10) {
+                            Image(systemName: "puzzlepiece").font(.caption).foregroundStyle(Palette.accent2)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(addon.name).font(.callout.weight(.medium)).lineLimit(1)
+                                Text("\(L(addon.kind.label))\(addon.systemWide ? " · \(L("system"))" : "")").font(.caption2).foregroundStyle(.tertiary)
+                            }
+                            Spacer()
+                            if addon.size > 0 { Text(bytesString(addon.size)).font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
+                            Button { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: addon.path)]) } label: { Image(systemName: "magnifyingglass") }
+                                .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Reveal in Finder"))
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+        }
     }
 
     private var photosCard: some View {

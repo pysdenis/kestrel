@@ -836,6 +836,44 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var reclaimMessage: String?
     @Published var reclaimRoot = FileManager.default.homeDirectoryForCurrentUser
 
+    @Published var tweakStates: [String: Bool] = [:]
+    private var tweaker: SystemTweaker { SystemTweaker(storeURL: paths.systemTweaks) }
+    let systemTweaks = SystemTweaker.catalog
+
+    @Published var addons: [SystemAddon] = []
+    @Published var addonsLoading = false
+
+    /// List user add-ons (Quick Look, prefpanes, Audio Units…) across ~/Library and /Library.
+    func loadAddons() {
+        guard !addonsLoading else { return }
+        addonsLoading = true
+        let home = paths.home
+        Task.detached { [weak self] in
+            let found = ExtensionInventory().list(home: home)
+            await MainActor.run { [weak self] in self?.addons = found; self?.addonsLoading = false }
+        }
+    }
+
+    /// Read the current on/off state of every catalog tweak (off-main; `defaults read`).
+    func loadTweaks() {
+        let tw = tweaker
+        Task.detached { [weak self] in
+            let states = Dictionary(uniqueKeysWithValues: SystemTweaker.catalog.map { ($0.id, tw.isEnabled($0)) })
+            await MainActor.run { [weak self] in self?.tweakStates = states }
+        }
+    }
+
+    /// Toggle a tweak, snapshotting its prior value so it can be reverted exactly, then re-read.
+    func setTweak(_ tweak: SystemTweak, _ on: Bool) {
+        tweakStates[tweak.id] = on   // optimistic
+        let tw = tweaker
+        Task.detached { [weak self] in
+            _ = tw.setEnabled(tweak, on)
+            let actual = tw.isEnabled(tweak)
+            await MainActor.run { [weak self] in self?.tweakStates[tweak.id] = actual }
+        }
+    }
+
     func pickReclaimRoot() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.directoryURL = reclaimRoot

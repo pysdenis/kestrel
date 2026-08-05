@@ -53,14 +53,27 @@ public struct OllamaClient: LLMBackend {
         _ = try? await URLSession.shared.data(for: request)
     }
 
-    /// Extract the assistant text from an `/api/chat` (non-streamed) response.
+    /// Extract the assistant text from an `/api/chat` (non-streamed) response, dropping any
+    /// `<think>…</think>` reasoning a hybrid model (e.g. Qwen3) emits so Kestrel shows only the
+    /// final answer.
     public static func parseChat(_ data: Data) throws -> String {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let message = root["message"] as? [String: Any],
               let content = message["content"] as? String else { throw OllamaError.empty }
-        let text = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = stripReasoning(content).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { throw OllamaError.empty }
         return text
+    }
+
+    /// Remove a leading `<think>…</think>` block (reasoning models put their chain-of-thought
+    /// there). Handles an unclosed block too (keeps nothing rather than dumping raw reasoning).
+    public static func stripReasoning(_ content: String) -> String {
+        guard let open = content.range(of: "<think>") else { return content }
+        if let close = content.range(of: "</think>") {
+            return String(content[close.upperBound...])
+        }
+        // Open tag with no close: drop everything from the tag on.
+        return String(content[..<open.lowerBound])
     }
 
     /// The names of the models installed in an `/api/tags` response.

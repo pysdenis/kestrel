@@ -1335,6 +1335,12 @@ withTempDir { home in
 }
 check(PackageCacheFinder.candidatePaths.contains { $0.tool == "Gradle" && $0.path == ".gradle/caches" },
       "candidate list is data-driven and auditable")
+check(PackageCacheFinder.candidatePaths.contains { $0.path == "Library/Developer/Xcode/iOS DeviceSupport" },
+      "covers Xcode iOS DeviceSupport (a top space hog)")
+check(PackageCacheFinder.candidatePaths.contains { $0.path == "Library/Developer/CoreSimulator/Caches" },
+      "covers simulator caches")
+check(Set(PackageCacheFinder.candidatePaths.map(\.path)).count == PackageCacheFinder.candidatePaths.count,
+      "no duplicate cache paths")
 
 // MARK: - PrivacyDataFinder (browser traces)
 

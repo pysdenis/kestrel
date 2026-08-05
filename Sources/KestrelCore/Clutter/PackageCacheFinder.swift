@@ -38,6 +38,21 @@ public struct PackageCacheFinder {
         ("Puppeteer", ".cache/puppeteer"),
         ("Deno", "Library/Caches/deno"),
         ("Bun", ".bun/install/cache"),
+        // Xcode's biggest hogs — all regeneratable (re-created on device attach / next build).
+        ("Xcode iOS DeviceSupport", "Library/Developer/Xcode/iOS DeviceSupport"),
+        ("Xcode watchOS DeviceSupport", "Library/Developer/Xcode/watchOS DeviceSupport"),
+        ("Xcode tvOS DeviceSupport", "Library/Developer/Xcode/tvOS DeviceSupport"),
+        ("Simulator caches", "Library/Developer/CoreSimulator/Caches"),
+        ("Xcode Previews", "Library/Developer/Xcode/UserData/Previews"),
+        ("Carthage", "Library/Caches/org.carthage.CarthageKit"),
+        // Other common regeneratable dev caches.
+        ("JetBrains caches", "Library/Caches/JetBrains"),
+        ("Playwright browsers", "Library/Caches/ms-playwright"),
+        ("Electron", "Library/Caches/electron"),
+        ("node-gyp", ".node-gyp"),
+        ("Yarn Berry", ".yarn/berry/cache"),
+        ("NuGet packages", ".nuget/packages"),
+        ("Composer", "Library/Caches/composer"),
     ]
 
     private let fm: FileManager

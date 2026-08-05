@@ -44,4 +44,7 @@ public struct KestrelPaths: Sendable {
 
     /// Manifest of planted ransomware-canary decoy files + their baseline hashes.
     public var canary: URL { root.appendingPathComponent("canary.json") }
+
+    /// Prior values of system tweaks Kestrel changed, so each can be reverted exactly.
+    public var systemTweaks: URL { root.appendingPathComponent("system-tweaks.json") }
 }

@@ -989,6 +989,7 @@ struct SecuritySection: View {
             if let posture = controller.posture { hardeningCard(posture) }
 
             canaryCard
+            signaturesCard
 
             scanCard
 
@@ -997,7 +998,49 @@ struct SecuritySection: View {
             if !controller.orphans.isEmpty { orphansCard }
         }
         .dropFolder { url in controller.root = url; controller.report = nil; controller.scan() }
-        .onAppear { controller.loadMeta() }
+        .onAppear { controller.loadMeta(); controller.loadSignatures() }
+    }
+
+    /// Per-app code-signing verdict — honest facts, no fearmongering. Only a signature that doesn't
+    /// verify is highlighted; unsigned/ad-hoc are shown as neutral counts.
+    private var signaturesCard: some View {
+        Card(tint: controller.signatureAlerts.isEmpty ? nil : Palette.warn) {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("App signatures", icon: "signature")
+                if controller.signaturesLoading && controller.signatures.isEmpty {
+                    HStack(spacing: 10) { KestrelSpinner(tint: Palette.accent, size: 16); Text(L("Inspecting app signatures…")).font(.callout).foregroundStyle(.secondary) }
+                } else if controller.signatures.isEmpty {
+                    Text(L("No applications found to inspect.")).font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    if controller.signatureAlerts.isEmpty {
+                        Label("\(controller.signatures.count) \(L("apps inspected — every signature verifies."))", systemImage: "checkmark.seal.fill")
+                            .font(.callout).foregroundStyle(Palette.good)
+                    } else {
+                        Text("\(controller.signatureAlerts.count) \(L("app(s) whose signature doesn't verify — may have been modified after signing:"))")
+                            .font(.callout.weight(.medium)).foregroundStyle(Palette.warn).fixedSize(horizontal: false, vertical: true)
+                        ForEach(controller.signatureAlerts) { sig in
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(Palette.warn)
+                                Text(sig.name).font(.callout.weight(.medium)).lineLimit(1)
+                                Spacer()
+                                Button { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: sig.path)]) } label: { Image(systemName: "magnifyingglass") }
+                                    .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Reveal in Finder"))
+                            }
+                        }
+                    }
+                    // Honest breakdown by signing identity.
+                    FlowLayout(spacing: 6, lineSpacing: 6) {
+                        ForEach(Array(controller.signatureCounts().enumerated()), id: \.offset) { _, pair in
+                            Text("\(pair.1) \(L(pair.0.label))")
+                                .font(.caption2.weight(.medium))
+                                .padding(.horizontal, 7).padding(.vertical, 2)
+                                .background(Color.primary.opacity(0.06), in: Capsule())
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // MARK: ransomware canary (decoys + tamper alert; detection only)

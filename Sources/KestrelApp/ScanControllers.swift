@@ -331,7 +331,40 @@ import KestrelCore
     @Published var canaryBusy = false
     private var canaryWatcher: CanaryWatcher?
     private var canaryNotified = false
+    // Per-app code signatures
+    @Published var signatures: [CodeSignature] = []
+    @Published var signaturesLoading = false
     private var loadedMeta = false
+
+    /// Apps whose signature doesn't verify — the only signature verdict worth flagging.
+    var signatureAlerts: [CodeSignature] { signatures.filter { $0.status.isNoteworthy } }
+    /// Count of apps per signing status, for an honest breakdown.
+    func signatureCounts() -> [(CodeSignature.Status, Int)] {
+        let groups = Dictionary(grouping: signatures, by: \.status)
+        let order: [CodeSignature.Status] = [.invalid, .unsigned, .adHoc, .developerID, .appStore, .apple]
+        return order.compactMap { s in groups[s].map { (s, $0.count) } }
+    }
+
+    /// Inspect the code-signing verdict of every installed app (off-main; honest, basic validation).
+    func loadSignatures() {
+        guard !signaturesLoading, signatures.isEmpty else { return }
+        signaturesLoading = true
+        let home = paths.home
+        Task.detached { [weak self] in
+            let reader = CodeSignatureReader()
+            let dirs = [URL(fileURLWithPath: "/Applications"), home.appendingPathComponent("Applications")]
+            var results: [CodeSignature] = []
+            for dir in dirs {
+                let apps = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+                for app in apps where app.pathExtension == "app" { results.append(reader.read(app)) }
+            }
+            let sorted = results.sorted {
+                if $0.status.isNoteworthy != $1.status.isNoteworthy { return $0.status.isNoteworthy }
+                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+            await MainActor.run { [weak self] in self?.signatures = sorted; self?.signaturesLoading = false }
+        }
+    }
 
     private let paths: KestrelPaths
     init(paths: KestrelPaths = KestrelPaths()) { self.paths = paths }

@@ -851,6 +851,8 @@ struct SecuritySection: View {
             if let posture = controller.posture { postureCard(posture) }
             if let posture = controller.posture { hardeningCard(posture) }
 
+            canaryCard
+
             scanCard
 
             if !controller.quarantine.isEmpty { quarantineCard }
@@ -859,6 +861,64 @@ struct SecuritySection: View {
         }
         .dropFolder { url in controller.root = url; controller.report = nil; controller.scan() }
         .onAppear { controller.loadMeta() }
+    }
+
+    // MARK: ransomware canary (decoys + tamper alert; detection only)
+
+    private var canaryCard: some View {
+        let tripped = controller.canaryReport?.isTripped ?? false
+        let tint = tripped ? Palette.warn : (controller.canaryArmed ? Palette.good : Palette.accent2)
+        return Card(tint: controller.canaryArmed ? tint : nil) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    SectionTitle("Ransomware canary", icon: tripped ? "exclamationmark.shield.fill" : "shield.lefthalf.filled")
+                    Spacer()
+                    if controller.canaryArmed {
+                        StatePill(text: tripped ? L("Tampered!") : L("Armed"), ok: !tripped)
+                    }
+                }
+                Text(L("Kestrel plants harmless decoy files in Documents, Desktop and Pictures and watches them. If something rewrites or deletes them — a hallmark of ransomware — you get warned. Detection only: Kestrel never deletes or changes your files."))
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+
+                if tripped, let report = controller.canaryReport {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(L("Decoy files changed unexpectedly — something may be modifying your files. Consider disconnecting from the network and checking recent activity."),
+                              systemImage: "exclamationmark.triangle.fill")
+                            .font(.callout.weight(.medium)).foregroundStyle(Palette.warn)
+                            .fixedSize(horizontal: false, vertical: true)
+                        ForEach(Array(report.alerts.prefix(10).enumerated()), id: \.offset) { _, a in
+                            HStack(spacing: 8) {
+                                Image(systemName: a.kind == .deleted ? "trash.slash" : "pencil.slash").font(.caption).foregroundStyle(Palette.warn)
+                                Text((a.path as NSString).lastPathComponent).font(.caption).lineLimit(1).truncationMode(.middle)
+                                Spacer()
+                                StatePill(text: a.kind == .deleted ? L("deleted") : L("modified"), ok: false)
+                            }
+                        }
+                    }
+                } else if controller.canaryArmed {
+                    Text("\(controller.canaryReport?.checked ?? 0) \(L("decoy(s) intact — no sign of mass file tampering."))")
+                        .font(.callout).foregroundStyle(Palette.good)
+                }
+
+                HStack(spacing: 8) {
+                    if controller.canaryArmed {
+                        Button { controller.verifyCanary() } label: {
+                            if controller.canaryBusy { KestrelSpinner(tint: Palette.accent, size: 14) }
+                            else { Label(L("Check now"), systemImage: "arrow.clockwise") }
+                        }
+                        .buttonStyle(.kestrel(.secondary, size: .small)).disabled(controller.canaryBusy)
+                        Button { controller.disarmCanary() } label: { Label(L("Disarm"), systemImage: "shield.slash") }
+                            .buttonStyle(.kestrel(.subtle, size: .small)).disabled(controller.canaryBusy)
+                    } else {
+                        Button { controller.armCanary() } label: {
+                            if controller.canaryBusy { KestrelSpinner(tint: .white, size: 14) }
+                            else { Label(L("Arm protection"), systemImage: "shield.lefthalf.filled") }
+                        }
+                        .buttonStyle(.kestrel(.prominent, size: .small)).disabled(controller.canaryBusy)
+                    }
+                }
+            }
+        }
     }
 
     private var quarantineCard: some View {

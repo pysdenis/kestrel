@@ -5,8 +5,17 @@ import Foundation
 public struct KestrelPaths: Sendable {
     public let home: URL
 
-    public init(home: URL = FileManager.default.homeDirectoryForCurrentUser) {
-        self.home = home
+    public init(home: URL? = nil) {
+        // Prefer an explicitly-set $HOME (POSIX-canonical, and lets a container or a test point
+        // Kestrel at an isolated home), falling back to the passwd entry. This also stops CLI
+        // invocations from ever landing in the real ~ when a caller meant to sandbox them.
+        if let home {
+            self.home = home
+        } else if let envHome = ProcessInfo.processInfo.environment["HOME"], !envHome.isEmpty {
+            self.home = URL(fileURLWithPath: envHome, isDirectory: true)
+        } else {
+            self.home = FileManager.default.homeDirectoryForCurrentUser
+        }
     }
 
     /// `~/.kestrel` — the root of everything Kestrel stores.
@@ -32,4 +41,7 @@ public struct KestrelPaths: Sendable {
 
     /// User allowlist — absolute paths Kestrel must never touch (fed into `SafetyGuard`).
     public var exclusions: URL { root.appendingPathComponent("exclusions.json") }
+
+    /// Manifest of planted ransomware-canary decoy files + their baseline hashes.
+    public var canary: URL { root.appendingPathComponent("canary.json") }
 }

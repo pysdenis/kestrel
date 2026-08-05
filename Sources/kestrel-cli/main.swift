@@ -246,6 +246,7 @@ func usage() {
       kestrel photos [path] [--apply]           (similar images; keeps the best of each)
       kestrel secrets <path>                    (scan a project for leaked credentials)
       kestrel power                             (what is keeping the Mac awake)
+      kestrel canary plant | status | disarm    (ransomware canary — decoys + tamper alert)
       kestrel localsnapshots                    (APFS/Time Machine local snapshots)
       kestrel shred <path> --apply              (secure permanent delete — no undo)
       kestrel rules list | run [name] [--apply] (declarative maintenance rules)
@@ -802,6 +803,38 @@ do {
         if let date = auditor.deletionDate(from: snaps[0]) {
             print("\nDelete one with:  tmutil deletelocalsnapshots \(date)")
             print("(Delegated to tmutil — not moved to Kestrel's vault.)")
+        }
+
+    case "canary":
+        let guardService = CanaryGuard(manifestURL: paths.canary)
+        let sub = rest.first(where: { !$0.hasPrefix("-") }) ?? "status"
+        switch sub {
+        case "plant", "arm":
+            let dirs = CanaryGuard.defaultDirectories(home: paths.home)
+            let planted = try guardService.plant(in: dirs)
+            print("Planted \(planted.count) ransomware canary decoy(s):")
+            for f in planted { print("  • \(f.path)") }
+            print("\nKestrel now watches these. If anything rewrites or deletes them, run")
+            print("'kestrel canary status' (or open the app) to be warned. This is detection only —")
+            print("Kestrel never deletes or 'fixes' your files on its own.")
+        case "status", "verify", "check":
+            guard guardService.isArmed else {
+                print("No canaries planted. Arm protection with:  kestrel canary plant"); break
+            }
+            let report = guardService.verify()
+            if !report.isTripped {
+                print("All \(report.checked) canary decoy(s) intact. ✅ No sign of mass file tampering.")
+            } else {
+                print("⚠️  CANARY TRIPPED — \(report.alerts.count) of \(report.checked) decoy(s) changed:")
+                for a in report.alerts { print("  • [\(a.kind.rawValue)] \(a.path)") }
+                print("\nSomething may be modifying your files. Consider disconnecting from the network")
+                print("and checking recent activity before doing anything else.")
+            }
+        case "disarm", "remove":
+            guardService.disarm()
+            print("Removed all canary decoys and stopped watching.")
+        default:
+            print("Unknown canary subcommand '\(sub)'. Use: plant|status|disarm"); exit(2)
         }
 
     case "shred":

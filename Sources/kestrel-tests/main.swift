@@ -991,6 +991,37 @@ do {
     }
 }
 
+section("CanaryGuard: plants decoys, verifies clean, trips on modify/delete")
+withTempDir { tmp in
+    let docs = tmp.appendingPathComponent("Documents")
+    let desk = tmp.appendingPathComponent("Desktop")
+    try fm.createDirectory(at: docs, withIntermediateDirectories: true)
+    try fm.createDirectory(at: desk, withIntermediateDirectories: true)
+    let guardService = CanaryGuard(manifestURL: tmp.appendingPathComponent(".kestrel/canary.json"))
+
+    let planted = try guardService.plant(in: [docs, desk, tmp.appendingPathComponent("DoesNotExist")])
+    check(planted.count == 2, "plants one decoy per existing directory, skips missing ones")
+    check(fm.fileExists(atPath: docs.appendingPathComponent(CanaryGuard.decoyName).path), "decoy written")
+    check(guardService.isArmed, "armed after planting")
+
+    let clean = guardService.verify()
+    check(clean.checked == 2 && !clean.isTripped, "freshly planted canaries verify clean")
+
+    // Simulate an encryptor rewriting a protected file.
+    try Data("encrypted-garbage".utf8).write(to: docs.appendingPathComponent(CanaryGuard.decoyName))
+    let tripped = guardService.verify()
+    check(tripped.isTripped && tripped.alerts.contains { $0.kind == .modified }, "modified decoy trips the canary")
+
+    // Simulate deletion of a protected file.
+    try fm.removeItem(at: desk.appendingPathComponent(CanaryGuard.decoyName))
+    let afterDelete = guardService.verify()
+    check(afterDelete.alerts.contains { $0.kind == .deleted }, "deleted decoy reported as deleted")
+
+    guardService.disarm()
+    check(!guardService.isArmed && !fm.fileExists(atPath: docs.appendingPathComponent(CanaryGuard.decoyName).path),
+          "disarm removes decoys and the manifest")
+}
+
 // MARK: - System extensions
 
 section("SystemExtensionAuditor: parses systemextensionsctl output")

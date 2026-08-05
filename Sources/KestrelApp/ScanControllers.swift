@@ -306,7 +306,15 @@ import KestrelCore
     @Published var scanStatus = ""
     @Published var explanations: [String: String] = [:]   // finding key → AI explanation
     @Published var explaining: Set<String> = []
+    // Ransomware canary
+    @Published var canaryArmed = false
+    @Published var canaryReport: CanaryReport?
+    @Published var canaryBusy = false
     private var loadedMeta = false
+
+    private let paths: KestrelPaths
+    init(paths: KestrelPaths = KestrelPaths()) { self.paths = paths }
+    private var canaryGuard: CanaryGuard { CanaryGuard(manifestURL: paths.canary) }
 
     static func findingKey(_ f: ScanFinding) -> String { "\(f.path)|\(f.rule)" }
 
@@ -329,14 +337,57 @@ import KestrelCore
         loadedMeta = true
         status = SystemProtectionReader().status()
         let downloads = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
+        let guardService = canaryGuard
         Task.detached { [weak self] in
             let orphaned = LaunchAgentAuditor().orphans()
             let exts = SystemExtensionAuditor().list()
             let quarantined = QuarantineReader().scan(root: downloads)
             let posture = SecurityPostureReader().read()
+            let armed = guardService.isArmed
+            let report = armed ? guardService.verify() : nil
             await MainActor.run { [weak self] in
                 self?.orphans = orphaned; self?.extensions = exts
                 self?.quarantine = quarantined; self?.posture = posture
+                self?.canaryArmed = armed; self?.canaryReport = report
+            }
+        }
+    }
+
+    /// Plant ransomware-canary decoys in Documents/Desktop/Pictures. Detection only — Kestrel
+    /// only ever writes its own decoy files and never touches user data.
+    func armCanary() {
+        guard !canaryBusy else { return }
+        canaryBusy = true
+        let guardService = canaryGuard, home = paths.home
+        Task.detached { [weak self] in
+            _ = try? guardService.plant(in: CanaryGuard.defaultDirectories(home: home))
+            let armed = guardService.isArmed
+            let report = armed ? guardService.verify() : nil
+            await MainActor.run { [weak self] in
+                self?.canaryArmed = armed; self?.canaryReport = report; self?.canaryBusy = false
+            }
+        }
+    }
+
+    /// Re-check every decoy now (also runs automatically when the section loads).
+    func verifyCanary() {
+        guard canaryArmed, !canaryBusy else { return }
+        canaryBusy = true
+        let guardService = canaryGuard
+        Task.detached { [weak self] in
+            let report = guardService.verify()
+            await MainActor.run { [weak self] in self?.canaryReport = report; self?.canaryBusy = false }
+        }
+    }
+
+    func disarmCanary() {
+        guard !canaryBusy else { return }
+        canaryBusy = true
+        let guardService = canaryGuard
+        Task.detached { [weak self] in
+            guardService.disarm()
+            await MainActor.run { [weak self] in
+                self?.canaryArmed = false; self?.canaryReport = nil; self?.canaryBusy = false
             }
         }
     }

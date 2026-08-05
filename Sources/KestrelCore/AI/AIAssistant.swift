@@ -9,10 +9,10 @@ public struct AIAssistant {
     private let systemPrompt: String
 
     public static let basePrompt = """
-    You are Kestrel, an honest macOS maintenance assistant. Be concise and factual. \
-    Never invent malware, threats, or urgency. Only reason about the metadata you are \
-    given (names and sizes) — you cannot see file contents. When you are unsure whether \
-    something is safe to remove, say so and recommend keeping it. Prefer plain language.
+    You are Kestrel, an honest macOS maintenance assistant. Answer the user's actual question \
+    directly. Be concise and factual. Never invent malware, threats, or urgency. You reason only \
+    about metadata (names and sizes) — you cannot see file contents. When unsure whether something \
+    is safe to remove, say so and recommend keeping it. Prefer plain language.
     """
 
     /// `responseLanguage` (e.g. "Czech", "English") makes the assistant answer in the user's UI
@@ -148,14 +148,17 @@ public struct AIAssistant {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Free-form question answered against a caller-provided metadata context.
+    /// Free-form question answered against a caller-provided metadata context. The context is
+    /// framed as optional background so a general question (e.g. "why don't you write in Czech?")
+    /// isn't dragged into talking about disk/memory just because those stats were attached.
     public func ask(_ question: String, context: String) async throws -> String {
-        let prompt = """
-        Context (metadata only, no file contents):
+        let contextBlock = context.isEmpty ? "" : """
+        Background system stats you MAY reference only if the question is about them (otherwise ignore):
         \(context)
 
-        Question: \(question)
+
         """
+        let prompt = "\(contextBlock)Answer this question directly: \(question)"
         return try await client.generate(prompt, system: systemPrompt)
     }
 

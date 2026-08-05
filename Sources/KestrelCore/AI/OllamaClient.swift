@@ -9,10 +9,16 @@ public struct OllamaClient: LLMBackend {
 
     public let host: URL
     public let model: String
+    /// How long Ollama keeps the model resident in RAM after a reply. Short by design so an idle
+    /// Kestrel (or a closed laptop) doesn't hold a multi-GB model in memory or wake the machine —
+    /// it stays warm through a back-and-forth chat, then unloads. First message after idle pays a
+    /// one-time reload; a fair trade for battery and a light background footprint.
+    public let keepAlive: String
 
-    public init(host: URL = URL(string: "http://localhost:11434")!, model: String) {
+    public init(host: URL = URL(string: "http://localhost:11434")!, model: String, keepAlive: String = "90s") {
         self.host = host
         self.model = model
+        self.keepAlive = keepAlive
     }
 
     public var isConfigured: Bool { !model.isEmpty }
@@ -21,7 +27,7 @@ public struct OllamaClient: LLMBackend {
         var messages: [[String: String]] = []
         if let system { messages.append(["role": "system", "content": system]) }
         messages.append(["role": "user", "content": prompt])
-        let payload: [String: Any] = ["model": model, "messages": messages, "stream": false]
+        let payload: [String: Any] = ["model": model, "messages": messages, "stream": false, "keep_alive": keepAlive]
 
         var request = URLRequest(url: host.appendingPathComponent("api/chat"))
         request.httpMethod = "POST"
@@ -64,15 +70,22 @@ public struct OllamaClient: LLMBackend {
         return preferredModel(from: parseModels(data))
     }
 
-    /// Pick a snappy general model over a heavy coder/reasoning one. Pure — unit-testable.
+    /// Pick a good general chat model for Kestrel's assistant. Ordered for **multilingual quality
+    /// that still runs light** — small models like llama3.2:3b garble non-English (e.g. Czech), so a
+    /// solid 7–9B multilingual model is preferred when present, falling back to the small ones, and
+    /// always avoiding a heavy coder/reasoning model. Prefixes are specific (e.g. "qwen2.5:7b") so a
+    /// bare-family match never accidentally selects "qwen2.5-coder:14b". Pure — unit-testable.
     public static func preferredModel(from names: [String]) -> String? {
         guard !names.isEmpty else { return nil }
-        // Fast, general-purpose families first (in rough preference order).
-        let fast = ["llama3.2", "qwen2.5:3b", "phi3.5", "phi3", "gemma2:2b", "gemma2", "llama3.1:8b", "qwen2.5:7b", "mistral", "llama3"]
-        for family in fast {
+        let preferred = [
+            "qwen2.5:7b", "gemma2:9b", "llama3.1:8b", "mistral-nemo",   // strong multilingual, ~mid weight
+            "qwen2.5:3b", "llama3.2", "phi3.5", "phi3", "gemma2:2b",     // lighter fallbacks
+            "llama3.1", "mistral", "llama3",
+        ]
+        for family in preferred {
             if let match = names.first(where: { $0.hasPrefix(family) }) { return match }
         }
-        // Otherwise avoid the obviously-heavy models (big coders / 14B+).
+        // Otherwise avoid the obviously-heavy models (big coders / 14B+ / reasoning).
         let heavy = ["coder", "70b", "72b", "34b", "32b", "14b", "deepseek-r1"]
         if let light = names.first(where: { name in !heavy.contains(where: name.contains) }) { return light }
         return names.first

@@ -87,7 +87,7 @@ struct CleanupSection: View {
                 Card(tint: Palette.violet) {
                     HStack(alignment: .top, spacing: 10) {
                         AssistantAvatar()
-                        Text(aiReview).font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                        MarkdownText(text: aiReview).font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -105,7 +105,7 @@ struct CleanupSection: View {
                                     .foregroundStyle(Palette.good)
                             }
                         }
-                        Text(advice).font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                        MarkdownText(text: advice).font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                         if controller.hasSafeItems {
                             Divider().opacity(0.4)
                             HStack(spacing: 8) {
@@ -594,6 +594,78 @@ struct AssistantAvatar: View {
 
 /// A single chat message: user bubbles are accent-filled and right-aligned; the
 /// assistant's are a material card with an avatar, left-aligned.
+/// A lightweight Markdown renderer for AI text: paragraphs, bold/italic/inline-code, and bullet /
+/// numbered lists. Block structure (lists, paragraphs) is handled here; inline styling comes from
+/// AttributedString so `**bold**`, `*italic*` and `` `code` `` render instead of showing raw marks.
+struct MarkdownText: View {
+    let text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(Array(Self.blocks(text).enumerated()), id: \.offset) { _, block in
+                switch block {
+                case .paragraph(let s):
+                    Self.inline(s).fixedSize(horizontal: false, vertical: true)
+                case .bullet(let s):
+                    HStack(alignment: .top, spacing: 8) {
+                        Text("•").foregroundStyle(.secondary)
+                        Self.inline(s).fixedSize(horizontal: false, vertical: true)
+                    }
+                case .numbered(let n, let s):
+                    HStack(alignment: .top, spacing: 8) {
+                        Text("\(n).").foregroundStyle(.secondary).monospacedDigit()
+                        Self.inline(s).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+    }
+
+    /// One line/paragraph with inline Markdown resolved to a styled `Text`.
+    static func inline(_ s: String) -> Text {
+        var options = AttributedString.MarkdownParsingOptions()
+        options.interpretedSyntax = .inlineOnlyPreservingWhitespace
+        guard var attr = try? AttributedString(markdown: s, options: options) else { return Text(s) }
+        let codeRanges = attr.runs.filter { $0.inlinePresentationIntent?.contains(.code) == true }.map(\.range)
+        for r in codeRanges { attr[r].font = .system(.callout, design: .monospaced) }
+        return Text(attr)
+    }
+
+    enum Block { case paragraph(String), bullet(String), numbered(Int, String) }
+
+    static func blocks(_ text: String) -> [Block] {
+        var out: [Block] = []
+        var paragraph: [String] = []
+        func flush() {
+            if !paragraph.isEmpty { out.append(.paragraph(paragraph.joined(separator: " "))); paragraph = [] }
+        }
+        for rawLine in text.components(separatedBy: "\n") {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+            if line.isEmpty { flush(); continue }
+            if let b = bulletContent(line) { flush(); out.append(.bullet(b)) }
+            else if let (n, s) = numberedContent(line) { flush(); out.append(.numbered(n, s)) }
+            else { paragraph.append(line) }
+        }
+        flush()
+        return out
+    }
+
+    static func bulletContent(_ line: String) -> String? {
+        for p in ["* ", "- ", "• "] where line.hasPrefix(p) { return String(line.dropFirst(p.count)) }
+        return nil
+    }
+
+    static func numberedContent(_ line: String) -> (Int, String)? {
+        guard let sep = line.firstIndex(where: { $0 == "." || $0 == ")" }) else { return nil }
+        let after = line.index(after: sep)
+        guard after < line.endIndex, line[after] == " " else { return nil }   // "1. text", not "3.5 GB"
+        let numStr = line[line.startIndex..<sep]
+        guard numStr.count <= 2, let n = Int(numStr) else { return nil }
+        let rest = String(line[after...]).trimmingCharacters(in: .whitespaces)
+        return rest.isEmpty ? nil : (n, rest)
+    }
+}
+
 struct ChatBubble: View {
     let message: ChatMessage
 
@@ -601,7 +673,7 @@ struct ChatBubble: View {
         HStack(alignment: .top, spacing: 10) {
             if message.role == .assistant {
                 AssistantAvatar()
-                Text(message.text)
+                MarkdownText(text: message.text)
                     .font(.callout).textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 14).padding(.vertical, 11)

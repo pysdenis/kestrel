@@ -385,7 +385,7 @@ struct PlanToolCard: View {
 
                 HStack(spacing: 8) {
                     Button { model.tools.runTool(id, scan: scan) } label: {
-                        Text(state.plan == nil ? "Scan" : "Rescan")
+                        Text(state.plan == nil ? L("Scan") : L("Rescan"))
                     }
                     .buttonStyle(.kestrel(.secondary, size: .small))
                     .disabled(state.scanning || state.applying)

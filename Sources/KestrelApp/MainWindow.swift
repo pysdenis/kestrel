@@ -1359,11 +1359,25 @@ struct SettingsSection: View {
                         VaultSessionRow(session: session, busy: controller.busy) { controller.undo(session.id) }
                         Hairline()
                     }
-                    HStack {
+                    HStack(spacing: 8) {
+                        Button { controller.verifyVault() } label: {
+                            if controller.verifying { KestrelSpinner(tint: Palette.good, size: 13) }
+                            else { Label(L("Verify undo works"), systemImage: "checkmark.shield") }
+                        }
+                        .buttonStyle(.kestrel(.secondary, size: .small)).disabled(controller.verifying)
                         Spacer()
                         Button { confirmPurge() } label: { Label("\(L("Purge older than")) \(controller.retentionDays) \(L("days"))", systemImage: "trash") }
                             .buttonStyle(.kestrel(.subtle, tint: Palette.crit, size: .small))
                             .disabled(controller.busy)
+                    }
+                    if let checks = controller.vaultChecks {
+                        let bad = checks.filter { !$0.isRestorable }
+                        Label(bad.isEmpty
+                              ? "\(L("Fire-drill passed —")) \(checks.count) \(L("session(s), every item restorable."))"
+                              : "\(bad.count) \(L("session(s) have missing or altered vault data — see below."))",
+                              systemImage: bad.isEmpty ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                            .font(.caption).foregroundStyle(bad.isEmpty ? Palette.good : Palette.warn)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }

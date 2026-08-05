@@ -660,6 +660,21 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var sessions: [VaultSession] = []
     @Published var busy = false
     @Published var message: String?
+    // Vault fire-drill
+    @Published var vaultChecks: [VaultVerification]?
+    @Published var verifying = false
+
+    /// Prove the vault's undo actually works: verify every session's stored bytes exist and match
+    /// the manifest, without moving anything. The honesty flex behind "the cleaner you can't regret".
+    func verifyVault() {
+        guard !verifying else { return }
+        verifying = true; vaultChecks = nil
+        let vaultURL = paths.vault
+        Task.detached { [weak self] in
+            let checks = VaultVerifier(vault: VaultService(vaultRoot: vaultURL)).verifyAll()
+            await MainActor.run { [weak self] in self?.vaultChecks = checks; self?.verifying = false }
+        }
+    }
 
     /// Preferences. `launchAtLogin` mirrors the real login-item state (SMAppService);
     /// `retentionDays` drives the vault purge window.

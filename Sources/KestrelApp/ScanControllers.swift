@@ -432,6 +432,9 @@ import KestrelCore
     /// Latest measured sizes of the hog folders, and how much each grew since the last snapshot.
     @Published var hotspots: [String: Int64] = [:]
     @Published var growth: [String: Int64] = [:]
+    /// Culprit timeline: what grew/shrank across the selected window (7 or 30 days).
+    @Published var culprits: [SpaceDelta] = []
+    @Published var culpritWindowDays = 7 { didSet { loadCulprits() } }
 
     private let paths: KestrelPaths
     init(paths: KestrelPaths) { self.paths = paths }
@@ -444,6 +447,16 @@ import KestrelCore
             let latest = (try? store.all())?.last?.breakdown ?? [:]
             let deltas = ((try? store.recentChanges()) ?? []).reduce(into: [String: Int64]()) { $0[$1.path] = $1.delta }
             await MainActor.run { [weak self] in self?.hotspots = latest; self?.growth = deltas }
+        }
+        loadCulprits()
+    }
+
+    /// Load the culprit timeline for the current window — what grew/shrank most over N days.
+    func loadCulprits() {
+        let dir = paths.snapshots, days = culpritWindowDays
+        Task.detached { [weak self] in
+            let list = (try? SnapshotStore(directory: dir).changesOverLast(days: days)) ?? []
+            await MainActor.run { [weak self] in self?.culprits = list }
         }
     }
 

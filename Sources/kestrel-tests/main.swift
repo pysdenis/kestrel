@@ -602,6 +602,16 @@ withTempDir { tmp in
 
     let changes = try store.recentChanges()
     check(changes == [SpaceDelta(path: "/y", delta: 40)], "only /y grew, by 40")
+
+    // Culprit timeline: diff the latest against the newest snapshot ≥ N days old.
+    let now = day3.addingTimeInterval(3600)
+    let window = try store.changesOverLast(days: 7, now: now)
+    check(window == [SpaceDelta(path: "/y", delta: 40)], "7-day window falls back to earliest baseline (/y +40)")
+    // Add a third day so a 1-day window has a proper ≥1-day-old baseline (day3, not day1).
+    let day4 = day1.addingTimeInterval(3 * 86400)
+    try store.save(DiskSnapshot(date: day4, space: DiskSpace(total: 1000, available: 850), breakdown: ["/x": 50, "/y": 100]))
+    let oneDay = try store.changesOverLast(days: 1, now: day4.addingTimeInterval(3600))
+    check(oneDay == [SpaceDelta(path: "/y", delta: 10)], "1-day window compares day4 vs day3 (/y +10)")
 }
 
 // MARK: - Stats & health

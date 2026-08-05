@@ -89,6 +89,20 @@ public final class SnapshotStore {
         return changes(from: snapshots[snapshots.count - 2], to: snapshots[snapshots.count - 1])
     }
 
+    /// What changed across a window: the latest snapshot vs. the newest snapshot that is at
+    /// least `days` old (falling back to the earliest we have, so a 7-day view still shows
+    /// something after only a few days of history). Largest absolute change first; empty when
+    /// there isn't an older snapshot to compare against. This is the "culprit timeline" — it
+    /// attributes weekly/monthly growth to a specific folder, not just day-over-day.
+    public func changesOverLast(days: Int, now: Date = Date()) throws -> [SpaceDelta] {
+        let snapshots = try all()
+        guard let latest = snapshots.last else { return [] }
+        let cutoff = now.addingTimeInterval(-Double(days) * 86400)
+        let baseline = snapshots.last(where: { $0.date <= cutoff }) ?? snapshots.first
+        guard let baseline, baseline.date < latest.date else { return [] }
+        return changes(from: baseline, to: latest)
+    }
+
     public func changes(from a: DiskSnapshot, to b: DiskSnapshot) -> [SpaceDelta] {
         let paths = Set(a.breakdown.keys).union(b.breakdown.keys)
         return paths

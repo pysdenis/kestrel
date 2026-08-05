@@ -572,6 +572,7 @@ struct SpaceSection: View {
         SectionScaffold(title: "Space", subtitle: "Where your storage is going") {
             if let d = model.disk { capacityCard(d) }
             if !controller.hotspots.isEmpty { hotspotsCard }
+            if !controller.culprits.isEmpty { culpritsCard }
 
             HStack {
                 SectionTitle("Storage map", icon: "square.grid.3x3.fill")
@@ -642,6 +643,41 @@ struct SpaceSection: View {
                             Image(systemName: "magnifyingglass")
                         }
                         .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Reveal in Finder"))
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+
+    /// Culprit timeline: what grew (and shrank) the most over the selected window, so a filling
+    /// disk gets pinned on a specific folder ("Caches +4 GB this week"), not left a mystery.
+    private var culpritsCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionTitle("What grew", icon: "chart.bar.xaxis")
+                    Spacer()
+                    ForEach([7, 30], id: \.self) { days in
+                        Button { controller.culpritWindowDays = days } label: {
+                            Text("\(days)\(L("d"))")
+                        }
+                        .buttonStyle(.kestrel(controller.culpritWindowDays == days ? .secondary : .subtle, size: .small))
+                    }
+                }
+                Text("\(L("Change over the last")) \(controller.culpritWindowDays) \(L("days, from daily snapshots. All tracked folders are regeneratable."))")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                ForEach(Array(controller.culprits.prefix(8).enumerated()), id: \.offset) { i, delta in
+                    if i > 0 { Hairline() }
+                    let grew = delta.delta > 0
+                    HStack(spacing: 10) {
+                        Image(systemName: hotspotIcon(delta.path)).foregroundStyle(Palette.accent2).frame(width: 22)
+                        Text(L(delta.path)).font(.callout.weight(.medium))
+                        Spacer()
+                        Label("\(grew ? "+" : "−")\(bytesString(abs(delta.delta)))", systemImage: grew ? "arrow.up.right" : "arrow.down.right")
+                            .font(.caption.weight(.bold)).foregroundStyle(grew ? Palette.warn : Palette.good)
+                            .padding(.horizontal, 7).padding(.vertical, 2)
+                            .background((grew ? Palette.warn : Palette.good).opacity(0.14), in: Capsule())
                     }
                     .padding(.vertical, 2)
                 }

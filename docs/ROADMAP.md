@@ -77,7 +77,8 @@ i s obsahem, audit zapsán, dry-run nic nesmaže.
 - [x] Sensitive file shredder (`Shredder`, `kestrel shred`, honest o SSD/FileVault).
 - [x] **AI asistent (Gemini, opt-in)** — „Explain this", cleanup summary, ask (metadata-only):
       `GeminiClient` + `AIAssistant`, CLI `ask`/`explain`/`advise`, GUI Assistant sekce.
-- [ ] Weekly digest (lokální), menu bar quick actions.
+- [x] **Weekly digest (lokální notifikace)** — jednou za 7 dní opt-in souhrn (uvolněno/růst) z audit logu + snapshotů,
+      přes `Notifier`; baseline se nastaví tiše na prvním spuštění. Menu bar quick actions ✅.
 
 ## Fáze 8 — GUI 2.0 🎨 (rozpracováno)
 - [x] Oprava zobrazení místa (purgeable se nepočítá jako volné; sedí s `df`/Finder).
@@ -221,7 +222,8 @@ Diferenciátory — většina už hotová, tady jako přehled + zbytek.
       one-hop deep-link na revoke do přesného Privacy pane.
 - [x] **Duplicity → APFS klon** místo mazání (`APFSCloner` přes `clonefile`, atomicky, oba soubory zůstanou a sdílí úložiště). Konkurence nemá.
 - [x] **Ransomware kanárek** (`CanaryGuard` + `CanaryWatcher` FSEvents) — nastraží neškodné návnady do Documents/Desktop/Pictures,
-      hlídá jejich SHA-256; přepis/smazání = alert. Jen detekce, nikdy nesahá na uživatelská data. CLI `kestrel canary plant|status|disarm`
+      hlídá jejich SHA-256; přepis/smazání = alert. **Živě přes FSEvents** (watcher startuje při spuštění appky, když je armed;
+      trip → notifikace, ověřeno end-to-end ~1 s). Jen detekce, nikdy nesahá na uživatelská data. CLI `kestrel canary plant|status|watch|disarm`
       + karta v Security. Konkurence nemá.
 - [x] **AI Cleanup Advisor** (`AIAssistant.cleanupAdvice`) — lokální-first tříkošový čestný plán (Bezpečné uvolnit / Zkontrolovat /
       Nechat), jen metadata; s Ollamou/on-device zůstává na zařízení. Tlačítko + karta v Cleanup.

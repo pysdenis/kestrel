@@ -158,7 +158,7 @@ struct MainWindow: View {
         .frame(minWidth: 900, minHeight: 640)
         .confirmHost()
         .onAppear { model.surfaceAppeared() }
-        .task { model.autoCheckOnLaunchIfEnabled(); model.probeOnDeviceAI(); model.probeOllama(); model.security.startCanaryWatchIfArmed() }
+        .task { model.autoCheckOnLaunchIfEnabled(); model.probeOnDeviceAI(); model.probeOllama(); model.security.startCanaryWatchIfArmed(); model.maybeShowWeeklyDigest() }
         .onDisappear { model.surfaceDisappeared(); model.mainWindowClosed() }
         .sheet(isPresented: $model.showPalette) { CommandPaletteView().environmentObject(model) }
         .sheet(isPresented: $model.showOnboarding) { OnboardingView().environmentObject(model) }
@@ -1301,8 +1301,8 @@ struct SettingsSection: View {
                 Hairline()
                 HStack {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(model.t("Low-space notifications")).font(.callout.weight(.medium))
-                        Text(model.t("A local alert when the disk is nearly full. Nothing leaves this Mac.")).font(.caption).foregroundStyle(.secondary)
+                        Text(model.t("Local notifications")).font(.callout.weight(.medium))
+                        Text(model.t("Local alerts: low disk space, a weekly digest, and ransomware-canary trips. Nothing leaves this Mac.")).font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
                     KestrelToggle(isOn: Binding(get: { model.notificationsEnabled },

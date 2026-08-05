@@ -236,6 +236,31 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Opt-in weekly digest as a local notification. Once every 7 days (baseline set silently on
+    /// first run), if there's something worth saying, post a short local summary — built from the
+    /// audit log and snapshots, nothing leaves the Mac. Reuses the same notifications opt-in.
+    func maybeShowWeeklyDigest() {
+        guard notificationsEnabled else { return }
+        let key = "kestrel.lastDigest"
+        let last = UserDefaults.standard.object(forKey: key) as? Date
+        guard let last else { UserDefaults.standard.set(Date(), forKey: key); return }   // first run: set baseline
+        guard Date().timeIntervalSince(last) >= 7 * 86400 else { return }
+        let auditURL = paths.auditLog, snapDir = paths.snapshots
+        Task.detached { [weak self] in
+            let digest = DigestReporter(audit: AuditLog(url: auditURL), snapshots: SnapshotStore(directory: snapDir)).generate()
+            guard digest.totalActions > 0 || digest.dailyGrowthBytes != nil else { return }
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                UserDefaults.standard.set(Date(), forKey: key)
+                var parts: [String] = []
+                if digest.reclaimedAllTime > 0 { parts.append("\(bytesString(digest.reclaimedAllTime)) \(L("reclaimed"))") }
+                if let g = digest.dailyGrowthBytes, g > 0 { parts.append("+\(bytesString(g))/\(L("day"))") }
+                let body = parts.isEmpty ? L("Your weekly Kestrel summary is ready.") : parts.joined(separator: " · ")
+                Notifier.shared.notify(title: L("Kestrel weekly digest"), body: body, id: "kestrel.digest.weekly")
+            }
+        }
+    }
+
     private let stats = StatsCollector()
     private let cpuSampler = CPUUsageSampler()
     lazy var cpuBrand: String = stats.cpuBrand()

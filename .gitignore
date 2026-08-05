@@ -30,3 +30,6 @@ notarize-credentials*
 
 # Packaged app bundle
 dist/
+
+# Agent worktrees
+.claude/

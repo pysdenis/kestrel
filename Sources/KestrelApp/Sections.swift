@@ -362,6 +362,11 @@ struct AssistantSection: View {
         VStack(spacing: 0) {
             header
             Hairline()
+            if model.anyBackendAvailable {
+                HStack(spacing: 8) { backendSwitcher; Spacer() }
+                    .padding(.horizontal, 22).padding(.vertical, 8)
+                Hairline()
+            }
             if !model.aiConfigured {
                 ScrollView { setupCard.padding(22).frame(maxWidth: 560) }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -371,6 +376,31 @@ struct AssistantSection: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    /// Compact segmented control to switch the answering backend. `fixedSize` keeps it to its
+    /// natural width so it never wraps or overlaps the header (unlike the flow-layout chips did).
+    private var backendSwitcher: some View {
+        HStack(spacing: 2) {
+            ForEach(AIBackend.allCases) { b in
+                let selected = model.aiBackend == b
+                Button { model.setAIBackend(b) } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: b == .gemini ? "cloud" : (b == .local ? "cpu" : "wand.and.stars")).imageScale(.small)
+                        Text(b.label).font(.caption.weight(.medium))
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(selected ? Palette.violet : Color.clear, in: Capsule())
+                    .foregroundStyle(selected ? Color.white : Color.secondary)
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(Color.primary.opacity(0.06), in: Capsule())
+        .fixedSize()
+        .help(L("Switch which AI answers: Automatic, Local (Ollama, offline) or Gemini (cloud)."))
     }
 
     // MARK: header
@@ -396,14 +426,6 @@ struct AssistantSection: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            if model.anyBackendAvailable {
-                KestrelSelect(items: AIBackend.allCases,
-                              selection: Binding(get: { model.aiBackend }, set: { model.setAIBackend($0) }),
-                              label: { $0.label },
-                              icon: { $0 == .gemini ? "cloud" : ($0 == .local ? "cpu" : "wand.and.stars") },
-                              tint: Palette.violet)
-                    .help(L("Switch which AI answers: Automatic, Local (Ollama, offline) or Gemini (cloud)."))
-            }
             if model.aiConfigured, !controller.messages.isEmpty {
                 Button { controller.clear() } label: { Label(L("New chat"), systemImage: "square.and.pencil") }
                     .buttonStyle(.kestrel(.subtle, size: .small))

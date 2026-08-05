@@ -202,14 +202,20 @@ struct AutomationSection: View {
                             .background(Palette.good.opacity(0.15), in: Capsule())
                             .foregroundStyle(Palette.good)
                     }
+                    Spacer()
+                    if let coder = model.ruleModelHint {
+                        Label(coder, systemImage: "cpu").font(.caption2.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .help(L("Using a stronger local model for more accurate rules."))
+                    }
                 }
                 HStack(spacing: 8) {
                     TextField(L("e.g. delete screenshots older than 30 days"), text: $controller.nlDraft)
                         .textFieldStyle(.plain)
                         .padding(.horizontal, 12).padding(.vertical, 8)
                         .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .onSubmit { controller.suggestFromLanguage(assistant: model.aiAssistant) }
-                    Button { controller.suggestFromLanguage(assistant: model.aiAssistant) } label: {
+                        .onSubmit { controller.suggestFromLanguage(assistant: model.ruleAssistant) }
+                    Button { controller.suggestFromLanguage(assistant: model.ruleAssistant) } label: {
                         if controller.nlBusy { KestrelSpinner(tint: .white, size: 14) } else { Label(L("Suggest"), systemImage: "sparkles") }
                     }
                     .buttonStyle(.kestrel(.prominent, tint: Palette.violet, size: .small))

@@ -234,6 +234,7 @@ enum Localization {
         ("Suggest", "Navrhnout"),
         ("Couldn't turn that into a rule. Try something like “delete screenshots older than 30 days”.", "Nepodařilo se z toho udělat pravidlo. Zkus třeba „smaž screenshoty starší 30 dní“."),
         ("Proposed rule — review before adding", "Navržené pravidlo — zkontroluj před přidáním"),
+        ("Using a stronger local model for more accurate rules.", "Používám silnější lokální model pro přesnější pravidla."),
         ("larger than", "větší než"),
         ("name contains", "název obsahuje"),
         ("Uninstall selected", "Odinstalovat vybrané"),

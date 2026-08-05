@@ -83,16 +83,35 @@ public struct OllamaClient: LLMBackend {
         return models.compactMap { $0["name"] as? String }
     }
 
-    /// A good model for Kestrel's quick, honest metadata Q&A, or nil if Ollama isn't reachable /
-    /// has no models. Prefers a small, fast, general-purpose model so insights come back snappily —
-    /// a big coder/reasoning model would be slow and is overkill for this. Quick timeout so a
-    /// missing server never stalls the UI.
-    public static func firstAvailableModel(host: URL = URL(string: "http://localhost:11434")!) async -> String? {
+    /// The names of every model installed in Ollama, or empty if it isn't reachable. Quick timeout
+    /// so a missing server never stalls the UI.
+    public static func availableModels(host: URL = URL(string: "http://localhost:11434")!) async -> [String] {
         var request = URLRequest(url: host.appendingPathComponent("api/tags"))
         request.timeoutInterval = 2
         guard let (data, response) = try? await URLSession.shared.data(for: request),
-              let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
-        return preferredModel(from: parseModels(data))
+              let http = response as? HTTPURLResponse, http.statusCode == 200 else { return [] }
+        return parseModels(data)
+    }
+
+    /// A good model for Kestrel's quick, honest metadata Q&A, or nil if Ollama isn't reachable /
+    /// has no models. Prefers a small, fast, general-purpose model so insights come back snappily.
+    public static func firstAvailableModel(host: URL = URL(string: "http://localhost:11434")!) async -> String? {
+        preferredModel(from: await availableModels(host: host))
+    }
+
+    /// A model better suited to **precise, structured output** (strict-JSON rule generation, code):
+    /// prefers a coder/reasoning model when one is installed — accuracy matters more than speed for
+    /// a one-shot rule — and falls back to the best general model otherwise. Pure — unit-testable.
+    public static func codingModel(from names: [String]) -> String? {
+        guard !names.isEmpty else { return nil }
+        let coders = [
+            "qwen2.5-coder:14b", "qwen2.5-coder:7b", "qwen2.5-coder", "deepseek-coder",
+            "codellama", "qwen3:14b", "qwen3:8b",
+        ]
+        for family in coders {
+            if let m = names.first(where: { $0.hasPrefix(family) }) { return m }
+        }
+        return preferredModel(from: names)
     }
 
     /// Pick a good general chat model for Kestrel's assistant. Ordered for **multilingual quality

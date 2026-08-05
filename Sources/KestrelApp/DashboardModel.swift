@@ -549,15 +549,20 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// A locally-running Ollama model (offline, free), discovered by a quick probe. `nil` when
-    /// Ollama isn't running / has no model pulled.
-    @Published private(set) var ollamaModel: String?
+    /// Every model installed in a locally-running Ollama (offline, free), from a quick probe.
+    /// Empty when Ollama isn't running / has no model pulled.
+    @Published private(set) var ollamaModels: [String] = []
     private var ollamaProbed = false
+
+    /// The model Kestrel's assistant uses (fast, general, good multilingual).
+    var ollamaModel: String? { OllamaClient.preferredModel(from: ollamaModels) }
+    /// A stronger model for precise structured output (NL→rule JSON), if one is installed.
+    var ollamaCodingModel: String? { OllamaClient.codingModel(from: ollamaModels) }
 
     func probeOllama() {
         guard !ollamaProbed else { return }
         ollamaProbed = true
-        Task { @MainActor in ollamaModel = await OllamaClient.firstAvailableModel() }
+        Task { @MainActor in ollamaModels = await OllamaClient.availableModels() }
     }
 
     // MARK: - Local-AI setup (in-app onboarding for Ollama)
@@ -688,6 +693,24 @@ final class AppModel: ObservableObject {
         case .gemini: return AIAssistant(client: GeminiClient(apiKey: geminiKey()), responseLanguage: lang)
         case nil: return nil
         }
+    }
+
+    /// Assistant tuned for **precise structured output** (turning a sentence into a strict-JSON
+    /// rule). When the local backend is Ollama, it routes to a stronger coder model if one is
+    /// installed — more accurate JSON than the small chat model; otherwise identical to `aiAssistant`.
+    var ruleAssistant: AIAssistant? {
+        let lang = Localization.effective == .czech ? "Czech" : "English"
+        if case .ollama = resolvedBackend, let coder = ollamaCodingModel {
+            return AIAssistant(client: OllamaClient(model: coder), responseLanguage: lang)
+        }
+        return aiAssistant
+    }
+
+    /// The model name that would generate rules, for a small UI hint (nil unless it differs from
+    /// the chat model, i.e. a coder model is actually installed and will be used).
+    var ruleModelHint: String? {
+        guard case .ollama = resolvedBackend, let coder = ollamaCodingModel, coder != ollamaModel else { return nil }
+        return coder
     }
 
     func aiContext() -> String {

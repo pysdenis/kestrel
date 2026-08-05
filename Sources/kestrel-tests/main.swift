@@ -116,6 +116,24 @@ withTempDir { tmp in
     check(!fm.fileExists(atPath: dir.path), "directory moved out")
 }
 
+section("VaultService: same-named files in one session don't collide and undo to distinct paths")
+withTempDir { tmp in
+    // Two different files that share a basename must land at distinct vault paths,
+    // otherwise the second move would clobber the first and the undo would lose data.
+    let vault = VaultService(vaultRoot: tmp.appendingPathComponent("vault"))
+    let a = makeFile(tmp.appendingPathComponent("d1/cache.db"), "one")
+    let b = makeFile(tmp.appendingPathComponent("d2/cache.db"), "two")
+    let session = try vault.beginSession()
+    let ra = try vault.move(url: a, session: session)
+    let rb = try vault.move(url: b, session: session)
+    check(ra.vaultPath != rb.vaultPath, "same-named files stored at distinct vault paths")
+    check(fm.fileExists(atPath: ra.vaultPath) && fm.fileExists(atPath: rb.vaultPath), "both copies survive in the vault")
+    let outcome = try vault.undo(session: session)
+    check(outcome.restored == 2 && outcome.isComplete, "both restored cleanly")
+    check((try? String(contentsOf: a, encoding: .utf8)) == "one", "d1/cache.db back with its own contents")
+    check((try? String(contentsOf: b, encoding: .utf8)) == "two", "d2/cache.db back with its own contents")
+}
+
 section("VaultService: purge removes only old sessions")
 withTempDir { tmp in
     let vault = VaultService(vaultRoot: tmp.appendingPathComponent("vault"))

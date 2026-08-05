@@ -1103,6 +1103,7 @@ struct SettingsSection: View {
             if !model.fullDiskAccess { FullDiskAccessBanner() }
 
             preferencesCard
+            aiCard
             updatesCard
             exclusionsCard
             vaultCard
@@ -1129,6 +1130,55 @@ struct SettingsSection: View {
             }
         }
         .onAppear { controller.load() }
+    }
+
+    /// AI assistant backend: pick Automatic / Local / Gemini, and see each one's status.
+    private var aiCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionTitle(model.t("AI assistant"), icon: "sparkles")
+                VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(model.t("Which AI answers")).font(.callout.weight(.medium))
+                        Text(model.t("Automatic prefers a local model (offline) and falls back to Gemini. Or force one.")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                    KestrelSelect(items: AIBackend.allCases,
+                                  selection: Binding(get: { model.aiBackend }, set: { model.setAIBackend($0) }),
+                                  label: { $0.label },
+                                  icon: { $0 == .gemini ? "cloud" : ($0 == .local ? "cpu" : "wand.and.stars") })
+                    HStack(spacing: 6) {
+                        Text(model.t("Now answering:")).font(.caption).foregroundStyle(.secondary)
+                        Label(model.aiBackendLabel, systemImage: model.aiIsLocal ? "cpu" : (model.aiConfigured ? "cloud" : "xmark.circle"))
+                            .font(.caption.weight(.semibold)).foregroundStyle(model.aiConfigured ? (model.aiIsLocal ? Palette.good : Palette.accent2) : Palette.warn)
+                    }
+                }
+                Hairline()
+                // Local (Ollama) status
+                HStack(spacing: 10) {
+                    Image(systemName: "cpu").foregroundStyle(model.ollamaModel != nil ? Palette.good : .secondary).frame(width: 20)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(model.t("Local model (Ollama)")).font(.callout.weight(.medium))
+                        Text(model.ollamaModel.map { "\(model.t("Running")) · \($0)" } ?? model.t("Not detected — set it up in the Assistant tab.")).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if model.ollamaModel != nil { StatePill(text: L("On"), ok: true) }
+                }
+                Hairline()
+                // Gemini status
+                HStack(spacing: 10) {
+                    Image(systemName: "cloud").foregroundStyle(!model.geminiKey().isEmpty ? Palette.accent2 : .secondary).frame(width: 20)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(model.t("Gemini (cloud, opt-in)")).font(.callout.weight(.medium))
+                        Text(!model.geminiKey().isEmpty ? model.t("API key found — metadata only, never file contents.") : model.t("Add an API key to enable. Metadata only, never file contents.")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    if !model.geminiKey().isEmpty { StatePill(text: L("On"), ok: true) }
+                }
+                if model.geminiKey().isEmpty {
+                    Text(model.paths.geminiKey.path).font(.caption2.monospaced()).foregroundStyle(.tertiary).textSelection(.enabled)
+                }
+            }
+        }
     }
 
     private var exclusionsCard: some View {

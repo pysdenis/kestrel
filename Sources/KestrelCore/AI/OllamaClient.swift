@@ -41,6 +41,18 @@ public struct OllamaClient: LLMBackend {
         return try Self.parseChat(data)
     }
 
+    /// Ask Ollama to drop this model from RAM right now, instead of waiting out the keep-alive
+    /// window — used when Kestrel goes to the background so an idle app holds no model in memory.
+    /// A safe no-op if the model isn't loaded: Ollama never loads it just to unload it.
+    public func unload() async {
+        var request = URLRequest(url: host.appendingPathComponent("api/generate"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: ["model": model, "keep_alive": 0])
+        request.timeoutInterval = 3
+        _ = try? await URLSession.shared.data(for: request)
+    }
+
     /// Extract the assistant text from an `/api/chat` (non-streamed) response.
     public static func parseChat(_ data: Data) throws -> String {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],

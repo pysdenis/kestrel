@@ -17,6 +17,20 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     }
 }
 
+/// Which AI backend the assistant should use. `auto` prefers whatever's available, local first
+/// (on-device → Ollama → Gemini); `local` forces on-device/Ollama; `gemini` forces the cloud.
+enum AIBackend: String, CaseIterable, Identifiable {
+    case auto, local, gemini
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .auto: return L("Automatic")
+        case .local: return L("Local")
+        case .gemini: return L("Gemini")
+        }
+    }
+}
+
 enum Localization {
     /// The user's setting (System/Čeština/English). Updated by `AppModel`. `effective`
     /// resolves `system` against the Mac's language.
@@ -201,6 +215,20 @@ enum Localization {
         ("AI second opinion", "AI druhý názor"),
         ("AI cleanup plan", "AI plán úklidu"),
         ("on-device", "na zařízení"),
+        ("Automatic", "Automaticky"),
+        ("Local", "Lokální"),
+        ("Gemini", "Gemini"),
+        ("AI assistant", "AI asistent"),
+        ("Which AI answers", "Která AI odpovídá"),
+        ("Automatic prefers a local model (offline) and falls back to Gemini. Or force one.", "Automaticky preferuje lokální model (offline) a jako zálohu použije Gemini. Nebo si vynuť jeden."),
+        ("Now answering:", "Teď odpovídá:"),
+        ("Local model (Ollama)", "Lokální model (Ollama)"),
+        ("Running", "Běží"),
+        ("Not detected — set it up in the Assistant tab.", "Nedetekováno — nastav v záložce Asistent."),
+        ("Gemini (cloud, opt-in)", "Gemini (cloud, volitelné)"),
+        ("API key found — metadata only, never file contents.", "API klíč nalezen — jen metadata, nikdy obsah souborů."),
+        ("Add an API key to enable. Metadata only, never file contents.", "Přidej API klíč pro zapnutí. Jen metadata, nikdy obsah souborů."),
+        ("Switch which AI answers: Automatic, Local (Ollama, offline) or Gemini (cloud).", "Přepni, která AI odpovídá: Automaticky, Lokální (Ollama, offline) nebo Gemini (cloud)."),
         ("Describe a rule", "Popiš pravidlo"),
         ("e.g. delete screenshots older than 30 days", "např. smaž screenshoty starší 30 dní"),
         ("Suggest", "Navrhnout"),

@@ -278,8 +278,16 @@ final class AppModel: ObservableObject {
             MainActor.assumeIsolated { self?.appActive = true; self?.updatePolling() }
         })
         activationObservers.append(nc.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.appActive = false; self?.updatePolling() }
+            MainActor.assumeIsolated { self?.appActive = false; self?.updatePolling(); self?.releaseLocalModel() }
         })
+    }
+
+    /// When Kestrel goes to the background, ask Ollama to drop the model from RAM immediately
+    /// (rather than after its keep-alive window) so a backgrounded app holds no model in memory.
+    /// Only fires when a local model is the active backend; a safe no-op if nothing is loaded.
+    private func releaseLocalModel() {
+        guard case .ollama(let model)? = resolvedBackend else { return }
+        Task.detached { await OllamaClient(model: model).unload() }
     }
 
     /// Call from a surface's `.onAppear`.
@@ -601,26 +609,60 @@ final class AppModel: ObservableObject {
         return last
     }
 
-    var aiConfigured: Bool { onDeviceAIAvailable || ollamaModel != nil || !geminiKey().isEmpty }
+    /// The user's backend preference (Automatic / Local / Gemini), persisted.
+    @Published var aiBackend: AIBackend = AIBackend(rawValue: UserDefaults.standard.string(forKey: "kestrel.aiBackend") ?? "") ?? .auto
+
+    func setAIBackend(_ b: AIBackend) {
+        aiBackend = b
+        UserDefaults.standard.set(b.rawValue, forKey: "kestrel.aiBackend")
+    }
+
+    /// A concrete backend that is usable right now, honoring the user's preference.
+    enum ResolvedBackend: Equatable { case onDevice, ollama(String), gemini }
+    var resolvedBackend: ResolvedBackend? {
+        let hasGemini = !geminiKey().isEmpty
+        switch aiBackend {
+        case .gemini:
+            return hasGemini ? .gemini : nil
+        case .local:
+            if onDeviceAIAvailable { return .onDevice }
+            if let model = ollamaModel { return .ollama(model) }
+            return nil
+        case .auto:
+            if onDeviceAIAvailable { return .onDevice }
+            if let model = ollamaModel { return .ollama(model) }
+            return hasGemini ? .gemini : nil
+        }
+    }
+
+    /// Whether any backend the user could switch to is set up (drives the "switch" control).
+    var anyBackendAvailable: Bool { onDeviceAIAvailable || ollamaModel != nil || !geminiKey().isEmpty }
+
+    var aiConfigured: Bool { resolvedBackend != nil }
 
     /// True when the active backend runs locally — nothing leaves the Mac (on-device or Ollama).
-    var aiIsLocal: Bool { onDeviceAIAvailable || ollamaModel != nil }
+    var aiIsLocal: Bool {
+        switch resolvedBackend { case .onDevice, .ollama: return true; default: return false }
+    }
 
-    /// Which backend answers. Prefers **local** backends (on-device, then Ollama) over Gemini,
-    /// matching Kestrel's zero-telemetry stance; falls back to Gemini only if it's the one set up.
+    /// Human label for the active backend.
     var aiBackendLabel: String {
-        if onDeviceAIAvailable { return L("On-device (offline)") }
-        if let model = ollamaModel { return "Ollama · \(model)" }
-        if !geminiKey().isEmpty { return L("Gemini (cloud)") }
-        return L("Off")
+        switch resolvedBackend {
+        case .onDevice: return L("On-device (offline)")
+        case .ollama(let model): return "Ollama · \(model)"
+        case .gemini: return L("Gemini (cloud)")
+        case nil: return L("Off")
+        }
     }
 
     var aiAssistant: AIAssistant? {
         let lang = Localization.effective == .czech ? "Czech" : "English"
-        if onDeviceAIAvailable { return AIAssistant(client: OnDeviceLLM(), responseLanguage: lang) }
-        if let model = ollamaModel { return AIAssistant(client: OllamaClient(model: model), responseLanguage: lang) }
-        let key = geminiKey()
-        return key.isEmpty ? nil : AIAssistant(client: GeminiClient(apiKey: key), responseLanguage: lang)
+        switch resolvedBackend {
+        case .onDevice: return AIAssistant(client: OnDeviceLLM(), responseLanguage: lang)
+        case .ollama(let model): return AIAssistant(client: OllamaClient(model: model), responseLanguage: lang)
+        case .gemini: return AIAssistant(client: GeminiClient(apiKey: geminiKey()), responseLanguage: lang)
+        case nil: return nil
+        }
     }
 
     func aiContext() -> String {

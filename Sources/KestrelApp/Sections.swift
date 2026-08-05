@@ -396,6 +396,14 @@ struct AssistantSection: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
+            if model.anyBackendAvailable {
+                KestrelSelect(items: AIBackend.allCases,
+                              selection: Binding(get: { model.aiBackend }, set: { model.setAIBackend($0) }),
+                              label: { $0.label },
+                              icon: { $0 == .gemini ? "cloud" : ($0 == .local ? "cpu" : "wand.and.stars") },
+                              tint: Palette.violet)
+                    .help(L("Switch which AI answers: Automatic, Local (Ollama, offline) or Gemini (cloud)."))
+            }
             if model.aiConfigured, !controller.messages.isEmpty {
                 Button { controller.clear() } label: { Label(L("New chat"), systemImage: "square.and.pencil") }
                     .buttonStyle(.kestrel(.subtle, size: .small))

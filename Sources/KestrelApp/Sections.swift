@@ -1467,6 +1467,7 @@ struct ToolsSection: View {
             largestFilesCard
             deviceBackupsCard
             devCachesCard
+            dormantProjectsCard
             privacyCard
             secretsCard
             cloudCard
@@ -1688,6 +1689,56 @@ struct ToolsSection: View {
                 }
             }
         }
+    }
+
+    /// Git-aware reclaimer: build junk grouped by its repo, annotated with how long since the last
+    /// commit — so you nuke node_modules/target/DerivedData from projects you've forgotten about.
+    private var dormantProjectsCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionTitle("Dormant projects", icon: "clock.arrow.circlepath")
+                    Spacer()
+                    Button { controller.loadStaleProjects(root: controller.reclaimRoot) } label: {
+                        Label(controller.reclaimLoading ? L("Scanning…") : L("Scan"), systemImage: "magnifyingglass")
+                    }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).disabled(controller.reclaimLoading)
+                }
+                Text(L("Regenerable build junk (node_modules, target, DerivedData…) grouped by git repo and how long since its last commit — reclaim from projects you haven't touched in months, with confidence.")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                FolderChip(url: controller.reclaimRoot) { controller.pickReclaimRoot() }
+                if let m = controller.reclaimMessage {
+                    Label(m, systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(Palette.good).fixedSize(horizontal: false, vertical: true)
+                }
+                if controller.reclaimLoading {
+                    HStack(spacing: 10) { ScanRadar(tint: Palette.accent, size: 24); Text(L("Scanning projects…")).foregroundStyle(.secondary).font(.callout) }
+                } else if !controller.staleProjects.isEmpty {
+                    ForEach(controller.staleProjects) { project in
+                        if project.id != controller.staleProjects.first?.id { Hairline() }
+                        HStack(spacing: 10) {
+                            Image(systemName: "shippingbox").font(.callout).foregroundStyle(staleTint(project))
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(project.repoName).font(.callout.weight(.medium)).lineLimit(1)
+                                Text(staleCaption(project)).font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                            }
+                            Spacer()
+                            Text(bytesString(project.reclaimableBytes)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            Button { controller.reclaimProject(project) } label: { Label(L("Reclaim"), systemImage: "tray.and.arrow.down") }
+                                .buttonStyle(.kestrel(.secondary, size: .small))
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+        }
+    }
+
+    private func staleCaption(_ p: StaleProject) -> String {
+        let age = p.daysSinceCommit().map { "\($0) \(L("days since last commit"))" } ?? L("no git history")
+        return p.branch.map { "\(age) · \($0)" } ?? age
+    }
+    private func staleTint(_ p: StaleProject) -> Color {
+        guard let days = p.daysSinceCommit() else { return .secondary }
+        return days >= 90 ? Palette.warn : (days >= 30 ? Palette.accent2 : Palette.accent)
     }
 
     private var deviceBackupsCard: some View {

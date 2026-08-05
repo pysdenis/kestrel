@@ -830,6 +830,17 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var deviceBackups: [DeviceBackup] = []
     @Published var backupsLoading = false
     @Published var backupsMessage: String?
+
+    @Published var staleProjects: [StaleProject] = []
+    @Published var reclaimLoading = false
+    @Published var reclaimMessage: String?
+    @Published var reclaimRoot = FileManager.default.homeDirectoryForCurrentUser
+
+    func pickReclaimRoot() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.directoryURL = reclaimRoot
+        if panel.runModal() == .OK, let url = panel.url { reclaimRoot = url; staleProjects = []; reclaimMessage = nil }
+    }
     // Browser privacy stores — opt-in, nothing preselected (clearing history signs you out).
     @Published var privacyItems: [PrivacyItem] = []
     @Published var privacyLoading = false
@@ -1026,6 +1037,36 @@ struct ChatMessage: Identifiable, Equatable {
             await MainActor.run { [weak self] in
                 self?.backupsMessage = (result?.movedCount ?? 0) > 0 ? "Moved “\(name)” backup → vault (undoable)." : "Couldn't move “\(name)” backup."
                 self?.deviceBackups.removeAll { $0.path == backup.path }
+            }
+        }
+    }
+
+    /// Scan a dev root for regenerable build junk grouped by git repo + last-commit age, so the
+    /// user can reclaim from dormant projects with confidence. Read-only scan.
+    func loadStaleProjects(root: URL) {
+        guard !reclaimLoading else { return }
+        reclaimLoading = true; reclaimMessage = nil
+        Task.detached { [weak self] in
+            let projects = GitProjectReclaimer().scan(root: root)
+            await MainActor.run { [weak self] in
+                self?.staleProjects = projects
+                self?.reclaimLoading = false
+                if projects.isEmpty { self?.reclaimMessage = "No regenerable build artifacts found here." }
+            }
+        }
+    }
+
+    /// Move one repo's regenerable artifacts to the vault (undoable, audited).
+    func reclaimProject(_ project: StaleProject) {
+        reclaimMessage = nil
+        let items = project.artifacts.map { CleanupItem(entry: $0, category: .devArtifact, reason: "Regenerable artifact in \(project.repoName)") }
+        let plan = CleanupPlan(items: items)
+        let vaultURL = paths.vault, auditURL = paths.auditLog, name = project.repoName, repoPath = project.repoPath
+        Task.detached { [weak self] in
+            let result = try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
+            await MainActor.run { [weak self] in
+                self?.reclaimMessage = (result?.movedCount ?? 0) > 0 ? "Reclaimed \(bytesString(result?.movedBytes ?? 0)) from “\(name)” → vault (undoable)." : "Couldn't reclaim from “\(name)”."
+                self?.staleProjects.removeAll { $0.repoPath == repoPath }
             }
         }
     }

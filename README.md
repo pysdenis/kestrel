@@ -77,20 +77,27 @@ Asistent umí běžet **plně offline a zdarma** přes [Ollama](https://ollama.c
 Macu, žádný API klíč, žádná data neopustí zařízení. Kestrel Ollamu **detekuje sám**; jakmile běží
 s nějakým modelem, badge u asistenta se přepne na `Ollama · <model>`.
 
+**Nejsnadněji přímo z appky:** otevři **Assistant** → *Nainstalovat Ollamu* → *Stáhnout AI model*.
+Kestrel stáhne doporučený model a sám se zapne. Nebo z terminálu:
+
 ```bash
 brew install ollama            # nebo stáhni z ollama.com
 brew services start ollama     # server na localhost:11434 (naběhne i po restartu)
-ollama pull llama3.2:3b        # ~2 GB, rychlý model pro asistenta Kestrelu
+ollama pull qwen2.5:7b         # ~4,7 GB, dobrá čeština i logika (doporučeno)
 ```
 
-Kestrel si sám vybere **malý rychlý model** (llama3.2, phi, gemma…) — odpovědi na metadata jsou tak
-svižné. Těžké coder/reasoning modely nechává na tvoje vlastní použití.
+Kestrel si sám vybere **kvalitní vícejazyčný model** (qwen2.5:7b, gemma2, llama3.1) — malé modely
+(3B) totiž češtinu komolí. Těžké coder/reasoning modely nechává na tvoje vlastní použití. Model se
+po ~90 s nečinnosti **sám uvolní z RAM**, takže na pozadí nebere baterku ani paměť.
+
+> ℹ️ **DMG neobsahuje Ollamu ani model** (byl by obří) — appka funguje i bez ní, jen bez lokální AI.
+> Lokální AI je volitelná: doinstaluješ ji výše uvedeným postupem, jednou. Vše ostatní je offline.
 
 **Pořadí backendů:** on-device (Apple Foundation Models) → Ollama → Gemini. První dostupný vyhrává.
 
-> Doporučení podle RAM: **8 GB** → `llama3.2:3b` / `phi3.5`; **16 GB** → navíc `qwen2.5-coder:14b`
-> na kód a logiku; **32 GB+** → `qwen2.5-coder:32b`. Velký model na malé RAM začne swapovat a bude
-> pomalý — Kestrel proto pro sebe volí ten malý.
+> Doporučení podle RAM: **8 GB** → `llama3.2:3b` / `phi3.5` (lehčí, čeština slabší); **16 GB** →
+> `qwen2.5:7b` na asistenta + `qwen2.5-coder:14b` na kód; **32 GB+** → `qwen2.5-coder:32b`. Velký
+> model na malé RAM swapuje a je pomalý — proto Kestrel pro sebe volí ten vhodný k dané RAM.
 
 ---
 

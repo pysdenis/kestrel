@@ -497,20 +497,45 @@ struct AssistantSection: View {
 
     private var setupCard: some View {
         Card {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 Label(L("Turn on the assistant"), systemImage: "sparkles").font(.headline)
-                Text(L("Best option (free & offline): install Ollama and pull a model — nothing leaves your Mac, no API key."))
+                Text(L("Best option (free & offline): run a local AI with Ollama — nothing leaves your Mac, no API key, no account."))
                     .font(.callout).foregroundStyle(Palette.good).fixedSize(horizontal: false, vertical: true)
-                Text("brew install ollama && ollama pull llama3.2").font(.caption.monospaced()).textSelection(.enabled)
-                Text(L("Kestrel detects a running Ollama automatically. Or, to use Google Gemini (cloud), put your API key in a file:"))
+
+                if model.ollamaBinaryPath == nil {
+                    // Ollama not installed — one-click to the installer, then it's auto-detected.
+                    Text(L("1. Install Ollama (a small free app). 2. Come back — Kestrel finds it and offers the model."))
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    Button { model.openOllamaDownload() } label: { Label(L("Install Ollama"), systemImage: "arrow.down.circle") }
+                        .buttonStyle(.kestrel(.prominent))
+                    Text(L("Prefer the terminal? Run:")).font(.caption).foregroundStyle(.secondary)
+                    Text("brew install ollama && brew services start ollama").font(.caption.monospaced()).textSelection(.enabled)
+                } else {
+                    // Ollama is here — offer to pull the recommended model right from the app.
+                    Text("\(L("Ollama is installed. Download the recommended model")) (\(AppModel.recommendedOllamaModel), ~4.7 GB) \(L("and the assistant turns on."))")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    if model.modelPulling {
+                        HStack(spacing: 8) {
+                            KestrelSpinner(tint: Palette.violet, size: 15)
+                            Text(model.modelPullStatus ?? L("Downloading…")).font(.callout).foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Button { model.installRecommendedModel() } label: {
+                            Label("\(L("Download AI model")) (\(AppModel.recommendedOllamaModel))", systemImage: "arrow.down.circle")
+                        }
+                        .buttonStyle(.kestrel(.prominent))
+                        if let status = model.modelPullStatus {
+                            Label(status, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(Palette.warn)
+                        }
+                    }
+                }
+
+                Hairline()
+                Text(L("Or use Google Gemini (cloud) — put your API key in this file:"))
                     .font(.callout).foregroundStyle(.secondary)
                 Text(model.paths.geminiKey.path).font(.caption.monospaced()).textSelection(.enabled)
-                Text(L("It then sends only metadata (names, sizes, categories) — never file contents."))
-                    .font(.caption).foregroundStyle(.secondary)
-                Button { NSWorkspace.shared.activateFileViewerSelecting([model.paths.root]) } label: {
-                    Label(L("Reveal ~/.kestrel in Finder"), systemImage: "folder")
-                }
-                .buttonStyle(.kestrel(.secondary))
+                Text(L("Either way it sends only metadata (names, sizes, categories) — never file contents."))
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
     }

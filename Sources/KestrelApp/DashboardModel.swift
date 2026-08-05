@@ -527,6 +527,80 @@ final class AppModel: ObservableObject {
         Task { @MainActor in ollamaModel = await OllamaClient.firstAvailableModel() }
     }
 
+    // MARK: - Local-AI setup (in-app onboarding for Ollama)
+
+    /// The model Kestrel recommends for its assistant: strong multilingual quality (good Czech),
+    /// still light enough for a typical Mac. ~4.7 GB.
+    static let recommendedOllamaModel = "qwen2.5:7b"
+
+    /// Path to the `ollama` binary if it's installed, else nil (Ollama not present).
+    var ollamaBinaryPath: String? {
+        ["/opt/homebrew/bin/ollama", "/usr/local/bin/ollama", "/opt/homebrew/opt/ollama/bin/ollama"]
+            .first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    @Published var modelPulling = false
+    @Published var modelPullStatus: String?
+
+    /// Open Ollama's download page so the user can install it (we never install a system app for
+    /// them). Once it's running, `probeOllama` picks it up and the "Download model" button appears.
+    func openOllamaDownload() {
+        if let url = URL(string: "https://ollama.com/download") { NSWorkspace.shared.open(url) }
+    }
+
+    /// Pull the recommended model via the local `ollama` binary, streaming coarse progress. On
+    /// success, re-probe so the assistant switches on automatically. Nothing leaves the Mac.
+    func installRecommendedModel() {
+        guard !modelPulling, let binary = ollamaBinaryPath else { return }
+        modelPulling = true
+        modelPullStatus = L("Starting…")
+        let model = Self.recommendedOllamaModel
+        Task.detached { [weak self] in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: binary)
+            process.arguments = ["pull", model]
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = pipe
+            do { try process.run() } catch {
+                await MainActor.run { [weak self] in
+                    self?.modelPulling = false
+                    self?.modelPullStatus = L("Couldn't start the download — is Ollama running?")
+                }
+                return
+            }
+            // `ollama pull` streams a progress bar; surface the latest percentage we see.
+            let handle = pipe.fileHandleForReading
+            while true {
+                let data = handle.availableData
+                if data.isEmpty { break }
+                guard let chunk = String(data: data, encoding: .utf8) else { continue }
+                if let pct = Self.lastPercentage(in: chunk) {
+                    await MainActor.run { [weak self] in self?.modelPullStatus = "\(L("Downloading")) \(model) · \(pct)%" }
+                }
+            }
+            process.waitUntilExit()
+            let ok = process.terminationStatus == 0
+            await MainActor.run { [weak self] in
+                self?.modelPulling = false
+                self?.modelPullStatus = ok ? nil : L("Download failed — check your connection and that Ollama is running.")
+                if ok { self?.ollamaProbed = false; self?.probeOllama() }
+            }
+        }
+    }
+
+    /// Extract the last "NN%" seen in a chunk of `ollama pull` output.
+    nonisolated static func lastPercentage(in text: String) -> Int? {
+        var last: Int?
+        var number = ""
+        for ch in text {
+            if ch.isNumber { number.append(ch) }
+            else if ch == "%", let n = Int(number) { last = n; number = "" }
+            else { number = "" }
+        }
+        return last
+    }
+
     var aiConfigured: Bool { onDeviceAIAvailable || ollamaModel != nil || !geminiKey().isEmpty }
 
     /// True when the active backend runs locally — nothing leaves the Mac (on-device or Ollama).

@@ -220,7 +220,14 @@ Diferenciátory — většina už hotová, tady jako přehled + zbytek.
 - [x] **Mapa expozice appky** — Permissions „podle oprávnění" reverzní pohled, zvýraznění citlivých (`TCCReader.isSensitive`),
       one-hop deep-link na revoke do přesného Privacy pane.
 - [x] **Duplicity → APFS klon** místo mazání (`APFSCloner` přes `clonefile`, atomicky, oba soubory zůstanou a sdílí úložiště). Konkurence nemá.
-- [ ] Růst místa v čase (viník — potřeba populovat `DiskSnapshot.breakdown`); ransomware kanárek (FSEvents); reverzibilní odinstalace (snapshot nastavení).
+- [x] **Ransomware kanárek** (`CanaryGuard` + `CanaryWatcher` FSEvents) — nastraží neškodné návnady do Documents/Desktop/Pictures,
+      hlídá jejich SHA-256; přepis/smazání = alert. Jen detekce, nikdy nesahá na uživatelská data. CLI `kestrel canary plant|status|disarm`
+      + karta v Security. Konkurence nemá.
+- [x] **AI Cleanup Advisor** (`AIAssistant.cleanupAdvice`) — lokální-first tříkošový čestný plán (Bezpečné uvolnit / Zkontrolovat /
+      Nechat), jen metadata; s Ollamou/on-device zůstává na zařízení. Tlačítko + karta v Cleanup.
+- [x] **NL automatizace** — popiš pravidlo větou → asistent navrhne `MaintenanceRule` + náhled shody, přidáš až po kontrole. Přes trezor.
+- [x] **Culprit timeline místa** (`SnapshotStore.changesOverLast(days:)`) — viník růstu za 7/30 dní z denních snapshotů, karta „Co narostlo" v Space.
+- [ ] Reverzibilní odinstalace (snapshot nastavení před smazáním appky).
 - [x] Command palette (⌘K, klávesová navigace), [x] Lokální notifikace, [x] Free up RAM, [x] App Permissions (TCC),
       [x] Login Items viewer, [x] Drag&drop sken složky, [x] **Bandwidth monitor per-app** (`BandwidthMonitor`, nettop),
       [x] **Batch uninstall** (multi-select + kombinovaný review), [x] „Explain this" (security nálezy),

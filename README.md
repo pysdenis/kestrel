@@ -42,14 +42,14 @@ Vlastní „Precision" design — žádné výchozí Apple ovládací prvky. 15 
 
 - **Smart Care** — jedním klikem: uvolnitelné místo + ochrana + malware + aktualizace aplikací, volitelné kroky.
 - **Dashboard** — Mac Health (rozklikací), disk/paměť/CPU/baterie/síť, předpověď místa, „co sráží skóre → oprav".
-- **Cleanup** — cache/logy/dev-artefakty/duplicity/privacy, per-položkový výběr + reveal, přes trezor.
-- **Space** — treemap disku, **Žrouti místa** (DerivedData, iOS zálohy, Caches…) s atribucí růstu, SMART zdraví disku.
+- **Cleanup** — cache/logy/dev-artefakty/duplicity/privacy, per-položkový výběr + reveal, přes trezor, **AI plán úklidu** (3 koše).
+- **Space** — treemap disku, **Žrouti místa** (DerivedData, iOS zálohy, Caches…), **„Co narostlo"** (viník za 7/30 dní), SMART zdraví disku.
 - **Energy** — spotřeba podle aplikace (jméno + ikona) + AI „proč to žere".
-- **Security** — čestný AV (EICAR + heuristika, karanténa), **Security Posture** + **Hardening s one-tap fixy**.
+- **Security** — čestný AV (EICAR + heuristika, karanténa), **Security Posture** + **Hardening s one-tap fixy**, **ransomware kanárek**.
 - **Applications** — odinstalace i se zbytky (přes trezor), nepoužívané appky, aktualizace přes Homebrew.
 - **Permissions** — **mapa expozice** appek (kamera/mik/FDA…), reverzní pohled „podle oprávnění", one-hop revoke.
 - **Tools** — Trash, App Leftovers, Old Installers, Screenshots, **Similar Images** (náhledy), **Duplicate Files** (+ APFS dedupe), **Developer caches**, **Privacy**, Cloud Cleanup (iCloud offload), Secrets scanner, Login items, Maintenance.
-- **Automation** — deklarativní pravidla (náhled, přes trezor, plánované přes launchd).
+- **Automation** — deklarativní pravidla (náhled, přes trezor, plánované přes launchd), **pravidlo z věty** (NL builder).
 - **Assistant** — čestný AI chat; **on-device** (Apple Foundation Models, offline), **Ollama** (lokální, zdarma) nebo Gemini.
 - **Time Machine** — procházatelná, reverzibilní historie každého úklidu; obnov celou relaci i jediný soubor.
 - **My Activity** — co Kestrel udělal (z audit logu), export reportu (.md).
@@ -58,10 +58,12 @@ Vlastní „Precision" design — žádné výchozí Apple ovládací prvky. 15 
 ## Killer diferenciátory 🏆
 
 1. **Cleanup Time Machine** — skutečné granulární undo jakéhokoli úklidu. „Cleaner, kterého nemůžeš litovat."
-2. **On-device AI (offline)** — asistent přes Apple Foundation Models: rady **bez jediného síťového požadavku**.
-3. **Mapa expozice appky** — kdo vidí tvoji kameru/mik/disk, zvýraznění citlivých, one-hop revoke.
-4. **Security hardening + fix** — čestný checklist ochran s deep-linkem přímo na dané nastavení.
-5. **Duplicity → APFS klon** — uvolní místo, ale **nechá oba soubory** (copy-on-write). Nemaže.
+2. **Lokální AI (offline)** — asistent přes Apple Foundation Models **nebo Ollamu**: rady i **AI plán úklidu bez jediného síťového požadavku**.
+3. **Ransomware kanárek** — návnady v Documents/Desktop/Pictures; přepis/smazání = okamžitý alert. Jen detekce, nikdy nesahá na tvoje data.
+4. **Mapa expozice appky** — kdo vidí tvoji kameru/mik/disk, zvýraznění citlivých, one-hop revoke.
+5. **Security hardening + fix** — čestný checklist ochran s deep-linkem přímo na dané nastavení.
+6. **Duplicity → APFS klon** — uvolní místo, ale **nechá oba soubory** (copy-on-write). Nemaže.
+7. **„Co narostlo"** — culprit timeline: viník růstu místa za 7/30 dní. **Pravidlo z věty** — NL → automatizace přes trezor.
 
 Plus: dev-mode úklid, trezor+undo, storage forecast, power/wake auditor, login-item auditor,
 rules engine, plně skriptovatelné CLI, bandwidth monitor, „explain this", perceptual-hash fotky,

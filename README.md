@@ -45,10 +45,10 @@ Vlastní „Precision" design — žádné výchozí Apple ovládací prvky. 15 
 - **Cleanup** — cache/logy/dev-artefakty/duplicity/privacy, per-položkový výběr + reveal, přes trezor, **AI plán úklidu** (3 koše).
 - **Space** — treemap disku, **Žrouti místa** (DerivedData, iOS zálohy, Caches…), **„Co narostlo"** (viník za 7/30 dní), SMART zdraví disku.
 - **Energy** — spotřeba podle aplikace (jméno + ikona) + AI „proč to žere".
-- **Security** — čestný AV (EICAR + heuristika, karanténa), **Security Posture** + **Hardening s one-tap fixy**, **ransomware kanárek**.
+- **Security** — čestný AV (EICAR + heuristika, karanténa), **Security Posture** + **Hardening s one-tap fixy**, **ransomware kanárek** (živě), **inspektor podpisu appek**, **síťová spojení** (read-only), **provenience Downloadů**.
 - **Applications** — odinstalace i se zbytky (přes trezor), nepoužívané appky, aktualizace přes Homebrew.
 - **Permissions** — **mapa expozice** appek (kamera/mik/FDA…), reverzní pohled „podle oprávnění", one-hop revoke.
-- **Tools** — Trash, App Leftovers, Old Installers, Screenshots, **Similar Images** (náhledy), **Duplicate Files** (+ APFS dedupe), **Největší soubory**, **Developer caches** (Xcode DeviceSupport/simulátory, npm/pip/cargo…), **Privacy**, Cloud Cleanup (iCloud offload), Secrets scanner, Login items, Maintenance.
+- **Tools** — Trash, App Leftovers, Old Installers, Screenshots, **Similar Images**, **Duplicate Files** (+ APFS dedupe), **Největší soubory**, **iOS zálohy**, **Spící projekty** (git-aware), **Developer caches** (Xcode DeviceSupport/simulátory…), **Rozšíření a doplňky**, **Systémové tweaky** (vratné), **Privacy**, Cloud Cleanup, Secrets scanner, Login items, Maintenance.
 - **Automation** — deklarativní pravidla (náhled, přes trezor, plánované přes launchd), **pravidlo z věty** (NL builder).
 - **Assistant** — čestný AI chat; **on-device** (Apple Foundation Models, offline), **Ollama** (lokální, zdarma) nebo Gemini.
 - **Time Machine** — procházatelná, reverzibilní historie každého úklidu; obnov celou relaci i jediný soubor.
@@ -64,6 +64,9 @@ Vlastní „Precision" design — žádné výchozí Apple ovládací prvky. 15 
 5. **Security hardening + fix** — čestný checklist ochran s deep-linkem přímo na dané nastavení.
 6. **Duplicity → APFS klon** — uvolní místo, ale **nechá oba soubory** (copy-on-write). Nemaže.
 7. **„Co narostlo"** — culprit timeline: viník růstu místa za 7/30 dní. **Pravidlo z věty** — NL → automatizace přes trezor.
+8. **Spící projekty** (git-aware) — regenerovatelný balast seskupený podle git repa + stáří commitu; uvolni z projektů, kterých ses měsíce nedotkl.
+9. **Vault fire-drill** — Kestrel *dokáže*, že jeho undo funguje (ověří bytes vs. manifest). Nikdo jiný svou záchrannou síť neprokazuje.
+10. **Inspektor podpisu appek** — Developer ID / ad-hoc / neplatný, čestně (bez false-positive strašení).
 
 Plus: dev-mode úklid, trezor+undo, storage forecast, power/wake auditor, login-item auditor,
 rules engine, plně skriptovatelné CLI, bandwidth monitor, „explain this", perceptual-hash fotky,

@@ -114,6 +114,18 @@ enum AppSort: String, CaseIterable, Identifiable {
         let reset: Bool
         var batchCount: Int = 1
         var title: String { batchCount > 1 ? "\(L("Uninstall")) \(batchCount) \(L("apps"))?" : "\(reset ? L("Reset") : L("Uninstall")) \(app.name)?" }
+
+        /// True when the plan captures the app's settings/data (its preferences plist, support
+        /// folder or container) — so undo restores it fully configured, not just the bare bundle.
+        var capturesSettings: Bool {
+            plan.items.contains { item in
+                let p = item.entry.url.path
+                return (p.contains("/Library/Preferences/") && p.hasSuffix(".plist"))
+                    || p.contains("/Library/Application Support/")
+                    || p.contains("/Library/Containers/")
+                    || p.contains("/Library/Group Containers/")
+            }
+        }
     }
     @Published var pending: Pending?
     @Published var preparing = false
@@ -239,7 +251,8 @@ struct ApplicationsSection: View {
                     title: pending.title,
                     subtitle: pending.plan.items.isEmpty
                         ? "\(L("Nothing was found to")) \(pending.reset ? L("reset") : L("remove"))."
-                        : "\(L("These")) \(pending.plan.count) \(L("item(s) —")) \(bytesString(pending.plan.totalBytes)) \(L("— will move to the vault. Undoable."))",
+                        : "\(L("These")) \(pending.plan.count) \(L("item(s) —")) \(bytesString(pending.plan.totalBytes)) \(L("— will move to the vault. Undoable."))"
+                            + (pending.capturesSettings && !pending.reset ? "\n" + L("Includes this app's settings — Undo restores it fully configured, not just the bare app.") : ""),
                     plan: pending.plan,
                     confirmLabel: pending.plan.items.isEmpty ? L("Close") : (pending.reset ? L("Reset") : L("Uninstall")),
                     onConfirm: { controller.confirmPending() },

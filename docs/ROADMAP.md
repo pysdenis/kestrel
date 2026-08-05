@@ -229,7 +229,10 @@ Diferenciátory — většina už hotová, tady jako přehled + zbytek.
       Nechat), jen metadata; s Ollamou/on-device zůstává na zařízení. Tlačítko + karta v Cleanup.
 - [x] **NL automatizace** — popiš pravidlo větou → asistent navrhne `MaintenanceRule` + náhled shody, přidáš až po kontrole. Přes trezor.
 - [x] **Culprit timeline místa** (`SnapshotStore.changesOverLast(days:)`) — viník růstu za 7/30 dní z denních snapshotů, karta „Co narostlo" v Space.
-- [ ] Reverzibilní odinstalace (snapshot nastavení před smazáním appky).
+- [x] **Reverzibilní odinstalace s nastavením** — `AppUninstaller` už bere i `Preferences/<id>.plist`,
+      Application Support, Containers/Group Containers → vše do trezoru, `vault undo` obnoví appku
+      **i s konfigurací** (ne jen bundle). Doplněno: potvrzovací dialog to teď explicitně slibuje
+      („Includes this app's settings — Undo restores it fully configured"), detekce přes `Pending.capturesSettings`.
 - [x] Command palette (⌘K, klávesová navigace), [x] Lokální notifikace, [x] Free up RAM, [x] App Permissions (TCC),
       [x] Login Items viewer, [x] Drag&drop sken složky, [x] **Bandwidth monitor per-app** (`BandwidthMonitor`, nettop),
       [x] **Batch uninstall** (multi-select + kombinovaný review), [x] „Explain this" (security nálezy),

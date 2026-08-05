@@ -240,6 +240,7 @@ enum Localization {
         ("larger than", "větší než"),
         ("name contains", "název obsahuje"),
         ("Uninstall selected", "Odinstalovat vybrané"),
+        ("Includes this app's settings — Undo restores it fully configured, not just the bare app.", "Zahrnuje i nastavení této aplikace — Undo ji obnoví plně nakonfigurovanou, ne jen holou aplikaci."),
         ("selected", "vybráno"),
         ("Search applications…", "Hledat aplikace…"),
         ("This category is already tidy in", "V této složce už je uklizeno:"),

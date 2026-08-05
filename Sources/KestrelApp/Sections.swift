@@ -1465,6 +1465,7 @@ struct ToolsSection: View {
             photosCard
             duplicatesCard
             largestFilesCard
+            deviceBackupsCard
             devCachesCard
             privacyCard
             secretsCard
@@ -1687,6 +1688,57 @@ struct ToolsSection: View {
                 }
             }
         }
+    }
+
+    private var deviceBackupsCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionTitle("iOS backups", icon: "iphone.gen3")
+                    Spacer()
+                    Button { controller.loadDeviceBackups() } label: {
+                        Label(controller.backupsLoading ? L("Scanning…") : L("Scan"), systemImage: "magnifyingglass")
+                    }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).disabled(controller.backupsLoading)
+                }
+                Text(L("Local iPhone/iPad backups, oldest first — often the biggest reclaim on a Mac. This may be your only backup, so removal is per-item and goes to the vault (undoable).")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if let m = controller.backupsMessage {
+                    Label(m, systemImage: "info.circle").font(.caption).foregroundStyle(.secondary)
+                }
+                if controller.deviceBackups.isEmpty && !controller.backupsLoading {
+                    Text(L("Scan to list local device backups.")).font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    ForEach(controller.deviceBackups) { backup in
+                        if backup.id != controller.deviceBackups.first?.id { Hairline() }
+                        HStack(spacing: 10) {
+                            Image(systemName: "iphone").font(.callout).foregroundStyle(Palette.accent2)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(backup.deviceName).font(.callout.weight(.medium)).lineLimit(1)
+                                Text(backup.lastBackup.map { "\(L("last backup")) \($0.formatted(date: .abbreviated, time: .omitted))" } ?? L("date unknown"))
+                                    .font(.caption2).foregroundStyle(.tertiary)
+                            }
+                            Spacer()
+                            Text(bytesString(backup.size)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            Button { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: backup.path)]) } label: { Image(systemName: "magnifyingglass") }
+                                .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Reveal in Finder"))
+                            Button { confirmMoveBackup(backup) } label: { Image(systemName: "tray.and.arrow.down") }
+                                .buttonStyle(.kestrel(.secondary, size: .small)).help(L("Move to Vault"))
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Extra confirm for a device backup — it can be irreplaceable, so make the user mean it.
+    private func confirmMoveBackup(_ backup: DeviceBackup) {
+        model.requestConfirm(ConfirmRequest(
+            icon: "iphone", tint: Palette.warn,
+            title: "\(L("Move")) \(backup.deviceName) \(L("backup to the vault?"))",
+            message: L("It moves to the reversible vault (undoable until purge). If this is your only backup of that device, make sure you have another."),
+            confirmLabel: L("Move to Vault"), destructive: true,
+            onConfirm: { controller.moveBackupToVault(backup) }))
     }
 
     private var devCachesCard: some View {

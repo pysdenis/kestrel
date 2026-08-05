@@ -826,6 +826,10 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var largestFiles: [CleanupItem] = []
     @Published var largestLoading = false
     @Published var largestMessage: String?
+
+    @Published var deviceBackups: [DeviceBackup] = []
+    @Published var backupsLoading = false
+    @Published var backupsMessage: String?
     // Browser privacy stores — opt-in, nothing preselected (clearing history signs you out).
     @Published var privacyItems: [PrivacyItem] = []
     @Published var privacyLoading = false
@@ -988,6 +992,40 @@ struct ChatMessage: Identifiable, Equatable {
             await MainActor.run { [weak self] in
                 self?.largestMessage = (result?.movedCount ?? 0) > 0 ? "Moved “\(name)” → vault (undoable)." : "Couldn't move “\(name)”."
                 self?.largestFiles.removeAll { $0.entry.url == url }
+            }
+        }
+    }
+
+    /// List local iOS/iPadOS device backups (oldest first) with their sizes — often the single
+    /// largest reclaim on a Mac. Review-only; removal is per-backup and routes through the vault.
+    func loadDeviceBackups() {
+        guard !backupsLoading else { return }
+        backupsLoading = true; backupsMessage = nil
+        let home = paths.home
+        Task.detached { [weak self] in
+            let backups = DeviceBackupFinder().find(home: home)
+            await MainActor.run { [weak self] in
+                self?.deviceBackups = backups
+                self?.backupsLoading = false
+                if backups.isEmpty { self?.backupsMessage = "No device backups found (needs Full Disk Access)." }
+            }
+        }
+    }
+
+    /// Move one device backup to the vault (undoable, audited). It could be the user's only backup,
+    /// so it's always a deliberate, per-item action.
+    func moveBackupToVault(_ backup: DeviceBackup) {
+        backupsMessage = nil
+        let url = URL(fileURLWithPath: backup.path)
+        guard !SafetyGuard.isProtected(url) else { return }
+        let entry = FileEntry(url: url, size: backup.size, modified: backup.lastBackup ?? Date(), isDirectory: true)
+        let plan = CleanupPlan(items: [CleanupItem(entry: entry, category: .largeOld, reason: "iOS backup: \(backup.deviceName)")])
+        let vaultURL = paths.vault, auditURL = paths.auditLog, name = backup.deviceName
+        Task.detached { [weak self] in
+            let result = try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
+            await MainActor.run { [weak self] in
+                self?.backupsMessage = (result?.movedCount ?? 0) > 0 ? "Moved “\(name)” backup → vault (undoable)." : "Couldn't move “\(name)” backup."
+                self?.deviceBackups.removeAll { $0.path == backup.path }
             }
         }
     }

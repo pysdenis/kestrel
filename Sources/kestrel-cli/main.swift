@@ -247,6 +247,14 @@ func usage() {
       kestrel photos [path] [--apply]           (similar images; keeps the best of each)
       kestrel secrets <path>                    (scan a project for leaked credentials)
       kestrel power                             (what is keeping the Mac awake)
+      kestrel signatures                        (per-app code-signing verdict, honest)
+      kestrel backups                           (local iOS/iPadOS device backups by age + size)
+      kestrel wherefrom <file>                  (where a downloaded file came from)
+      kestrel connections                       (established outbound connections per app)
+      kestrel addons                            (Quick Look/prefpanes/Audio Units… inventory)
+      kestrel reclaim [path] [--apply]          (git-aware: build junk grouped by dormant repo)
+      kestrel tweaks                            (reversible system tweaks + current state)
+      kestrel verifyvault                       (fire-drill: prove the vault's undo is intact)
       kestrel canary plant | status | watch | disarm  (ransomware canary — decoys + tamper alert)
       kestrel localsnapshots                    (APFS/Time Machine local snapshots)
       kestrel shred <path> --apply              (secure permanent delete — no undo)
@@ -801,6 +809,80 @@ do {
         if assertions.isEmpty { print("Nothing is preventing sleep. ✅"); break }
         print("Processes keeping the Mac awake:")
         for a in assertions { print("  \(a.process.padding(toLength: 24, withPad: " ", startingAt: 0)) \(a.type)") }
+
+    case "signatures", "sign":
+        let reader = CodeSignatureReader()
+        let dirs = ["/Applications", paths.home.appendingPathComponent("Applications").path]
+        var sigs: [CodeSignature] = []
+        for d in dirs {
+            let apps = (try? FileManager.default.contentsOfDirectory(atPath: d)) ?? []
+            for a in apps where a.hasSuffix(".app") { sigs.append(reader.read(URL(fileURLWithPath: "\(d)/\(a)"))) }
+        }
+        let noteworthy = sigs.filter { $0.status.isNoteworthy }
+        print("\(sigs.count) app(s) inspected. \(noteworthy.isEmpty ? "No broken signatures. ✅" : "\(noteworthy.count) with a broken signature:")")
+        for s in sigs.sorted(by: { $0.status.isNoteworthy && !$1.status.isNoteworthy }) {
+            let mark = s.status.isNoteworthy ? "⚠️ " : "  "
+            print("\(mark)\(s.name.padding(toLength: 28, withPad: " ", startingAt: 0)) \(s.status.label)\(s.teamID.map { "  [\($0)]" } ?? "")")
+        }
+
+    case "backups":
+        let backups = DeviceBackupFinder().find(home: paths.home)
+        if backups.isEmpty { print("No local iOS/iPadOS backups found (needs Full Disk Access)."); break }
+        print("\(backups.count) device backup(s), oldest first:")
+        for b in backups {
+            let date = b.lastBackup.map { ISO8601DateFormatter().string(from: $0) } ?? "unknown date"
+            print("  \(fmtBytes(b.size).padding(toLength: 10, withPad: " ", startingAt: 0)) \(b.deviceName) — last backup \(date)")
+        }
+
+    case "wherefrom":
+        guard let p = rest.first(where: { !$0.hasPrefix("-") }) else { print("Usage: kestrel wherefrom <file>"); exit(2) }
+        let origins = WhereFromReader.origins(of: URL(fileURLWithPath: (p as NSString).expandingTildeInPath))
+        if origins.isEmpty { print("No recorded origin for this file.") }
+        else { print("Origin(s):"); for o in origins { print("  \(o)") } }
+
+    case "connections", "conns":
+        let conns = ConnectionAuditor().established()
+        if conns.isEmpty { print("No established outbound connections right now."); break }
+        print("\(conns.count) established outbound connection(s):")
+        for c in conns { print("  \(c.process.padding(toLength: 20, withPad: " ", startingAt: 0)) → \(c.remote)  (pid \(c.pid))") }
+
+    case "addons", "extensions-list":
+        let addons = ExtensionInventory().list(home: paths.home)
+        if addons.isEmpty { print("No user add-ons found."); break }
+        print("\(addons.count) add-on(s):")
+        for a in addons { print("  \(fmtBytes(a.size).padding(toLength: 10, withPad: " ", startingAt: 0)) [\(a.kind.label)] \(a.name)\(a.systemWide ? " (system)" : "")") }
+
+    case "reclaim":
+        let path = rest.first(where: { !$0.hasPrefix("-") }) ?? paths.home.path
+        let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        let projects = GitProjectReclaimer().scan(root: root)
+        if projects.isEmpty { print("No regenerable build artifacts found under \(root.path)."); break }
+        print("Regenerable build junk by git repo (stalest first):\n")
+        for p in projects {
+            let age = p.daysSinceCommit().map { "\($0)d since last commit" } ?? "no git history"
+            print("  \(fmtBytes(p.reclaimableBytes).padding(toLength: 10, withPad: " ", startingAt: 0)) \(p.repoName)  (\(age)\(p.branch.map { ", \($0)" } ?? ""))")
+        }
+        let plan = CleanupPlan(items: projects.flatMap { proj in proj.artifacts.map { CleanupItem(entry: $0, category: .devArtifact, reason: "Regenerable artifact in \(proj.repoName)") } })
+        print("")
+        try runPlan(plan, apply: flag("--apply", in: rest))
+
+    case "tweaks":
+        let tweaker = SystemTweaker(storeURL: paths.systemTweaks)
+        print("Reversible system tweaks (● = on):")
+        for t in SystemTweaker.catalog {
+            print("  \(tweaker.isEnabled(t) ? "●" : "○") \(t.title.padding(toLength: 34, withPad: " ", startingAt: 0)) \(t.detail)")
+        }
+        print("\n(GUI toggles these reversibly; each records its prior value so it can be reverted.)")
+
+    case "verifyvault", "firedrill":
+        let report = VaultVerifier(vault: VaultService(vaultRoot: paths.vault)).verifyAll()
+        if report.isEmpty { print("The vault is empty — nothing to verify."); break }
+        let bad = report.filter { !$0.isRestorable }
+        print("\(report.count) vault session(s). \(bad.isEmpty ? "All restorable. ✅" : "\(bad.count) with integrity problems:")")
+        for v in report {
+            let flag = v.isRestorable ? "✅" : "⚠️"
+            print("  \(flag) \(v.sessionId): \(v.checked) item(s)\(v.missing.isEmpty ? "" : ", \(v.missing.count) missing")\(v.sizeMismatch.isEmpty ? "" : ", \(v.sizeMismatch.count) size-mismatch")")
+        }
 
     case "localsnapshots":
         let auditor = LocalSnapshotAuditor()

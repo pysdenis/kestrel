@@ -56,9 +56,12 @@ public struct CodeSignatureReader {
             return CodeSignature(path: appURL.path, name: name, status: .unsigned, teamID: nil, authority: nil)
         }
 
-        // Validity: catches tampering and revoked/expired certs (with the default flags the OS
-        // consults its revocation info). A hard failure that isn't "unsigned" means a bad signature.
-        let checkFlags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures)
+        // Validity: **basic** validation only, on purpose. A full check also re-seals every bundled
+        // resource, which legitimately-modified big apps (MATLAB, some Electron apps, license files
+        // dropped post-install) fail with errSecCSBadResource — that is NOT tampering, and flagging
+        // it would violate the "never scare" rule. Basic validation still catches a genuinely broken
+        // or revoked code signature.
+        let checkFlags = SecCSFlags(rawValue: kSecCSBasicValidateOnly)
         let valid = SecStaticCodeCheckValidity(code, checkFlags, nil)
 
         var infoCF: CFDictionary?

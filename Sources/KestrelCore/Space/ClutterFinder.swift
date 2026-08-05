@@ -56,6 +56,24 @@ public struct ClutterFinder {
         return CleanupPlan(items: items)
     }
 
+    /// The `limit` largest individual files under `root` that are at least `minBytes` — a fast way
+    /// to find single space hogs without drilling the treemap. Review-only (category `.largeOld`),
+    /// vault-backed, and every candidate is checked against `SafetyGuard`, so a big file is only
+    /// ever *offered*, never swept automatically. Read-only discovery.
+    public func largestFiles(under root: URL, minBytes: Int64 = 100_000_000, limit: Int = 40) -> CleanupPlan {
+        let files = (try? Scanner().scanFiles(under: root, pruning: [], includingHidden: false)) ?? []
+        let big = files
+            .filter { !$0.isDirectory && $0.size >= minBytes && !SafetyGuard.isProtected($0.url) }
+            .sorted { $0.size > $1.size }
+            .prefix(limit)
+        let items = big.map { entry -> CleanupItem in
+            let sizeText = ByteCountFormatter.string(fromByteCount: entry.size, countStyle: .file)
+            let days = Int(now.timeIntervalSince(entry.modified) / 86400)
+            return CleanupItem(entry: entry, category: .largeOld, reason: "Large file — \(sizeText), \(days) days old")
+        }
+        return CleanupPlan(items: Array(items))
+    }
+
     /// Locally cached Mail attachments (`~/Library/Mail/.../Attachments/…`). They are
     /// re-downloadable from the server, so removing them frees space safely. Review-only.
     public func mailAttachments(under mailRoot: URL) -> CleanupPlan {

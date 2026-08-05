@@ -771,6 +771,10 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var devCaches: [PackageCache] = []
     @Published var devCachesLoading = false
     @Published var devCachesMessage: String?
+
+    @Published var largestFiles: [CleanupItem] = []
+    @Published var largestLoading = false
+    @Published var largestMessage: String?
     // Browser privacy stores — opt-in, nothing preselected (clearing history signs you out).
     @Published var privacyItems: [PrivacyItem] = []
     @Published var privacyLoading = false
@@ -901,6 +905,38 @@ struct ChatMessage: Identifiable, Equatable {
             await MainActor.run { [weak self] in
                 self?.devCachesMessage = (result?.movedCount ?? 0) > 0 ? "Cleared \(tool) cache → vault (undoable)." : "Couldn't clear \(tool) cache."
                 self?.devCaches.removeAll { $0.url == url }
+            }
+        }
+    }
+
+    /// Find the biggest individual files under Home — a fast way to spot single space hogs.
+    /// Review-only: nothing is preselected, each is moved to the vault only on the user's click.
+    func loadLargestFiles() {
+        guard !largestLoading else { return }
+        largestLoading = true; largestMessage = nil
+        let home = paths.home
+        Task.detached { [weak self] in
+            let plan = ClutterFinder().largestFiles(under: home, minBytes: 100_000_000, limit: 40)
+            await MainActor.run { [weak self] in
+                self?.largestFiles = plan.items
+                self?.largestLoading = false
+                if plan.items.isEmpty { self?.largestMessage = "No files over 100 MB found in your Home." }
+            }
+        }
+    }
+
+    /// Move one large file to the vault (undoable, audited). Refuses SafetyGuard-protected paths.
+    func moveLargeFileToVault(_ item: CleanupItem) {
+        guard !SafetyGuard.isProtected(item.entry.url) else { return }
+        largestMessage = nil
+        let plan = CleanupPlan(items: [item])
+        let vaultURL = paths.vault, auditURL = paths.auditLog
+        let name = item.entry.url.lastPathComponent, url = item.entry.url
+        Task.detached { [weak self] in
+            let result = try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
+            await MainActor.run { [weak self] in
+                self?.largestMessage = (result?.movedCount ?? 0) > 0 ? "Moved “\(name)” → vault (undoable)." : "Couldn't move “\(name)”."
+                self?.largestFiles.removeAll { $0.entry.url == url }
             }
         }
     }

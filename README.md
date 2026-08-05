@@ -48,7 +48,7 @@ Vlastní „Precision" design — žádné výchozí Apple ovládací prvky. 15 
 - **Security** — čestný AV (EICAR + heuristika, karanténa), **Security Posture** + **Hardening s one-tap fixy**, **ransomware kanárek**.
 - **Applications** — odinstalace i se zbytky (přes trezor), nepoužívané appky, aktualizace přes Homebrew.
 - **Permissions** — **mapa expozice** appek (kamera/mik/FDA…), reverzní pohled „podle oprávnění", one-hop revoke.
-- **Tools** — Trash, App Leftovers, Old Installers, Screenshots, **Similar Images** (náhledy), **Duplicate Files** (+ APFS dedupe), **Developer caches**, **Privacy**, Cloud Cleanup (iCloud offload), Secrets scanner, Login items, Maintenance.
+- **Tools** — Trash, App Leftovers, Old Installers, Screenshots, **Similar Images** (náhledy), **Duplicate Files** (+ APFS dedupe), **Největší soubory**, **Developer caches** (Xcode DeviceSupport/simulátory, npm/pip/cargo…), **Privacy**, Cloud Cleanup (iCloud offload), Secrets scanner, Login items, Maintenance.
 - **Automation** — deklarativní pravidla (náhled, přes trezor, plánované přes launchd), **pravidlo z věty** (NL builder).
 - **Assistant** — čestný AI chat; **on-device** (Apple Foundation Models, offline), **Ollama** (lokální, zdarma) nebo Gemini.
 - **Time Machine** — procházatelná, reverzibilní historie každého úklidu; obnov celou relaci i jediný soubor.

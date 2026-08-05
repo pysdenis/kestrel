@@ -243,6 +243,7 @@ func usage() {
       kestrel trash [--apply]                   (contents of all Trash bins → vault)
       kestrel downloads [path] [--apply]        (old files in Downloads)
       kestrel mail [--apply]                    (locally cached Mail attachments)
+      kestrel largest [path] [--min-mb N] [--limit N]   (biggest individual files, review-only)
       kestrel photos [path] [--apply]           (similar images; keeps the best of each)
       kestrel secrets <path>                    (scan a project for leaked credentials)
       kestrel power                             (what is keeping the Mac awake)
@@ -633,6 +634,13 @@ do {
         let path = rest.first(where: { !$0.hasPrefix("-") }) ?? paths.home.appendingPathComponent("Desktop").path
         let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
         try runPlan(ClutterFinder().screenshots(under: root), apply: flag("--apply", in: rest))
+
+    case "largest":
+        let path = rest.first(where: { !$0.hasPrefix("-") }) ?? paths.home.path
+        let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        let minMB = Int64(option("--min-mb", in: rest) ?? "100") ?? 100
+        let limit = Int(option("--limit", in: rest) ?? "40") ?? 40
+        try runPlan(ClutterFinder().largestFiles(under: root, minBytes: minMB * 1_000_000, limit: limit), apply: flag("--apply", in: rest))
 
     case "sysext", "system-extensions":
         let exts = SystemExtensionAuditor().list()

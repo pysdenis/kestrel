@@ -1421,6 +1421,7 @@ struct ToolsSection: View {
 
             photosCard
             duplicatesCard
+            largestFilesCard
             devCachesCard
             privacyCard
             secretsCard
@@ -1596,6 +1597,53 @@ struct ToolsSection: View {
         }
         .padding(.vertical, 2)
         .opacity(isOriginal || removing ? 1 : 0.6)
+    }
+
+    private var largestFilesCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionTitle("Largest files", icon: "arrow.up.arrow.down.square")
+                    Spacer()
+                    Button { controller.loadLargestFiles() } label: {
+                        Label(controller.largestLoading ? L("Scanning…") : L("Scan"), systemImage: "magnifyingglass")
+                    }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).disabled(controller.largestLoading)
+                }
+                Text(L("The biggest individual files in your Home — a fast way to find single space hogs. Review-only: each moves to the vault (undoable) only when you choose.")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if let m = controller.largestMessage {
+                    Label(m, systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(Palette.good)
+                }
+                if controller.largestLoading {
+                    HStack(spacing: 10) { ScanRadar(tint: Palette.accent, size: 24); Text(L("Scanning for large files…")).foregroundStyle(.secondary).font(.callout) }
+                } else if controller.largestFiles.isEmpty {
+                    Text(L("Scan to list the biggest files taking up space.")).font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    HStack {
+                        Text("\(controller.largestFiles.count) \(L("file(s)")) · \(bytesString(controller.largestFiles.reduce(0) { $0 + $1.entry.size }))")
+                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                    ForEach(Array(controller.largestFiles.enumerated()), id: \.offset) { i, item in
+                        if i > 0 { Hairline() }
+                        HStack(spacing: 10) {
+                            Image(systemName: "doc.fill").font(.caption).foregroundStyle(Palette.accent2)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(item.entry.url.lastPathComponent).font(.callout.weight(.medium)).lineLimit(1).truncationMode(.middle)
+                                Text(item.entry.url.deletingLastPathComponent().path).font(.caption2.monospaced()).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
+                            }
+                            Spacer()
+                            Text(bytesString(item.entry.size)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            Button { NSWorkspace.shared.activateFileViewerSelecting([item.entry.url]) } label: { Image(systemName: "magnifyingglass") }
+                                .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Reveal in Finder"))
+                            Button { controller.moveLargeFileToVault(item) } label: { Image(systemName: "tray.and.arrow.down") }
+                                .buttonStyle(.kestrel(.secondary, size: .small)).help(L("Move to Vault"))
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+        }
     }
 
     private var devCachesCard: some View {

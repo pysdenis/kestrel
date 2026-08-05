@@ -837,6 +837,19 @@ withTempDir { tmp in
     check(shots.items.count == 1 && shots.items.first?.entry.url.lastPathComponent.hasPrefix("Screenshot") == true, "only the screenshot")
 }
 
+section("ClutterFinder.largestFiles: biggest files first, respects the minimum, review-only")
+withTempDir { tmp in
+    let big = makeFile(tmp.appendingPathComponent("movie.mov"), String(repeating: "A", count: 300))
+    let mid = makeFile(tmp.appendingPathComponent("clip.mp4"), String(repeating: "B", count: 150))
+    _ = big; _ = mid
+    makeFile(tmp.appendingPathComponent("tiny.txt"), "x")
+    // minBytes 100 keeps the two big files, drops the tiny one; sorted largest-first.
+    let plan = ClutterFinder().largestFiles(under: tmp, minBytes: 100, limit: 40)
+    check(plan.items.map { $0.entry.url.lastPathComponent } == ["movie.mov", "clip.mp4"], "largest first, tiny excluded by minBytes")
+    check(plan.items.allSatisfy { $0.category == .largeOld }, "large files are review-only (explicit selection)")
+    check(ClutterFinder().largestFiles(under: tmp, minBytes: 100, limit: 1).items.count == 1, "limit caps the result count")
+}
+
 // MARK: - Shredder
 
 section("Shredder: overwrites then removes, refuses missing")

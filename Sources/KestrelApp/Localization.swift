@@ -297,6 +297,8 @@ enum Localization {
         ("larger than", "větší než"),
         ("name contains", "název obsahuje"),
         ("Uninstall selected", "Odinstalovat vybrané"),
+        ("Not updated in", "Neaktualizováno"),
+        ("years — may be unmaintained (no security fixes).", "let — možná bez údržby (bez bezpečnostních oprav)."),
         ("Includes this app's settings — Undo restores it fully configured, not just the bare app.", "Zahrnuje i nastavení této aplikace — Undo ji obnoví plně nakonfigurovanou, ne jen holou aplikaci."),
         ("selected", "vybráno"),
         ("Search applications…", "Hledat aplikace…"),

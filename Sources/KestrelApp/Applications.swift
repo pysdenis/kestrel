@@ -12,14 +12,23 @@ struct AppInfo: Identifiable {
     let bundleId: String?
     var size: Int64?
     var lastUsed: Date?
+    var lastModified: Date?
 
     /// Days since the app was last opened (via Spotlight), or nil if unknown.
     var daysUnused: Int? { lastUsed.map { Int(Date().timeIntervalSince($0) / 86400) } }
+
+    /// Whole years since the app was last updated (bundle last modified), or nil if unknown.
+    var yearsStale: Int? { lastModified.map { Int(Date().timeIntervalSince($0) / (365 * 86400)) } }
 
     /// The app's last-used date from Spotlight metadata (kMDItemLastUsedDate).
     static func lastUsed(_ url: URL) -> Date? {
         guard let item = MDItemCreate(nil, url.path as CFString) else { return nil }
         return MDItemCopyAttribute(item, kMDItemLastUsedDate) as? Date
+    }
+
+    /// When the app was last updated — the bundle's content modification date.
+    static func lastModified(_ url: URL) -> Date? {
+        (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
     }
 }
 
@@ -77,7 +86,7 @@ enum AppSort: String, CaseIterable, Identifiable {
                 for url in entries where url.pathExtension == "app" {
                     found.append(AppInfo(url: url, name: url.deletingPathExtension().lastPathComponent,
                                          bundleId: AppUninstaller().bundleIdentifier(of: url), size: nil,
-                                         lastUsed: AppInfo.lastUsed(url)))
+                                         lastUsed: AppInfo.lastUsed(url), lastModified: AppInfo.lastModified(url)))
                 }
             }
             found.sort { $0.name.lowercased() < $1.name.lowercased() }
@@ -457,6 +466,12 @@ struct AppCard: View {
                         .font(.caption2).foregroundStyle(.secondary)
                     }
                     Spacer()
+                    if let years = app.yearsStale, years >= 3 {
+                        Label("\(years)\(L("y"))", systemImage: "exclamationmark.triangle")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(Palette.warn)
+                            .help("\(L("Not updated in")) \(years) \(L("years — may be unmaintained (no security fixes)."))")
+                    }
                     if let size = app.size {
                         Text(bytesString(size)).font(.caption.monospacedDigit().weight(.medium)).foregroundStyle(.secondary)
                     } else {

@@ -869,6 +869,43 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var externalPreviews: [ExternalCleanupPreview] = []
     @Published var externalLoading = false
 
+    @Published var duplicateApps: [DuplicateAppGroup] = []
+    @Published var dupeAppsLoading = false
+    @Published var dupeAppsMessage: String?
+
+    /// Find apps that exist in more than one place/version (a stale Downloads copy, an old version).
+    func loadDuplicateApps() {
+        guard !dupeAppsLoading else { return }
+        dupeAppsLoading = true; dupeAppsMessage = nil
+        let home = paths.home
+        Task.detached { [weak self] in
+            let groups = DuplicateAppFinder().find(home: home)
+            await MainActor.run { [weak self] in
+                self?.duplicateApps = groups
+                self?.dupeAppsLoading = false
+                if groups.isEmpty { self?.dupeAppsMessage = "No duplicate app copies found." }
+            }
+        }
+    }
+
+    /// Move one (extra) app copy to the vault (undoable, audited). Never the suggested-keep copy.
+    func moveAppCopyToVault(_ copy: AppCopy, bundleID: String) {
+        guard !SafetyGuard.isProtected(copy.url) else { return }
+        let entry = FileEntry(url: copy.url, size: copy.size, modified: Date(), isDirectory: true)
+        let plan = CleanupPlan(items: [CleanupItem(entry: entry, category: .appLeftover, reason: "Duplicate app copy (\(copy.location))")])
+        let vaultURL = paths.vault, auditURL = paths.auditLog, name = copy.url.lastPathComponent, url = copy.url
+        Task.detached { [weak self] in
+            let result = try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
+            await MainActor.run { [weak self] in
+                self?.dupeAppsMessage = (result?.movedCount ?? 0) > 0 ? "Moved “\(name)” → vault (undoable)." : "Couldn't move “\(name)”."
+                self?.duplicateApps = self?.duplicateApps.compactMap { g in
+                    let remaining = g.copies.filter { $0.url != url }
+                    return remaining.count > 1 ? DuplicateAppGroup(bundleID: g.bundleID, name: g.name, copies: remaining) : nil
+                } ?? []
+            }
+        }
+    }
+
     /// Advisory reclaimable-space previews from tools that manage their own store (Docker, Homebrew).
     /// Read-only preview + a copyable command — Kestrel never runs these prunes itself (outside the vault).
     func loadExternal() {

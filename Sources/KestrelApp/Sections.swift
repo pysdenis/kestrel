@@ -1507,6 +1507,7 @@ struct ToolsSection: View {
 
             photosCard
             duplicatesCard
+            duplicateAppsCard
             largestFilesCard
             deviceBackupsCard
             devCachesCard
@@ -1916,6 +1917,53 @@ struct ToolsSection: View {
     private func staleTint(_ p: StaleProject) -> Color {
         guard let days = p.daysSinceCommit() else { return .secondary }
         return days >= 90 ? Palette.warn : (days >= 30 ? Palette.accent2 : Palette.accent)
+    }
+
+    /// Apps present in more than one place/version — keep one, move the extras to the vault.
+    private var duplicateAppsCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionTitle("Duplicate apps", icon: "square.on.square.dashed")
+                    Spacer()
+                    Button { controller.loadDuplicateApps() } label: {
+                        Label(controller.dupeAppsLoading ? L("Scanning…") : L("Scan"), systemImage: "magnifyingglass")
+                    }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).disabled(controller.dupeAppsLoading)
+                }
+                Text(L("Apps found in more than one place or version — e.g. a stale copy left in Downloads. Kestrel keeps the best one; move the extras to the vault (undoable).")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if let m = controller.dupeAppsMessage {
+                    Label(m, systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(Palette.good).fixedSize(horizontal: false, vertical: true)
+                }
+                if controller.duplicateApps.isEmpty && !controller.dupeAppsLoading {
+                    Text(L("Scan to find duplicate app copies.")).font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    ForEach(controller.duplicateApps) { group in
+                        if group.id != controller.duplicateApps.first?.id { Hairline() }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(group.name).font(.callout.weight(.semibold))
+                            ForEach(Array(group.copies.enumerated()), id: \.offset) { i, copy in
+                                HStack(spacing: 8) {
+                                    Image(systemName: i == 0 ? "checkmark.circle.fill" : "circle").font(.caption2)
+                                        .foregroundStyle(i == 0 ? Palette.good : .tertiary)
+                                    Text("\(copy.location)\(copy.version.map { " · v\($0)" } ?? "")").font(.caption).foregroundStyle(i == 0 ? .primary : .secondary)
+                                    if i == 0 { Text(L("keep")).font(.caption2.weight(.bold)).foregroundStyle(Palette.good) }
+                                    Spacer()
+                                    Text(bytesString(copy.size)).font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
+                                    if i > 0 {
+                                        Button { NSWorkspace.shared.activateFileViewerSelecting([copy.url]) } label: { Image(systemName: "magnifyingglass") }
+                                            .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Reveal in Finder"))
+                                        Button { controller.moveAppCopyToVault(copy, bundleID: group.bundleID) } label: { Image(systemName: "tray.and.arrow.down") }
+                                            .buttonStyle(.kestrel(.secondary, size: .small)).help(L("Move to Vault"))
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.vertical, 3)
+                    }
+                }
+            }
+        }
     }
 
     private var deviceBackupsCard: some View {

@@ -1495,6 +1495,19 @@ check(OllamaClient.stripReasoning("<think>\nlet me reason\n</think>\n\nThe answe
 check(OllamaClient.stripReasoning("No reasoning here.") == "No reasoning here.", "leaves normal content untouched")
 check(OllamaClient.stripReasoning("<think>unterminated reasoning") == "", "drops an unterminated <think> block")
 
+section("DuplicateAppFinder: version compare + keep-ranking")
+do {
+    check(DuplicateAppFinder.compareVersions("2.1.0", "2.0.9") == 1, "2.1.0 > 2.0.9")
+    check(DuplicateAppFinder.compareVersions("1.0", "1.0.0") == 0, "1.0 == 1.0.0")
+    check(DuplicateAppFinder.compareVersions("1.2", "1.10") == -1, "1.2 < 1.10 (numeric, not lexical)")
+    let dl = AppCopy(url: URL(fileURLWithPath: "/x/Downloads/A.app"), version: "3.0", size: 100, location: "Downloads")
+    let apps = AppCopy(url: URL(fileURLWithPath: "/Applications/A.app"), version: "2.0", size: 100, location: "Applications")
+    check(DuplicateAppFinder.rank([dl, apps]).first?.location == "Applications", "keeps the /Applications copy first, even at a lower version")
+    let a = AppCopy(url: URL(fileURLWithPath: "/x/A.app"), version: "2.0", size: 1, location: "Downloads")
+    let b = AppCopy(url: URL(fileURLWithPath: "/y/A.app"), version: "1.0", size: 1, location: "Desktop")
+    check(DuplicateAppFinder.rank([b, a]).first?.version == "2.0", "otherwise keeps the higher version")
+}
+
 section("PortAuditor.parse: reads listening ports past the trailing (LISTEN)")
 do {
     let sample = """

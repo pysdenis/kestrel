@@ -50,7 +50,7 @@ public struct DeviceBackupFinder {
     }
 
     /// Parse the fields we show from a backup's `Info.plist` (device name, model, last-backup date).
-    static func readInfo(_ url: URL, fm: FileManager = .default) -> (name: String?, product: String?, date: Date?) {
+    public static func readInfo(_ url: URL, fm: FileManager = .default) -> (name: String?, product: String?, date: Date?) {
         guard let data = try? Data(contentsOf: url),
               let plist = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any] else {
             return (nil, nil, nil)

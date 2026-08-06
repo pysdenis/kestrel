@@ -41,7 +41,7 @@ public struct DriveWear: Sendable, Equatable {
     }
 
     /// The whole-disk device node of `/` (e.g. "/dev/disk0"), from `diskutil info /`.
-    static func bootDevice(runner: CommandRunner) -> String? {
+    public static func bootDevice(runner: CommandRunner) -> String? {
         guard let out = try? runner.run("diskutil", ["info", "/"]) else { return nil }
         for line in out.split(separator: "\n") {
             if let r = line.range(of: "Part of Whole:") {

@@ -1544,6 +1544,85 @@ do {
     check(ports.first?.process == "node" && ports.first?.pid == 4821, "process + pid parsed")
 }
 
+section("ConnectionAuditor.parse: established connections, deduped, sorted by process")
+do {
+    let sample = """
+    COMMAND   PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
+    Safari   900 u 5u IPv4 0x1 0t0 TCP 10.0.0.2:5000->140.82.1.3:443 (ESTABLISHED)
+    aria2    100 u 6u IPv4 0x2 0t0 TCP 10.0.0.2:5001->1.1.1.1:443 (ESTABLISHED)
+    aria2    100 u 6u IPv4 0x2 0t0 TCP 10.0.0.2:5001->1.1.1.1:443 (ESTABLISHED)
+    """
+    let conns = ConnectionAuditor.parse(sample)
+    check(conns.count == 2, "duplicate rows collapsed (got \(conns.count))")
+    check(conns.first?.process == "aria2" && conns.first?.remote == "1.1.1.1:443", "sorted by process, remote parsed")
+}
+
+section("VaultVerifier: intact session passes, tampered/missing bytes trip the fire-drill")
+withTempDir { tmp in
+    let vaultRoot = tmp.appendingPathComponent("vault")
+    let vault = VaultService(vaultRoot: vaultRoot)
+    let victim = makeFile(tmp.appendingPathComponent("doc.txt"), "important")
+    let sid = try vault.beginSession()
+    let record = try vault.move(url: victim, session: sid)
+    let clean = VaultVerifier(vault: vault).verifyAll()
+    check(clean.first?.isRestorable == true, "freshly-vaulted session is restorable")
+    // Tamper with the stored bytes.
+    try Data("changed".utf8).write(to: URL(fileURLWithPath: record.vaultPath))
+    let tampered = VaultVerifier(vault: vault).verifyAll()
+    check(tampered.first?.isRestorable == false && tampered.first?.sizeMismatch.count == 1, "size mismatch detected")
+    // Remove the stored bytes.
+    try fm.removeItem(at: URL(fileURLWithPath: record.vaultPath))
+    let gone = VaultVerifier(vault: vault).verifyAll()
+    check(gone.first?.missing.count == 1, "missing stored bytes detected")
+}
+
+section("DriveWear.bootDevice + read: parse diskutil whole-disk, honest via stub")
+do {
+    let disk = StubRunner(responses: [
+        "diskutil info /": "   Device Node: /dev/disk3s5\n   Part of Whole: disk3\n",
+        "smartctl -A -j /dev/disk3": #"{"nvme_smart_health_information_log":{"percentage_used":11,"data_units_written":10,"power_on_hours":42}}"#,
+    ])
+    check(DriveWear.bootDevice(runner: disk) == "/dev/disk3", "boot device parsed from 'Part of Whole'")
+    let w = DriveWear.read(runner: disk)
+    check(w.available && w.percentageUsed == 11 && w.powerOnHours == 42, "read wires device → smartctl → parse")
+    check(DriveWear.read(runner: StubRunner(responses: [:])).available == false, "no diskutil/smartctl → not available")
+}
+
+section("DeviceBackupFinder.readInfo: parses Info.plist fields")
+withTempDir { tmp in
+    let plist = tmp.appendingPathComponent("Info.plist")
+    let dict: [String: Any] = ["Device Name": "Denis's iPhone", "Product Type": "iPhone14,2", "Last Backup Date": Date(timeIntervalSince1970: 1_700_000_000)]
+    let data = try PropertyListSerialization.data(fromPropertyList: dict, format: .xml, options: 0)
+    try data.write(to: plist)
+    let info = DeviceBackupFinder.readInfo(plist)
+    check(info.name == "Denis's iPhone" && info.product == "iPhone14,2" && info.date != nil, "device name, model, date parsed")
+    check(DeviceBackupFinder.readInfo(tmp.appendingPathComponent("nope")).name == nil, "missing plist → nils, no crash")
+}
+
+section("WhereFromReader: decodes the kMDItemWhereFroms xattr")
+withTempDir { tmp in
+    let file = makeFile(tmp.appendingPathComponent("dl.zip"), "x")
+    let origins = ["https://example.com/dl.zip", "https://ref.example.com/"]
+    let blob = try PropertyListSerialization.data(fromPropertyList: origins, format: .binary, options: 0)
+    _ = blob.withUnsafeBytes { setxattr(file.path, "com.apple.metadata:kMDItemWhereFroms", $0.baseAddress, blob.count, 0, 0) }
+    check(WhereFromReader.origins(of: file) == origins, "reads both origin URLs from the xattr")
+    check(WhereFromReader.source(of: makeFile(tmp.appendingPathComponent("plain.txt"), "y")) == nil, "no xattr → nil source")
+}
+
+section("SystemTweaker: reads state via runner, snapshots prior value for exact revert")
+withTempDir { tmp in
+    let store = tmp.appendingPathComponent("tweaks.json")
+    let tweak = SystemTweaker.catalog.first { $0.id == "finder.pathbar" }!
+    // Runner reports the key currently off ("0"); write/killall succeed (empty output).
+    let tw = SystemTweaker(runner: StubRunner(responses: ["defaults read com.apple.finder ShowPathbar": "0"]), storeURL: store)
+    check(tw.isEnabled(tweak) == false, "reads current state as off")
+    check(tw.hasPrior(tweak) == false, "no prior recorded yet")
+    tw.setEnabled(tweak, true)
+    check(tw.hasPrior(tweak) == true, "turning on snapshots the prior value")
+    tw.revert(tweak)
+    check(tw.hasPrior(tweak) == false, "revert clears the prior-value record")
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

@@ -240,6 +240,22 @@ Diferenciátory — většina už hotová, tady jako přehled + zbytek.
       [~] **Apple Shortcuts** — App Intents hotové (`KestrelShortcuts`: Mac Health / Free Space / Dev Junk,
       read-only/dry-run); plná registrace do Shortcuts vyžaduje Xcode „Extract App Intents Metadata" (Fáze 7).
 
+## Fáze 15 — Research-driven vlna 🔬 (kompletní research proposal + novinky)
+Celý „gap + novel" research list + deep-thinking kolo. Vše Core + (CLI kde dává smysl) + GUI + testy + CZ.
+Objeveno & opraveno: `.gitignore` `vault/` **vylučoval `VaultService.swift` z repa** (repo se nedal zkompilovat z klonu).
+- [x] **Inspektor podpisu appek** (`CodeSignatureReader`, `kSecCSBasicValidateOnly` = žádné false-positive strašení) — karta v Security.
+- [x] **App Trust Profile** — fúze oprávnění + podpisu v Permissions (bez „risk score").
+- [x] **Síťová spojení** (`ConnectionAuditor`, read-only) + **Naslouchající porty** (`PortAuditor`) — Security/Tools + CLI.
+- [x] **Provenience Downloadů** (`WhereFromReader`, `kMDItemWhereFroms`) — origin v kartě karantény.
+- [x] **Vault fire-drill** (`VaultVerifier`) — dokáže, že undo funguje; Settings + `kestrel verifyvault`.
+- [x] **iOS zálohy** (`DeviceBackupFinder`) + **Duplicitní aplikace** (`DuplicateAppFinder`) — Tools, přes trezor.
+- [x] **Git-aware „Spící projekty"** (`GitProjectReclaimer`) + **Git history bloat** (`GitRepoAuditor`, advisory `git gc`).
+- [x] **Rozšíření/doplňky** (`ExtensionInventory`) + **Reverzibilní systémové tweaky** (`SystemTweaker`, prior-value undo).
+- [x] **Lokální AI vypravěč** (`AIAssistant.narrate`, „Week in review", offline) + **Model-routing** NL pravidel na coder model.
+- [x] **Regrowth & cadence** (`RegrowthAnalyzer`) → **Automatizovat** (data-driven launchd pravidlo).
+- [x] **Messages přílohy**, **Abandonware badge** (3+ roky bez updatu), **SSD wear** (`DriveWear`, advisory smartmontools).
+- [x] **Docker & Homebrew** advisory karta v GUI. Ollama: `qwen3:8b`/`qwen2.5:7b`, keep_alive, unload na pozadí, `<think>` strip.
+
 ## Fáze 14 — Výkon & plynulost ⚡ (priorita)
 Cíl: appka **nesmí sekat**, jede plynule (60 fps UI), a je **šetrná ke zdrojům** — jak na
 pozadí (idle), tak při aktivním používání. Měřit, ne hádat (Instruments: Time Profiler,

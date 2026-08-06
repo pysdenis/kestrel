@@ -288,6 +288,7 @@ enum Localization {
         ("Spotlight Importer", "Spotlight importér"),
         ("Color Picker", "Výběr barvy"),
         ("Dormant projects", "Spící projekty"),
+        ("Reclaim all >90d", "Uvolnit vše >90 dní"),
         ("Git history bloat", "Nafouklá git historie"),
         ("Repos whose .git history has grown large. Advisory — copy the command to run `git gc`; Kestrel never touches .git.", "Repa s velkou .git historií. Poradensky — zkopíruj příkaz a spusť `git gc`; Kestrel se .git nikdy nedotkne."),
         ("Scan to find repos with a heavy .git.", "Skenem najdeš repa s těžkým .git."),

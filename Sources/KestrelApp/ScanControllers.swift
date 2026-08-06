@@ -1239,6 +1239,29 @@ struct ChatMessage: Identifiable, Equatable {
         }
     }
 
+    /// Bytes reclaimable from repos whose last commit is at least `days` old — for the batch button.
+    func dormantBytes(olderThanDays days: Int) -> Int64 {
+        staleProjects.filter { ($0.daysSinceCommit() ?? Int.max) >= days }.reduce(0) { $0 + $1.reclaimableBytes }
+    }
+
+    /// Reclaim regenerable artifacts from every repo not touched in `days`+ — one vault move.
+    func reclaimDormant(olderThanDays days: Int) {
+        let targets = staleProjects.filter { ($0.daysSinceCommit() ?? Int.max) >= days }
+        let items = targets.flatMap { proj in proj.artifacts.map { CleanupItem(entry: $0, category: .devArtifact, reason: "Regenerable artifact in \(proj.repoName)") } }
+        guard !items.isEmpty else { return }
+        reclaimMessage = nil
+        let plan = CleanupPlan(items: items)
+        let vaultURL = paths.vault, auditURL = paths.auditLog
+        let targetPaths = Set(targets.map(\.repoPath))
+        Task.detached { [weak self] in
+            let result = try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
+            await MainActor.run { [weak self] in
+                self?.reclaimMessage = result.map { "Reclaimed \(bytesString($0.movedBytes)) from \(targetPaths.count) dormant repo(s) → vault." } ?? "Batch reclaim failed."
+                self?.staleProjects.removeAll { targetPaths.contains($0.repoPath) }
+            }
+        }
+    }
+
     /// Move one repo's regenerable artifacts to the vault (undoable, audited).
     func reclaimProject(_ project: StaleProject) {
         reclaimMessage = nil

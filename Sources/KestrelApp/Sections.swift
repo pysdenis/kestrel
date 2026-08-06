@@ -1968,6 +1968,12 @@ struct ToolsSection: View {
                 if controller.reclaimLoading {
                     HStack(spacing: 10) { ScanRadar(tint: Palette.accent, size: 24); Text(L("Scanning projects…")).foregroundStyle(.secondary).font(.callout) }
                 } else if !controller.staleProjects.isEmpty {
+                    if controller.dormantBytes(olderThanDays: 90) > 0 {
+                        Button { controller.reclaimDormant(olderThanDays: 90) } label: {
+                            Label("\(L("Reclaim all >90d")) (\(bytesString(controller.dormantBytes(olderThanDays: 90))))", systemImage: "clock.badge.checkmark")
+                        }
+                        .buttonStyle(.kestrel(.secondary, size: .small))
+                    }
                     ForEach(controller.staleProjects) { project in
                         if project.id != controller.staleProjects.first?.id { Hairline() }
                         HStack(spacing: 10) {

@@ -531,6 +531,10 @@ do {
             }
         }
         print("Antivirus: " + (report.antivirus.isClean ? "clean ✅ (\(report.antivirus.scanned) files)" : "\(report.antivirus.findings.count) finding(s) in \(report.antivirus.scanned) files"))
+        // Record today's snapshot so scheduled runs keep the trend/forecast + weekly digest fresh.
+        if let space = DiskUsageReader().space(at: paths.home) {
+            try? SnapshotStore(directory: paths.snapshots).save(DiskSnapshot(date: Date(), space: space, breakdown: SpaceBreakdown.measure(home: paths.home)))
+        }
 
     case "maintenance":
         print("Maintenance actions (run the command yourself — these change system state):\n")

@@ -558,6 +558,8 @@ enum Localization {
         ("Invalid signature", "Neplatný podpis"),
         ("Kestrel: possible ransomware", "Kestrel: možný ransomware"),
         ("Kestrel weekly digest", "Kestrel týdenní souhrn"),
+        ("Weekly health check", "Týdenní kontrola stavu"),
+        ("A LaunchAgent runs an honest Smart Scan once a week — records a snapshot and reports health. Read-only: it never deletes anything on its own.", "LaunchAgent spustí jednou týdně čestný Smart Scan — uloží snímek a nahlásí stav. Jen ke čtení: sám nikdy nic nemaže."),
         ("Your weekly Kestrel summary is ready.", "Tvůj týdenní souhrn Kestrelu je připravený."),
         ("reclaimed", "uvolněno"),
         ("day", "den"),

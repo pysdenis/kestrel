@@ -1506,6 +1506,20 @@ check(OllamaClient.stripReasoning("<think>\nlet me reason\n</think>\n\nThe answe
 check(OllamaClient.stripReasoning("No reasoning here.") == "No reasoning here.", "leaves normal content untouched")
 check(OllamaClient.stripReasoning("<think>unterminated reasoning") == "", "drops an unterminated <think> block")
 
+section("SmartCareScheduler: weekly, non-destructive launchd job")
+withTempDir { home in
+    let s = SmartCareScheduler(home: home)
+    check(s.isInstalled() == false, "not installed initially")
+    let job = s.plist(executable: "/usr/local/bin/kestrel", everyHours: 168)
+    let args = job["ProgramArguments"] as? [String]
+    check(args == ["/usr/local/bin/kestrel", "smartscan"], "runs the read-only smartscan (never a destructive apply)")
+    check((job["StartInterval"] as? Int) == 168 * 3600, "weekly interval")
+    _ = try s.writePlist(executable: "/usr/local/bin/kestrel")
+    check(s.isInstalled(), "installed after writePlist")
+    try s.removePlist()
+    check(!s.isInstalled(), "removed after removePlist")
+}
+
 section("HomebrewAdapter.parseAutoremove: orphaned formulae + reclaimable")
 do {
     let sample = """

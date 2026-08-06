@@ -180,6 +180,29 @@ import KestrelCore
     private let paths: KestrelPaths
     init(paths: KestrelPaths) { self.paths = paths }
 
+    // Weekly scheduled honest health pass (read-only smartscan via launchd)
+    @Published var scheduled = false
+    @Published var scheduleMessage: String?
+    private var cliPath: String {
+        ["/opt/homebrew/bin/kestrel", "/usr/local/bin/kestrel"].first { FileManager.default.isExecutableFile(atPath: $0) } ?? "kestrel"
+    }
+    var cliInstalled: Bool { cliPath.hasPrefix("/") && FileManager.default.isExecutableFile(atPath: cliPath) }
+
+    func loadSchedule() { scheduled = SmartCareScheduler().isInstalled() }
+
+    /// Install/remove a weekly launchd agent that runs `kestrel smartscan` — read-only (records a
+    /// snapshot, reports health), never deletes anything unattended.
+    func setSchedule(_ on: Bool) {
+        do {
+            if on { try SmartCareScheduler().writePlist(executable: cliPath, everyHours: 168) }
+            else { try SmartCareScheduler().removePlist() }
+            scheduleMessage = nil
+        } catch {
+            scheduleMessage = "Couldn't change the schedule: \((error as NSError).localizedDescription)"
+        }
+        scheduled = SmartCareScheduler().isInstalled()
+    }
+
     func isStepOn(_ s: Step) -> Bool { enabledSteps.contains(s) }
     func toggleStep(_ s: Step) {
         guard !running else { return }

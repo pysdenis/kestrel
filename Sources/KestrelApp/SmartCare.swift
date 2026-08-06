@@ -19,6 +19,32 @@ struct SmartCareSection: View {
             }
 
             if controller.finished { results }
+
+            scheduleCard
+        }
+        .onAppear { controller.loadSchedule() }
+    }
+
+    /// Weekly scheduled honest health pass (read-only) via launchd.
+    private var scheduleCard: some View {
+        Card(tint: controller.scheduled ? Palette.good : nil) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(L("Weekly health check")).font(.callout.weight(.medium))
+                        Text(L("A LaunchAgent runs an honest Smart Scan once a week — records a snapshot and reports health. Read-only: it never deletes anything on its own.")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    KestrelToggle(isOn: Binding(get: { controller.scheduled }, set: { controller.setSchedule($0) }))
+                }
+                if !controller.cliInstalled {
+                    Label(L("Needs the kestrel CLI installed for the schedule to actually run."), systemImage: "info.circle")
+                        .font(.caption2).foregroundStyle(Palette.warn)
+                }
+                if let m = controller.scheduleMessage {
+                    Label(m, systemImage: "exclamationmark.triangle").font(.caption2).foregroundStyle(Palette.warn)
+                }
+            }
         }
     }
 

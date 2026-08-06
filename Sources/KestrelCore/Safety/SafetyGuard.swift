@@ -42,7 +42,16 @@ public enum SafetyGuard {
     /// User-defined allowlist: absolute paths (and their subtrees) the user has told Kestrel
     /// to never touch. Loaded from `ExclusionStore` at launch and updated when the user edits
     /// it in Settings. Checked before everything else, so an exclusion always wins.
-    public static var userExclusions: Set<String> = []
+    ///
+    /// It is written on the main actor (Settings) but read from background scan tasks, so access is
+    /// lock-guarded: a torn read of a `Set` mid-mutation could otherwise momentarily fail to protect
+    /// a path the user just excluded while a scan is in flight — unacceptable for a delete-files app.
+    private static let exclusionsLock = NSLock()
+    private static var _userExclusions: Set<String> = []
+    public static var userExclusions: Set<String> {
+        get { exclusionsLock.lock(); defer { exclusionsLock.unlock() }; return _userExclusions }
+        set { exclusionsLock.lock(); _userExclusions = newValue; exclusionsLock.unlock() }
+    }
 
     /// Why a path is protected, or `nil` if it is safe to consider for cleanup.
     public static func protectionReason(for url: URL) -> String? {

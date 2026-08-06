@@ -8,7 +8,11 @@ public protocol CommandRunner: Sendable {
 
 /// Real runner: launches `tool` via `/usr/bin/env` so it is resolved on `PATH`.
 public struct ProcessRunner: CommandRunner {
-    public init() {}
+    /// Hard cap on how long any advisory tool may run. A tool that hangs (a stuck `brew`, a `docker`
+    /// waiting on a daemon) would otherwise block the background scan task forever, spinning the UI.
+    public var timeout: TimeInterval
+
+    public init(timeout: TimeInterval = 30) { self.timeout = timeout }
 
     public func run(_ tool: String, _ arguments: [String]) throws -> String {
         let process = Process()
@@ -26,8 +30,16 @@ public struct ProcessRunner: CommandRunner {
         process.standardOutput = stdout
         process.standardError = Pipe() // swallow tool chatter
         try process.run()
-        process.waitUntilExit()
+
+        // Watchdog: terminate a tool that overruns the timeout so we never block indefinitely.
+        let killer = DispatchWorkItem { if process.isRunning { process.terminate() } }
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: killer)
+
+        // Read to EOF *before* waiting: a tool that writes more than the pipe buffer (~64 KB) would
+        // block on write while we block on exit — a classic deadlock. Draining first avoids it.
         let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        killer.cancel()
         return String(decoding: data, as: UTF8.self)
     }
 }

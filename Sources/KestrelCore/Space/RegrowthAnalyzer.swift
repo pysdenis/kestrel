@@ -24,8 +24,14 @@ public struct RegrowthAnalyzer {
     private let store: SnapshotStore
     public init(store: SnapshotStore) { self.store = store }
 
-    public func estimates(now: Date = Date()) -> [RegrowthEstimate] {
-        let snaps = (try? store.all()) ?? []
+    public func estimates(window: Int = 30, now: Date = Date()) -> [RegrowthEstimate] {
+        let all = (try? store.all()) ?? []
+        // Use only the recent window so the rate reflects current behaviour — averaging over the
+        // whole history dilutes a fast-regrowing cache once the history spans months, giving a
+        // misleadingly slow cadence. Fall back to all snapshots if the window has fewer than two.
+        let cutoff = now.addingTimeInterval(-Double(max(1, window)) * 86400)
+        let recent = all.filter { $0.date >= cutoff }
+        let snaps = recent.count >= 2 ? recent : all
         guard let first = snaps.first, let last = snaps.last, first.date < last.date else { return [] }
         let days = last.date.timeIntervalSince(first.date) / 86400
         guard days > 0 else { return [] }

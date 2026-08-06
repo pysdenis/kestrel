@@ -1505,6 +1505,7 @@ struct ToolsSection: View {
                 }
             }
 
+            reclaimAllCard
             photosCard
             duplicatesCard
             duplicateAppsCard
@@ -1588,6 +1589,48 @@ struct ToolsSection: View {
                 }
             }
         }
+    }
+
+    /// One-shot "reclaim everything safe": scans the clearly-safe regeneratable sources and moves
+    /// them all to the vault at once. Only low-regret categories — nothing that needs review.
+    private var reclaimAllCard: some View {
+        Card(tint: Palette.good) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionTitle("Reclaim everything safe", icon: "sparkles")
+                    Spacer()
+                    Button { controller.scanAllSafe() } label: {
+                        if controller.reclaimAllScanning { KestrelSpinner(tint: Palette.good, size: 14) }
+                        else { Label(L("Scan"), systemImage: "magnifyingglass") }
+                    }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).disabled(controller.reclaimAllScanning)
+                }
+                Text(L("Trash, leftover data of removed apps, developer caches and crash logs — all regeneratable — in one pass. Everything moves to the vault (undoable).")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if let m = controller.reclaimAllMessage {
+                    Label(m, systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(Palette.good).fixedSize(horizontal: false, vertical: true)
+                }
+                if let plan = controller.reclaimAllPlan, !plan.items.isEmpty {
+                    HStack {
+                        Text("\(bytesString(plan.totalBytes)) · \(plan.count) \(L("items"))").font(.callout.weight(.semibold)).monospacedDigit()
+                        Spacer()
+                        Button { confirmReclaimAll(plan) } label: {
+                            if controller.reclaimAllApplying { KestrelSpinner(tint: .white, size: 14) }
+                            else { Label("\(L("Move all to Vault")) (\(bytesString(plan.totalBytes)))", systemImage: "tray.and.arrow.down") }
+                        }
+                        .buttonStyle(.kestrel(.prominent, size: .small)).disabled(controller.reclaimAllApplying)
+                    }
+                }
+            }
+        }
+    }
+
+    private func confirmReclaimAll(_ plan: CleanupPlan) {
+        model.requestConfirm(ConfirmRequest(
+            icon: "sparkles", tint: Palette.good,
+            title: "\(L("Reclaim")) \(bytesString(plan.totalBytes))?",
+            message: L("These regeneratable items all move to the reversible vault — undoable until you purge."),
+            confirmLabel: L("Move all to Vault"),
+            onConfirm: { controller.applyReclaimAll() }))
     }
 
     private var photosCard: some View {

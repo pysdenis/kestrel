@@ -889,6 +889,52 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var dupeAppsLoading = false
     @Published var dupeAppsMessage: String?
 
+    @Published var reclaimAllPlan: CleanupPlan?
+    @Published var reclaimAllScanning = false
+    @Published var reclaimAllApplying = false
+    @Published var reclaimAllMessage: String?
+
+    /// Scan the clearly-safe, regeneratable sources at once (Trash, app leftovers, dev caches, crash
+    /// logs) into one combined plan — the "reclaim everything safe" one-shot. Nothing risky included.
+    func scanAllSafe() {
+        guard !reclaimAllScanning else { return }
+        reclaimAllScanning = true; reclaimAllMessage = nil; reclaimAllPlan = nil
+        let home = paths.home
+        Task.detached { [weak self] in
+            var items: [CleanupItem] = []
+            items += TrashFinder().find().items
+            items += OrphanFinder().find().items
+            items += ClutterFinder().diagnosticReports(under: home.appendingPathComponent("Library/Logs/DiagnosticReports")).items
+            for cache in PackageCacheFinder().find() {
+                items.append(CleanupItem(entry: FileEntry(url: cache.url, size: cache.size, modified: Date(), isDirectory: true),
+                                         category: .devArtifact, reason: "\(cache.tool) cache"))
+            }
+            // Safety net: only clearly-safe categories, never anything needing review.
+            let safe = items.filter { $0.category.isClearlySafe }
+            let plan = CleanupPlan(items: safe)
+            await MainActor.run { [weak self] in
+                self?.reclaimAllPlan = plan
+                self?.reclaimAllScanning = false
+                if plan.items.isEmpty { self?.reclaimAllMessage = "Nothing safe to reclaim right now." }
+            }
+        }
+    }
+
+    /// Move the whole safe plan to the vault (undoable, audited).
+    func applyReclaimAll() {
+        guard let plan = reclaimAllPlan, !reclaimAllApplying, !plan.items.isEmpty else { return }
+        reclaimAllApplying = true
+        let vaultURL = paths.vault, auditURL = paths.auditLog
+        Task.detached { [weak self] in
+            let result = try? CleanupExecutor(vault: VaultService(vaultRoot: vaultURL), audit: AuditLog(url: auditURL)).execute(plan, apply: true)
+            await MainActor.run { [weak self] in
+                self?.reclaimAllApplying = false
+                self?.reclaimAllPlan = nil
+                self?.reclaimAllMessage = result.map { "\(bytesString($0.movedBytes)) → vault (undoable).\($0.failureSuffix)" } ?? "Reclaim failed."
+            }
+        }
+    }
+
     /// Find apps that exist in more than one place/version (a stale Downloads copy, an old version).
     func loadDuplicateApps() {
         guard !dupeAppsLoading else { return }

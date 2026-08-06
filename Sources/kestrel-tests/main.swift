@@ -1506,6 +1506,19 @@ check(OllamaClient.stripReasoning("<think>\nlet me reason\n</think>\n\nThe answe
 check(OllamaClient.stripReasoning("No reasoning here.") == "No reasoning here.", "leaves normal content untouched")
 check(OllamaClient.stripReasoning("<think>unterminated reasoning") == "", "drops an unterminated <think> block")
 
+section("HomebrewAdapter.parseAutoremove: orphaned formulae + reclaimable")
+do {
+    let sample = """
+    ==> Would remove 3 unneeded formulae:
+    libfoo libbar oldbaz
+    ==> This operation would free approximately 45.3MB of disk space.
+    """
+    let p = HomebrewAdapter.parseAutoremove(sample)
+    check(p.available && p.reclaimableBytes > 45_000_000, "reclaimable parsed")
+    check(p.details.first?.contains("3 unused") == true && p.details.first?.contains("libfoo") == true, "formulae listed")
+    check(HomebrewAdapter.parseAutoremove("").available == false, "empty output → not available")
+}
+
 section("FileSizer: recursive allocated size, files and dirs, skips symlinks")
 withTempDir { tmp in
     let dir = tmp.appendingPathComponent("d")

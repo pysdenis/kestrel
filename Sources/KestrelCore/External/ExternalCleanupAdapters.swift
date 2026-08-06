@@ -93,4 +93,40 @@ public struct HomebrewAdapter {
             note: "Delegated to Homebrew — not moved to Kestrel's vault."
         )
     }
+
+    /// Formulae no longer needed by anything (orphaned dependencies) via `brew autoremove --dry-run`.
+    /// Advisory only — the user runs `brew autoremove` themselves.
+    public func autoremovePreview() -> ExternalCleanupPreview {
+        guard let version = try? runner.run("brew", ["--version"]), !version.isEmpty else {
+            return .unavailable("Homebrew")
+        }
+        let output = (try? runner.run("brew", ["autoremove", "--dry-run"])) ?? ""
+        return Self.parseAutoremove(output)
+    }
+
+    /// Parse `brew autoremove --dry-run` output (formulae list + reclaimable). Pure — unit-testable.
+    static func parseAutoremove(_ output: String) -> ExternalCleanupPreview {
+        var total: Int64 = 0
+        var formulae: [String] = []
+        var inList = false
+        for rawLine in output.split(separator: "\n") {
+            let text = String(rawLine).trimmingCharacters(in: .whitespaces)
+            if text.lowercased().contains("free approximately") {
+                if let bytes = text.split(separator: " ").compactMap({ parseHumanBytes(String($0)) }).first { total = bytes }
+                inList = false
+            } else if text.hasPrefix("==> Would remove") || text.lowercased().contains("would remove") {
+                inList = true
+            } else if inList, !text.isEmpty, !text.hasPrefix("==>") {
+                // A space-separated list of formula names.
+                formulae.append(contentsOf: text.split(separator: " ").map(String.init))
+            }
+        }
+        let available = !formulae.isEmpty || total > 0
+        return ExternalCleanupPreview(
+            tool: "Homebrew unused", available: available, reclaimableBytes: total,
+            details: formulae.isEmpty ? [] : ["\(formulae.count) unused: \(formulae.prefix(12).joined(separator: ", "))"],
+            command: "brew autoremove",
+            note: available ? "Orphaned dependencies — run brew autoremove to remove them." : "No unused formulae."
+        )
+    }
 }

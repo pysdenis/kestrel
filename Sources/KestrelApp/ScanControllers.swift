@@ -928,7 +928,7 @@ struct ChatMessage: Identifiable, Equatable {
         guard !externalLoading else { return }
         externalLoading = true
         Task.detached { [weak self] in
-            let previews = [DockerAdapter().preview(), HomebrewAdapter().preview()].filter { $0.available && $0.reclaimableBytes > 0 }
+            let previews = [DockerAdapter().preview(), HomebrewAdapter().preview(), HomebrewAdapter().autoremovePreview()].filter { $0.available && ($0.reclaimableBytes > 0 || !$0.details.isEmpty) }
             await MainActor.run { [weak self] in self?.externalPreviews = previews; self?.externalLoading = false }
         }
     }

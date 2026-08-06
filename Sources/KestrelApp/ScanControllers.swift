@@ -848,6 +848,18 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var largestFiles: [CleanupItem] = []
     @Published var largestLoading = false
     @Published var largestMessage: String?
+    @Published var largestQuery = ""
+    var filteredLargestFiles: [CleanupItem] {
+        largestQuery.isEmpty ? largestFiles : largestFiles.filter { $0.entry.url.lastPathComponent.localizedCaseInsensitiveContains(largestQuery) }
+    }
+    @Published var dupeAppsQuery = ""
+    var filteredDuplicateApps: [DuplicateAppGroup] {
+        dupeAppsQuery.isEmpty ? duplicateApps : duplicateApps.filter { $0.name.localizedCaseInsensitiveContains(dupeAppsQuery) }
+    }
+    @Published var staleQuery = ""
+    var filteredStaleProjects: [StaleProject] {
+        staleQuery.isEmpty ? staleProjects : staleProjects.filter { $0.repoName.localizedCaseInsensitiveContains(staleQuery) }
+    }
 
     @Published var deviceBackups: [DeviceBackup] = []
     @Published var backupsLoading = false

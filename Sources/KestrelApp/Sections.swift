@@ -1593,6 +1593,19 @@ struct ToolsSection: View {
 
     /// One-shot "reclaim everything safe": scans the clearly-safe regeneratable sources and moves
     /// them all to the vault at once. Only low-regret categories — nothing that needs review.
+    /// A compact inline search field for filtering a long tool list.
+    private func toolSearch(_ text: Binding<String>, _ placeholder: String) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass").font(.caption).foregroundStyle(.tertiary)
+            TextField(L(placeholder), text: text).textFieldStyle(.plain).font(.callout)
+            if !text.wrappedValue.isEmpty {
+                Button { text.wrappedValue = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }.buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
     private var reclaimAllCard: some View {
         Card(tint: Palette.good) {
             VStack(alignment: .leading, spacing: 10) {
@@ -1824,7 +1837,8 @@ struct ToolsSection: View {
                             .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                         Spacer()
                     }
-                    ForEach(Array(controller.largestFiles.enumerated()), id: \.offset) { i, item in
+                    if controller.largestFiles.count > 8 { toolSearch($controller.largestQuery, "Filter by name…") }
+                    ForEach(Array(controller.filteredLargestFiles.enumerated()), id: \.offset) { i, item in
                         if i > 0 { Hairline() }
                         HStack(spacing: 10) {
                             Image(systemName: "doc.fill").font(.caption).foregroundStyle(Palette.accent2)
@@ -1974,8 +1988,9 @@ struct ToolsSection: View {
                         }
                         .buttonStyle(.kestrel(.secondary, size: .small))
                     }
-                    ForEach(controller.staleProjects) { project in
-                        if project.id != controller.staleProjects.first?.id { Hairline() }
+                    if controller.staleProjects.count > 6 { toolSearch($controller.staleQuery, "Filter by name…") }
+                    ForEach(controller.filteredStaleProjects) { project in
+                        if project.id != controller.filteredStaleProjects.first?.id { Hairline() }
                         HStack(spacing: 10) {
                             Image(systemName: "shippingbox").font(.callout).foregroundStyle(staleTint(project))
                             VStack(alignment: .leading, spacing: 1) {
@@ -2022,8 +2037,9 @@ struct ToolsSection: View {
                 if controller.duplicateApps.isEmpty && !controller.dupeAppsLoading {
                     Text(L("Scan to find duplicate app copies.")).font(.caption).foregroundStyle(.tertiary)
                 } else {
-                    ForEach(controller.duplicateApps) { group in
-                        if group.id != controller.duplicateApps.first?.id { Hairline() }
+                    if controller.duplicateApps.count > 4 { toolSearch($controller.dupeAppsQuery, "Filter by name…") }
+                    ForEach(controller.filteredDuplicateApps) { group in
+                        if group.id != controller.filteredDuplicateApps.first?.id { Hairline() }
                         VStack(alignment: .leading, spacing: 3) {
                             Text(group.name).font(.callout.weight(.semibold))
                             ForEach(Array(group.copies.enumerated()), id: \.offset) { i, copy in

@@ -93,6 +93,23 @@ import KestrelCore
 
     func discardSuggestion() { nlSuggestion = nil; nlSuggestionPlan = nil; nlError = nil }
 
+    /// Create a scheduled-cleanup rule from a regrowth cadence (the data-driven link). Re-reads
+    /// from disk first so it never clobbers existing rules, dedupes the name, and previews it.
+    @discardableResult
+    func createRule(name: String, rootPath: String, olderDays: Int) -> Bool {
+        var current = RulesEngine.load(from: paths.rules)
+        var finalName = name
+        var n = 2
+        while current.contains(where: { $0.name == finalName }) { finalName = "\(name) (\(n))"; n += 1 }
+        let rule = MaintenanceRule(name: finalName, root: rootPath, criteria: RuleCriteria(olderThanDays: olderDays))
+        current.append(rule)
+        try? RulesEngine.save(current, to: paths.rules)
+        rules = current
+        loaded = true
+        preview(rule)
+        return true
+    }
+
     func deleteRule(_ rule: MaintenanceRule) {
         rules.removeAll { $0.name == rule.name }
         previews[rule.name] = nil

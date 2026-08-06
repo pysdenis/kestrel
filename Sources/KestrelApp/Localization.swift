@@ -91,6 +91,8 @@ enum Localization {
         ("Regrowth & cadence", "Návrat & frekvence"),
         ("How fast each cleaned-up category grows back, from your daily snapshots — so you know how often it's worth clearing.", "Jak rychle se každá vyčištěná kategorie vrací, z tvých denních snímků — abys věděl, jak často má smysl uklízet."),
         ("clean every ~", "uklízet ~ každých"),
+        ("Automate", "Automatizovat"),
+        ("Create a scheduled rule to clear this on that cadence (through the vault).", "Vytvoří naplánované pravidlo, které to čistí v této frekvenci (přes trezor)."),
         ("d", "d"),
         ("Change over the last", "Změna za posledních"),
         ("days, from daily snapshots. All tracked folders are regeneratable.", "dní, z denních snímků. Všechny sledované složky jsou znovu-generovatelné."),

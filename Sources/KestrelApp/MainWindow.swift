@@ -668,6 +668,14 @@ struct SpaceSection: View {
                         Text("+\(bytesString(r.dailyGrowthBytes))/\(L("day"))").font(.caption.monospacedDigit()).foregroundStyle(Palette.warn)
                         if let days = r.suggestedDays {
                             Text("· \(L("clean every ~")) \(days) \(L("d"))").font(.caption2).foregroundStyle(.secondary)
+                            if let path = SpaceBreakdown.autoCleanablePath(forLabel: r.category) {
+                                Button {
+                                    model.automation.createRule(name: "Auto: \(r.category)", rootPath: path, olderDays: max(1, days))
+                                    model.section = .automation
+                                } label: { Label(L("Automate"), systemImage: "wand.and.rays") }
+                                .buttonStyle(.kestrel(.subtle, size: .small))
+                                .help(L("Create a scheduled rule to clear this on that cadence (through the vault)."))
+                            }
                         }
                     }
                     .padding(.vertical, 2)

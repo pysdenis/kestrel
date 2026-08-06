@@ -14,6 +14,15 @@ public enum SpaceBreakdown {
         ("Trash", ".Trash"),
     ]
 
+    /// The `~`-relative path for a breakdown label **only** when it's a regeneratable cache that's
+    /// safe to auto-clean on a schedule (DerivedData, device support, Caches) — never Trash or iOS
+    /// backups. Used to turn a regrowth cadence into a data-driven Automation rule.
+    public static func autoCleanablePath(forLabel label: String) -> String? {
+        let safe: Set<String> = ["Xcode DerivedData", "Xcode device support", "Caches"]
+        guard safe.contains(label) else { return nil }
+        return locations.first { $0.label == label }.map { "~/\($0.path)" }
+    }
+
     public static func measure(home: URL, fm: FileManager = .default) -> [String: Int64] {
         var out: [String: Int64] = [:]
         for location in locations {

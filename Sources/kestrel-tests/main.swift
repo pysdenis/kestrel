@@ -1489,6 +1489,18 @@ check(OllamaClient.stripReasoning("<think>\nlet me reason\n</think>\n\nThe answe
 check(OllamaClient.stripReasoning("No reasoning here.") == "No reasoning here.", "leaves normal content untouched")
 check(OllamaClient.stripReasoning("<think>unterminated reasoning") == "", "drops an unterminated <think> block")
 
+section("PortAuditor.parse: reads listening ports past the trailing (LISTEN)")
+do {
+    let sample = """
+    COMMAND     PID     USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+    node       4821 pysdenis   11u  IPv4 0xabc                0t0  TCP 127.0.0.1:3000 (LISTEN)
+    ControlCe   622 pysdenis   10u  IPv4 0xdef                0t0  TCP *:7000 (LISTEN)
+    """
+    let ports = PortAuditor.parse(sample)
+    check(ports.map(\.port) == [3000, 7000], "parses both ports past the (LISTEN) suffix, lowest first")
+    check(ports.first?.process == "node" && ports.first?.pid == 4821, "process + pid parsed")
+}
+
 // MARK: - Summary
 
 print("\n\(passed) passed, \(failed) failed")

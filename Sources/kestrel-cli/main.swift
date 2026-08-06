@@ -251,6 +251,7 @@ func usage() {
       kestrel backups                           (local iOS/iPadOS device backups by age + size)
       kestrel wherefrom <file>                  (where a downloaded file came from)
       kestrel connections                       (established outbound connections per app)
+      kestrel ports                             (what's listening on local TCP ports)
       kestrel addons                            (Quick Look/prefpanes/Audio Units… inventory)
       kestrel reclaim [path] [--apply]          (git-aware: build junk grouped by dormant repo)
       kestrel tweaks                            (reversible system tweaks + current state)
@@ -839,6 +840,12 @@ do {
         let origins = WhereFromReader.origins(of: URL(fileURLWithPath: (p as NSString).expandingTildeInPath))
         if origins.isEmpty { print("No recorded origin for this file.") }
         else { print("Origin(s):"); for o in origins { print("  \(o)") } }
+
+    case "ports":
+        let ports = PortAuditor().listening()
+        if ports.isEmpty { print("Nothing is listening on a TCP port."); break }
+        print("\(ports.count) listening port(s):")
+        for p in ports { print("  :\(String(p.port).padding(toLength: 6, withPad: " ", startingAt: 0)) \(p.process) (pid \(p.pid))") }
 
     case "connections", "conns":
         let conns = ConnectionAuditor().established()

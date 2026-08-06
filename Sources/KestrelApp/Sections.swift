@@ -1511,6 +1511,7 @@ struct ToolsSection: View {
             deviceBackupsCard
             devCachesCard
             dormantProjectsCard
+            portsCard
             privacyCard
             secretsCard
             cloudCard
@@ -1793,6 +1794,37 @@ struct ToolsSection: View {
                                 .buttonStyle(.kestrel(.secondary, size: .small)).help(L("Move to Vault"))
                         }
                         .padding(.vertical, 2)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Read-only "what's on :3000?" — processes listening on local TCP ports.
+    private var portsCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionTitle("Listening ports", icon: "network")
+                    Spacer()
+                    Button { controller.loadPorts() } label: {
+                        Label(controller.portsLoading ? L("Checking…") : L("Check now"), systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).disabled(controller.portsLoading)
+                }
+                Text(L("What's listening on local TCP ports right now — handy for finding a stray dev server. Read-only; Kestrel never kills anything.")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if controller.listeningPorts.isEmpty && !controller.portsLoading {
+                    Text(L("Check to see what's listening.")).font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    ForEach(Array(controller.listeningPorts.prefix(40).enumerated()), id: \.offset) { i, p in
+                        if i > 0 { Hairline() }
+                        HStack(spacing: 10) {
+                            Text(":\(p.port)").font(.callout.monospacedDigit().weight(.semibold)).foregroundStyle(Palette.accent).frame(width: 64, alignment: .leading)
+                            Text(p.process).font(.callout).lineLimit(1)
+                            Spacer()
+                            Text("pid \(p.pid)").font(.caption2.monospaced()).foregroundStyle(.tertiary)
+                        }
+                        .padding(.vertical, 1)
                     }
                 }
             }

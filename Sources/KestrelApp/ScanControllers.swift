@@ -860,6 +860,18 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var addons: [SystemAddon] = []
     @Published var addonsLoading = false
 
+    @Published var listeningPorts: [ListeningPort] = []
+    @Published var portsLoading = false
+
+    /// List processes listening on local TCP ports (read-only).
+    func loadPorts() {
+        portsLoading = true
+        Task.detached { [weak self] in
+            let ports = PortAuditor().listening()
+            await MainActor.run { [weak self] in self?.listeningPorts = ports; self?.portsLoading = false }
+        }
+    }
+
     /// List user add-ons (Quick Look, prefpanes, Audio Units…) across ~/Library and /Library.
     func loadAddons() {
         guard !addonsLoading else { return }

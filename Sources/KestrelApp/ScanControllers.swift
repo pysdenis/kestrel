@@ -866,6 +866,20 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var listeningPorts: [ListeningPort] = []
     @Published var portsLoading = false
 
+    @Published var gitBloat: [GitRepoInfo] = []
+    @Published var gitBloatLoading = false
+
+    /// Find git repos with a large `.git` history under the reclaim root (advisory — `git gc`).
+    func loadGitBloat() {
+        guard !gitBloatLoading else { return }
+        gitBloatLoading = true
+        let root = reclaimRoot
+        Task.detached { [weak self] in
+            let repos = GitRepoAuditor().scan(root: root)
+            await MainActor.run { [weak self] in self?.gitBloat = repos; self?.gitBloatLoading = false }
+        }
+    }
+
     @Published var externalPreviews: [ExternalCleanupPreview] = []
     @Published var externalLoading = false
 

@@ -1512,6 +1512,7 @@ struct ToolsSection: View {
             deviceBackupsCard
             devCachesCard
             dormantProjectsCard
+            gitBloatCard
             portsCard
             externalToolsCard
             privacyCard
@@ -1830,6 +1831,40 @@ struct ToolsSection: View {
                             Spacer()
                             Text(bytesString(p.reclaimableBytes)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                             if let cmd = p.command { CopyButton(text: cmd) }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Repos with a bloated `.git` history — advisory `git gc`. `.git` is protected; Kestrel only
+    /// shows the size + the command, never touches it.
+    private var gitBloatCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionTitle("Git history bloat", icon: "arrow.triangle.branch")
+                    Spacer()
+                    Button { controller.loadGitBloat() } label: {
+                        Label(controller.gitBloatLoading ? L("Scanning…") : L("Scan"), systemImage: "magnifyingglass")
+                    }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).disabled(controller.gitBloatLoading)
+                }
+                Text(L("Repos whose .git history has grown large. Advisory — copy the command to run `git gc`; Kestrel never touches .git.")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                FolderChip(url: controller.reclaimRoot) { controller.pickReclaimRoot() }
+                if controller.gitBloat.isEmpty && !controller.gitBloatLoading {
+                    Text(L("Scan to find repos with a heavy .git.")).font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    ForEach(controller.gitBloat) { repo in
+                        if repo.id != controller.gitBloat.first?.id { Hairline() }
+                        HStack(spacing: 10) {
+                            Image(systemName: "arrow.triangle.branch").font(.caption).foregroundStyle(Palette.accent2)
+                            Text(repo.name).font(.callout.weight(.medium)).lineLimit(1)
+                            Spacer()
+                            Text(bytesString(repo.gitDirBytes)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            CopyButton(text: repo.gcCommand)
                         }
                         .padding(.vertical, 2)
                     }

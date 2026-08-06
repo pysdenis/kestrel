@@ -841,6 +841,18 @@ do {
         if origins.isEmpty { print("No recorded origin for this file.") }
         else { print("Origin(s):"); for o in origins { print("  \(o)") } }
 
+    case "gitbloat":
+        let path = rest.first(where: { !$0.hasPrefix("-") }) ?? paths.home.path
+        let root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+        let minMB = Int64(option("--min-mb", in: rest) ?? "100") ?? 100
+        let repos = GitRepoAuditor().scan(root: root, minGitBytes: minMB * 1_000_000)
+        if repos.isEmpty { print("No repos with a .git over \(minMB) MB under \(root.path)."); break }
+        print("Repos with a large .git history (advisory — run `git gc` to compact):\n")
+        for r in repos {
+            print("  \(fmtBytes(r.gitDirBytes).padding(toLength: 10, withPad: " ", startingAt: 0)) \(r.name)")
+            print("      \(r.gcCommand)")
+        }
+
     case "ports":
         let ports = PortAuditor().listening()
         if ports.isEmpty { print("Nothing is listening on a TCP port."); break }

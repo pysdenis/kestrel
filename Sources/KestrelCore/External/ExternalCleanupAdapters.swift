@@ -105,7 +105,7 @@ public struct HomebrewAdapter {
     }
 
     /// Parse `brew autoremove --dry-run` output (formulae list + reclaimable). Pure — unit-testable.
-    static func parseAutoremove(_ output: String) -> ExternalCleanupPreview {
+    public static func parseAutoremove(_ output: String) -> ExternalCleanupPreview {
         var total: Int64 = 0
         var formulae: [String] = []
         var inList = false

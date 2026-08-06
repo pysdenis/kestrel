@@ -499,6 +499,31 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Quick action: undo the most recent cleanup by restoring its whole vault session. The
+    /// "cleaner you can't regret" — one tap to put back what you just cleaned.
+    func undoLastCleanup() {
+        guard !quickBusy else { return }
+        quickBusy = true; quickActionMessage = nil
+        let vaultURL = paths.vault
+        Task.detached { [weak self] in
+            let vault = VaultService(vaultRoot: vaultURL)
+            let sessions = (try? vault.listSessions()) ?? []
+            guard let last = sessions.max(by: { $0.createdAt < $1.createdAt }) else {
+                await MainActor.run { [weak self] in self?.quickBusy = false; self?.quickActionMessage = L("Nothing to undo — the vault is empty.") }
+                return
+            }
+            let outcome = try? vault.undo(session: last.id)
+            await MainActor.run { [weak self] in
+                self?.quickBusy = false
+                let n = outcome?.restored ?? 0
+                self?.quickActionMessage = n > 0
+                    ? "\(L("Restored")) \(n) \(L("item(s) from the last cleanup."))"
+                    : L("Couldn't undo the last cleanup (files may already be back).")
+                self?.refresh()
+            }
+        }
+    }
+
     /// Menu-bar quick action: jump to Smart Care in the window and run it.
     func runSmartCare(_ open: OpenWindowAction) {
         section = .smartcare

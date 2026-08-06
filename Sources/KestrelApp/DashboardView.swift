@@ -119,6 +119,7 @@ struct MenuBarView: View {
                 HStack(spacing: 8) {
                     quickAction(L("Free RAM"), "memorychip", Palette.violet, busy: model.freeingMemory) { model.freeMemory() }
                     quickAction(L("Empty Trash"), "trash", Palette.good, busy: model.quickBusy) { model.emptyTrashQuick() }
+                    quickAction(L("Undo last"), "arrow.uturn.backward", Palette.accent2, busy: model.quickBusy) { model.undoLastCleanup() }
                     quickAction(L("Smart Care"), "sparkles", Palette.accent) { model.runSmartCare(openWindow) }
                 }
                 if let msg = model.quickActionMessage {

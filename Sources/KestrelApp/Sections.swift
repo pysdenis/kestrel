@@ -2183,6 +2183,7 @@ struct ToolsSection: View {
             ToolDef(id: "Screenshots", title: L("Screenshots"), subtitle: L("Screenshots on the Desktop"), icon: "camera.viewfinder", tint: Palette.accent) { ClutterFinder().screenshots(under: home.appendingPathComponent("Desktop")) },
             ToolDef(id: "Downloads", title: L("Downloads"), subtitle: L("Files older than 30 days"), icon: "arrow.down.circle", tint: Palette.accent2) { ClutterFinder().oldDownloads(under: home.appendingPathComponent("Downloads")) },
             ToolDef(id: "Mail Attachments", title: L("Mail Attachments"), subtitle: L("Locally cached, re-downloadable"), icon: "paperclip", tint: Palette.accent) { ClutterFinder().mailAttachments(under: home.appendingPathComponent("Library/Mail")) },
+            ToolDef(id: "Messages Attachments", title: L("Messages Attachments"), subtitle: L("Photos/videos received in Messages"), icon: "message", tint: Palette.accent2) { ClutterFinder().messagesAttachments(under: home.appendingPathComponent("Library/Messages/Attachments")) },
         ]
     }
 }

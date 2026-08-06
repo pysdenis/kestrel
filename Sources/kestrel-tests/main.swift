@@ -1105,6 +1105,12 @@ withTempDir { tmp in
     makeFile(mail.appendingPathComponent("V10/Data/Messages/1.emlx"), "msg")
     let att = ClutterFinder().mailAttachments(under: mail).items.map { $0.entry.url.lastPathComponent }
     check(att == ["photo.jpg"], "only attachment, not the message")
+
+    let msgs = makeDir(tmp.appendingPathComponent("Messages/Attachments"))
+    makeFile(msgs.appendingPathComponent("ab/12/video.mov"), "big")
+    let mAtt = ClutterFinder().messagesAttachments(under: msgs).items
+    check(mAtt.map { $0.entry.url.lastPathComponent } == ["video.mov"], "finds the Messages attachment")
+    check(mAtt.allSatisfy { $0.category == .largeOld }, "Messages attachments are review-only")
 }
 
 // MARK: - Similar images (perceptual hash)

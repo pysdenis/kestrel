@@ -219,6 +219,8 @@ enum Localization {
         ("AI second opinion", "AI druhý názor"),
         ("AI cleanup plan", "AI plán úklidu"),
         ("Largest files", "Největší soubory"),
+        ("Messages Attachments", "Přílohy ze Zpráv"),
+        ("Photos/videos received in Messages", "Fotky/videa přijaté ve Zprávách"),
         ("iOS backups", "iOS zálohy"),
         ("System tweaks", "Systémové tweaky"),
         ("Reversible power-user settings. Each toggle says exactly what it writes and records its prior value, so it can be turned back off to precisely how it was.", "Vratná pokročilá nastavení. Každý přepínač přesně říká, co zapisuje, a uloží předchozí hodnotu, takže ho lze vrátit přesně do původního stavu."),

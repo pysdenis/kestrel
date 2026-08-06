@@ -74,6 +74,18 @@ public struct ClutterFinder {
         return CleanupPlan(items: Array(items))
     }
 
+    /// Attachments received in Messages (`~/Library/Messages/Attachments/…`) — frequently large.
+    /// Review-only and vault-backed (undoable). Unlike Mail these may not re-download unless
+    /// Messages in iCloud is on, so the reason stays neutral and nothing is preselected.
+    public func messagesAttachments(under root: URL) -> CleanupPlan {
+        let files = (try? Scanner().scanFiles(under: root, pruning: [], includingHidden: true)) ?? []
+        let items = files.compactMap { entry -> CleanupItem? in
+            guard !entry.isDirectory, entry.size > 0, !SafetyGuard.isProtected(entry.url) else { return nil }
+            return CleanupItem(entry: entry, category: .largeOld, reason: "Messages attachment")
+        }
+        return CleanupPlan(items: items)
+    }
+
     /// Locally cached Mail attachments (`~/Library/Mail/.../Attachments/…`). They are
     /// re-downloadable from the server, so removing them frees space safely. Review-only.
     public func mailAttachments(under mailRoot: URL) -> CleanupPlan {

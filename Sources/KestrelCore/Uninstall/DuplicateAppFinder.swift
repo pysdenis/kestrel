@@ -49,7 +49,7 @@ public struct DuplicateAppFinder {
                       let id = bundle.bundleIdentifier else { continue }
                 let version = (bundle.infoDictionary?["CFBundleShortVersionString"] as? String)
                     ?? (bundle.infoDictionary?["CFBundleVersion"] as? String)
-                let size = directorySize(app)
+                let size = FileSizer.size(of: app)
                 byBundle[id, default: []].append(AppCopy(url: app, version: version, size: size, location: label))
                 namesByBundle[id] = app.deletingPathExtension().lastPathComponent
             }
@@ -84,17 +84,5 @@ public struct DuplicateAppFinder {
             if x != y { return x > y ? 1 : -1 }
         }
         return 0
-    }
-
-    func directorySize(_ url: URL) -> Int64 {
-        let keys: [URLResourceKey] = [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey, .fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey]
-        var total: Int64 = 0
-        guard let en = fm.enumerator(at: url, includingPropertiesForKeys: keys, options: []) else { return 0 }
-        for case let file as URL in en {
-            let v = try? file.resourceValues(forKeys: Set(keys))
-            guard v?.isRegularFile == true, v?.isSymbolicLink != true else { continue }
-            total += Int64(v?.totalFileAllocatedSize ?? v?.fileAllocatedSize ?? v?.fileSize ?? 0)
-        }
-        return total
     }
 }

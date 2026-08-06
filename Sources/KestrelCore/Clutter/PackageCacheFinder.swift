@@ -63,23 +63,10 @@ public struct PackageCacheFinder {
             let url = home.appendingPathComponent(candidate.path)
             var isDir: ObjCBool = false
             guard fm.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue else { return nil }
-            let size = directorySize(url)
+            let size = FileSizer.size(of: url)
             guard size > 0 else { return nil }
             return PackageCache(tool: candidate.tool, url: url, size: size)
         }
         .sorted { $0.size > $1.size }
-    }
-
-    /// Recursive on-disk size (allocated bytes), skipping symlinks.
-    func directorySize(_ url: URL) -> Int64 {
-        let keys: [URLResourceKey] = [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey, .fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey]
-        var total: Int64 = 0
-        guard let enumerator = fm.enumerator(at: url, includingPropertiesForKeys: keys, options: []) else { return 0 }
-        for case let file as URL in enumerator {
-            let v = try? file.resourceValues(forKeys: Set(keys))
-            guard v?.isRegularFile == true, v?.isSymbolicLink != true else { continue }
-            total += Int64(v?.totalFileAllocatedSize ?? v?.fileAllocatedSize ?? v?.fileSize ?? 0)
-        }
-        return total
     }
 }

@@ -57,7 +57,7 @@ public struct ExtensionInventory {
                 let dir = libraryRoot.appendingPathComponent(loc.subdir)
                 guard let entries = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { continue }
                 for bundle in entries where bundle.pathExtension == loc.ext {
-                    let size = directorySize(bundle)
+                    let size = FileSizer.size(of: bundle)
                     out.append(SystemAddon(kind: loc.kind,
                                            name: bundle.deletingPathExtension().lastPathComponent,
                                            path: bundle.path, size: size, systemWide: systemWide))
@@ -65,17 +65,5 @@ public struct ExtensionInventory {
             }
         }
         return out.sorted { $0.size > $1.size }
-    }
-
-    func directorySize(_ url: URL) -> Int64 {
-        let keys: [URLResourceKey] = [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey, .fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey]
-        var total: Int64 = 0
-        guard let en = fm.enumerator(at: url, includingPropertiesForKeys: keys, options: []) else { return 0 }
-        for case let file as URL in en {
-            let v = try? file.resourceValues(forKeys: Set(keys))
-            guard v?.isRegularFile == true, v?.isSymbolicLink != true else { continue }
-            total += Int64(v?.totalFileAllocatedSize ?? v?.fileAllocatedSize ?? v?.fileSize ?? 0)
-        }
-        return total
     }
 }

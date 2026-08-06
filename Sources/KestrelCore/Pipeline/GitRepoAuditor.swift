@@ -34,23 +34,11 @@ public struct GitRepoAuditor {
             guard fm.fileExists(atPath: gitDir.path, isDirectory: &isDir), isDir.boolValue else { continue }
             // Found a repo root: measure .git and don't descend further into this tree.
             en.skipDescendants()
-            let size = directorySize(gitDir)
+            let size = FileSizer.size(of: gitDir)
             if size >= minGitBytes {
                 out.append(GitRepoInfo(path: dir.path, name: dir.lastPathComponent, gitDirBytes: size))
             }
         }
         return out.sorted { $0.gitDirBytes > $1.gitDirBytes }
-    }
-
-    func directorySize(_ url: URL) -> Int64 {
-        let keys: [URLResourceKey] = [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey, .fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey]
-        var total: Int64 = 0
-        guard let en = fm.enumerator(at: url, includingPropertiesForKeys: keys, options: []) else { return 0 }
-        for case let file as URL in en {
-            let v = try? file.resourceValues(forKeys: Set(keys))
-            guard v?.isRegularFile == true, v?.isSymbolicLink != true else { continue }
-            total += Int64(v?.totalFileAllocatedSize ?? v?.fileAllocatedSize ?? v?.fileSize ?? 0)
-        }
-        return total
     }
 }

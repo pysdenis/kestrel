@@ -1495,6 +1495,21 @@ check(OllamaClient.stripReasoning("<think>\nlet me reason\n</think>\n\nThe answe
 check(OllamaClient.stripReasoning("No reasoning here.") == "No reasoning here.", "leaves normal content untouched")
 check(OllamaClient.stripReasoning("<think>unterminated reasoning") == "", "drops an unterminated <think> block")
 
+section("FileSizer: recursive allocated size, files and dirs, skips symlinks")
+withTempDir { tmp in
+    let dir = tmp.appendingPathComponent("d")
+    try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+    let f1 = makeFile(dir.appendingPathComponent("a.bin"), String(repeating: "x", count: 500))
+    makeFile(dir.appendingPathComponent("sub/b.bin"), String(repeating: "y", count: 300))
+    // a symlink pointing at a.bin must not be double-counted.
+    try? fm.createSymbolicLink(at: dir.appendingPathComponent("link"), withDestinationURL: f1)
+    let dirSize = FileSizer.size(of: dir)
+    check(dirSize >= 800, "directory sums its regular files (got \(dirSize))")
+    let fileSize = FileSizer.size(of: f1)
+    check(fileSize >= 500 && fileSize < dirSize, "a single file returns its own size")
+    check(FileSizer.size(of: tmp.appendingPathComponent("nope")) == 0, "missing path → 0, no crash")
+}
+
 section("DriveWear.parse: reads NVMe wear from smartctl JSON, honest when absent")
 do {
     let json = Data(#"{"nvme_smart_health_information_log":{"percentage_used":7,"data_units_written":123456,"power_on_hours":1500}}"#.utf8)

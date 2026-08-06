@@ -38,7 +38,7 @@ public struct DeviceBackupFinder {
             var isDir: ObjCBool = false
             guard fm.fileExists(atPath: dir.path, isDirectory: &isDir), isDir.boolValue else { continue }
             let info = Self.readInfo(dir.appendingPathComponent("Info.plist"), fm: fm)
-            let size = directorySize(dir)
+            let size = FileSizer.size(of: dir)
             guard size > 0 else { continue }
             out.append(DeviceBackup(udid: dir.lastPathComponent,
                                     deviceName: info.name ?? dir.lastPathComponent,
@@ -56,17 +56,5 @@ public struct DeviceBackupFinder {
             return (nil, nil, nil)
         }
         return (plist["Device Name"] as? String, plist["Product Type"] as? String, plist["Last Backup Date"] as? Date)
-    }
-
-    func directorySize(_ url: URL) -> Int64 {
-        let keys: [URLResourceKey] = [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey, .fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey]
-        var total: Int64 = 0
-        guard let en = fm.enumerator(at: url, includingPropertiesForKeys: keys, options: []) else { return 0 }
-        for case let file as URL in en {
-            let v = try? file.resourceValues(forKeys: Set(keys))
-            guard v?.isRegularFile == true, v?.isSymbolicLink != true else { continue }
-            total += Int64(v?.totalFileAllocatedSize ?? v?.fileAllocatedSize ?? v?.fileSize ?? 0)
-        }
-        return total
     }
 }

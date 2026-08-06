@@ -246,11 +246,10 @@ final class AppModel: ObservableObject {
         guard let last else { UserDefaults.standard.set(Date(), forKey: key); return }   // first run: set baseline
         guard Date().timeIntervalSince(last) >= 7 * 86400 else { return }
         let auditURL = paths.auditLog, snapDir = paths.snapshots
-        Task.detached { [weak self] in
+        Task.detached {
             let digest = DigestReporter(audit: AuditLog(url: auditURL), snapshots: SnapshotStore(directory: snapDir)).generate()
             guard digest.totalActions > 0 || digest.dailyGrowthBytes != nil else { return }
-            await MainActor.run { [weak self] in
-                guard let self else { return }
+            await MainActor.run {
                 UserDefaults.standard.set(Date(), forKey: key)
                 var parts: [String] = []
                 if digest.reclaimedAllTime > 0 { parts.append("\(bytesString(digest.reclaimedAllTime)) \(L("reclaimed"))") }

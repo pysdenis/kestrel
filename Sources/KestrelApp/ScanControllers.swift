@@ -740,6 +740,37 @@ struct ChatMessage: Identifiable, Equatable {
         SafetyGuard.userExclusions = Set(list)
     }
 
+    @Published var configMessage: String?
+
+    /// Export the portable config (allowlist + rules) to a JSON file the user picks.
+    func exportConfig() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "kestrel-config.json"
+        panel.prompt = L("Export")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try ConfigTransfer.exportData(paths: paths).write(to: url, options: .atomic)
+            configMessage = "\(L("Exported config to")) \(url.lastPathComponent)"
+        } catch {
+            configMessage = L("Couldn't export the config.")
+        }
+    }
+
+    /// Import a config file, merging it into the current settings (allowlist union, rules by name).
+    func importConfig() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowedFileTypes = ["json"]
+        panel.prompt = L("Import")
+        guard panel.runModal() == .OK, let url = panel.url, let data = try? Data(contentsOf: url) else { return }
+        do {
+            let merged = try ConfigTransfer.importData(data, into: paths)
+            syncExclusions(merged.exclusions)
+            configMessage = "\(L("Imported")) \(merged.exclusions.count) \(L("exclusions and")) \(merged.rules.count) \(L("rules."))"
+        } catch {
+            configMessage = L("Couldn't import — is it a valid Kestrel config file?")
+        }
+    }
+
     func addExclusion() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true; panel.canChooseFiles = true; panel.allowsMultipleSelection = true

@@ -1191,6 +1191,7 @@ struct SettingsSection: View {
             aiCard
             updatesCard
             exclusionsCard
+            configTransferCard
             vaultCard
 
             Card {
@@ -1261,6 +1262,27 @@ struct SettingsSection: View {
                 }
                 if model.geminiKey().isEmpty {
                     Text(model.paths.geminiKey.path).font(.caption2.monospaced()).foregroundStyle(.tertiary).textSelection(.enabled)
+                }
+            }
+        }
+    }
+
+    /// Export/import the portable config (allowlist + rules) for migrating to another Mac or backup.
+    private var configTransferCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle(model.t("Config transfer"), icon: "arrow.up.arrow.down.square")
+                Text(model.t("Save your allowlist and rules to a file to carry to another Mac or back up. Import merges — it never drops what you already have. Secrets (API keys) are never exported."))
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Button { controller.exportConfig() } label: { Label(model.t("Export"), systemImage: "square.and.arrow.up") }
+                        .buttonStyle(.kestrel(.secondary, size: .small))
+                    Button { controller.importConfig() } label: { Label(model.t("Import"), systemImage: "square.and.arrow.down") }
+                        .buttonStyle(.kestrel(.subtle, size: .small))
+                    Spacer()
+                }
+                if let m = controller.configMessage {
+                    Label(m, systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(Palette.good).fixedSize(horizontal: false, vertical: true)
                 }
             }
         }

@@ -1506,6 +1506,30 @@ check(OllamaClient.stripReasoning("<think>\nlet me reason\n</think>\n\nThe answe
 check(OllamaClient.stripReasoning("No reasoning here.") == "No reasoning here.", "leaves normal content untouched")
 check(OllamaClient.stripReasoning("<think>unterminated reasoning") == "", "drops an unterminated <think> block")
 
+section("ConfigTransfer: export/import merges allowlist (union) and rules (by name)")
+withTempDir { tmp in
+    let paths = KestrelPaths(home: tmp)
+    // Seed some existing config.
+    ExclusionStore(url: paths.exclusions).save(["/Users/x/keep"])
+    try RulesEngine.save([MaintenanceRule(name: "old", root: "~/Downloads", criteria: RuleCriteria(olderThanDays: 30))], to: paths.rules)
+
+    let data = try ConfigTransfer.exportData(paths: paths)
+    check(!data.isEmpty, "export produces JSON")
+
+    // An incoming config (from "another Mac") with a new exclusion + a new + overriding rule.
+    let incoming = KestrelConfig(exclusions: ["/Users/y/also-keep"],
+                                 rules: [MaintenanceRule(name: "new", root: "~/Desktop", criteria: RuleCriteria(olderThanDays: 7)),
+                                         MaintenanceRule(name: "old", root: "~/Downloads", criteria: RuleCriteria(olderThanDays: 90))])
+    let merged = try ConfigTransfer.merge(incoming, into: paths)
+    check(Set(merged.exclusions) == ["/Users/x/keep", "/Users/y/also-keep"], "allowlist is a union — nothing lost")
+    check(merged.rules.count == 2, "rules merged (new added)")
+    check(merged.rules.first { $0.name == "old" }?.criteria.olderThanDays == 90, "same-named rule overridden by incoming")
+
+    // importData round-trips its own export byte-for-byte (idempotent re-import).
+    let reimported = try ConfigTransfer.importData(ConfigTransfer.exportData(paths: paths), into: paths)
+    check(reimported.exclusions == merged.exclusions, "re-import is idempotent")
+}
+
 section("SmartCareScheduler: weekly, non-destructive launchd job")
 withTempDir { home in
     let s = SmartCareScheduler(home: home)

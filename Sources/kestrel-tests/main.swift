@@ -630,6 +630,12 @@ withTempDir { tmp in
     try store.save(DiskSnapshot(date: day4, space: DiskSpace(total: 1000, available: 850), breakdown: ["/x": 50, "/y": 100]))
     let oneDay = try store.changesOverLast(days: 1, now: day4.addingTimeInterval(3600))
     check(oneDay == [SpaceDelta(path: "/y", delta: 10)], "1-day window compares day4 vs day3 (/y +10)")
+
+    // Regrowth: /y grew (50→100) over day1→day4; /x stayed flat. Only growing categories appear.
+    let regrowth = RegrowthAnalyzer(store: store).estimates(now: day4.addingTimeInterval(3600))
+    check(regrowth.contains { $0.category == "/y" && $0.dailyGrowthBytes > 0 }, "regrowth reports /y's daily growth")
+    check(!regrowth.contains { $0.category == "/x" }, "flat category /x isn't listed (no regrowth)")
+    check(regrowth.first?.suggestedDays != nil, "a suggested cadence is derived")
 }
 
 // MARK: - Stats & health

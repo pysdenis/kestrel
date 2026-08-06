@@ -573,6 +573,7 @@ struct SpaceSection: View {
             if let d = model.disk { capacityCard(d) }
             if !controller.hotspots.isEmpty { hotspotsCard }
             if !controller.culprits.isEmpty { culpritsCard }
+            if !controller.regrowth.isEmpty { regrowthCard }
 
             HStack {
                 SectionTitle("Storage map", icon: "square.grid.3x3.fill")
@@ -652,6 +653,29 @@ struct SpaceSection: View {
 
     /// Culprit timeline: what grew (and shrank) the most over the selected window, so a filling
     /// disk gets pinned on a specific folder ("Caches +4 GB this week"), not left a mystery.
+    /// Regrowth ROI: how fast each category grows back + a suggested cleanup cadence.
+    private var regrowthCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle("Regrowth & cadence", icon: "arrow.triangle.2.circlepath")
+                Text(L("How fast each cleaned-up category grows back, from your daily snapshots — so you know how often it's worth clearing.")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                ForEach(Array(controller.regrowth.prefix(6).enumerated()), id: \.offset) { i, r in
+                    if i > 0 { Hairline() }
+                    HStack(spacing: 10) {
+                        Image(systemName: hotspotIcon(r.category)).foregroundStyle(Palette.accent2).frame(width: 22)
+                        Text(L(r.category)).font(.callout.weight(.medium))
+                        Spacer()
+                        Text("+\(bytesString(r.dailyGrowthBytes))/\(L("day"))").font(.caption.monospacedDigit()).foregroundStyle(Palette.warn)
+                        if let days = r.suggestedDays {
+                            Text("· \(L("clean every ~")) \(days) \(L("d"))").font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+
     private var culpritsCard: some View {
         Card {
             VStack(alignment: .leading, spacing: 10) {

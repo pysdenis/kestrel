@@ -550,6 +550,8 @@ import KestrelCore
     /// Culprit timeline: what grew/shrank across the selected window (7 or 30 days).
     @Published var culprits: [SpaceDelta] = []
     @Published var culpritWindowDays = 7 { didSet { loadCulprits() } }
+    /// Regrowth ROI: how fast each tracked category grows back + a suggested cleanup cadence.
+    @Published var regrowth: [RegrowthEstimate] = []
 
     private let paths: KestrelPaths
     init(paths: KestrelPaths) { self.paths = paths }
@@ -571,7 +573,8 @@ import KestrelCore
         let dir = paths.snapshots, days = culpritWindowDays
         Task.detached { [weak self] in
             let list = (try? SnapshotStore(directory: dir).changesOverLast(days: days)) ?? []
-            await MainActor.run { [weak self] in self?.culprits = list }
+            let regrowth = RegrowthAnalyzer(store: SnapshotStore(directory: dir)).estimates()
+            await MainActor.run { [weak self] in self?.culprits = list; self?.regrowth = regrowth }
         }
     }
 

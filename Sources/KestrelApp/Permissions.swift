@@ -113,7 +113,8 @@ import KestrelCore
             let reader = CodeSignatureReader()
             var map: [String: CodeSignature] = [:]
             for (client, url) in pairs { if let url { map[client] = reader.read(url) } }
-            await MainActor.run { self.signaturesByClient = map }
+            let result = map   // capture an immutable copy across the actor hop (Swift 6-safe)
+            await MainActor.run { self.signaturesByClient = result }
         }
     }
 

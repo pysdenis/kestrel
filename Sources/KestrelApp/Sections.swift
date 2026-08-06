@@ -2228,7 +2228,7 @@ struct ToolsSection: View {
                             Button { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)]) } label: {
                                 Image(systemName: "magnifyingglass")
                             }
-                            .buttonStyle(.kestrel(.subtle, size: .small)).help("Reveal in Finder")
+                            .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Reveal in Finder"))
                         }
                         .padding(.vertical, 2)
                     }
@@ -2418,6 +2418,6 @@ struct CopyButton: View {
             Image(systemName: copied ? "checkmark" : "doc.on.doc").font(.caption.weight(.semibold))
         }
         .buttonStyle(.kestrel(.subtle, tint: copied ? Palette.good : Palette.accent, size: .small))
-        .help("Copy command")
+        .help(L("Copy command"))
     }
 }

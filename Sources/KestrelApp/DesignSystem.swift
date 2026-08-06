@@ -469,7 +469,7 @@ struct ScanningBanner: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(L(title)).font(.subheadline.weight(.semibold))
                     if !detail.isEmpty {
-                        Text(detail)
+                        Text(L(detail))   // static details get a Czech pair; dynamic status passes through
                             .font(.caption).foregroundStyle(.secondary).monospacedDigit()
                             .lineLimit(1).truncationMode(.middle)
                             .animation(nil, value: detail)

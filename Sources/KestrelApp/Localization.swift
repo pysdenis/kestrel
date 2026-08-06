@@ -220,6 +220,7 @@ enum Localization {
         ("reclaimable", "uvolnitelných"),
         ("items", "položek"),
         ("Move to Vault", "Přesunout do trezoru"),
+        ("Move", "Přesunout"),
         ("Include in cleanup", "Zahrnout do úklidu"),
         ("AI second opinion", "AI druhý názor"),
         ("AI cleanup plan", "AI plán úklidu"),

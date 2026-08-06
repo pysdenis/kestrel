@@ -1943,25 +1943,31 @@ struct ToolsSection: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(group.name).font(.callout.weight(.semibold))
                             ForEach(Array(group.copies.enumerated()), id: \.offset) { i, copy in
-                                HStack(spacing: 8) {
-                                    Image(systemName: i == 0 ? "checkmark.circle.fill" : "circle").font(.caption2)
-                                        .foregroundStyle(i == 0 ? Palette.good : .tertiary)
-                                    Text("\(copy.location)\(copy.version.map { " · v\($0)" } ?? "")").font(.caption).foregroundStyle(i == 0 ? .primary : .secondary)
-                                    if i == 0 { Text(L("keep")).font(.caption2.weight(.bold)).foregroundStyle(Palette.good) }
-                                    Spacer()
-                                    Text(bytesString(copy.size)).font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
-                                    if i > 0 {
-                                        Button { NSWorkspace.shared.activateFileViewerSelecting([copy.url]) } label: { Image(systemName: "magnifyingglass") }
-                                            .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Reveal in Finder"))
-                                        Button { controller.moveAppCopyToVault(copy, bundleID: group.bundleID) } label: { Image(systemName: "tray.and.arrow.down") }
-                                            .buttonStyle(.kestrel(.secondary, size: .small)).help(L("Move to Vault"))
-                                    }
-                                }
+                                dupeCopyRow(copy, keep: i == 0, group: group)
                             }
                         }
                         .padding(.vertical, 3)
                     }
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func dupeCopyRow(_ copy: AppCopy, keep: Bool, group: DuplicateAppGroup) -> some View {
+        let versionText = copy.version.map { " · v\($0)" } ?? ""
+        HStack(spacing: 8) {
+            Image(systemName: keep ? "checkmark.circle.fill" : "circle").font(.caption2)
+                .foregroundStyle(keep ? AnyShapeStyle(Palette.good) : AnyShapeStyle(.tertiary))
+            Text(copy.location + versionText).font(.caption).foregroundStyle(keep ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+            if keep { Text(L("keep")).font(.caption2.weight(.bold)).foregroundStyle(Palette.good) }
+            Spacer()
+            Text(bytesString(copy.size)).font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
+            if !keep {
+                Button { NSWorkspace.shared.activateFileViewerSelecting([copy.url]) } label: { Image(systemName: "magnifyingglass") }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Reveal in Finder"))
+                Button { controller.moveAppCopyToVault(copy, bundleID: group.bundleID) } label: { Image(systemName: "tray.and.arrow.down") }
+                    .buttonStyle(.kestrel(.secondary, size: .small)).help(L("Move to Vault"))
             }
         }
     }

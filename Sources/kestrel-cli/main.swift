@@ -252,6 +252,11 @@ func usage() {
       kestrel wherefrom <file>                  (where a downloaded file came from)
       kestrel connections                       (established outbound connections per app)
       kestrel ports                             (what's listening on local TCP ports)
+      kestrel gitbloat [path]                    (repos with a heavy .git history → git gc)
+      kestrel duplicate-apps                     (same app in multiple places/versions)
+      kestrel regrowth                           (per-category regrowth rate + cadence)
+      kestrel drivewear                          (SSD wear, if smartmontools is installed)
+      kestrel messages [--apply]                 (Messages attachments)
       kestrel addons                            (Quick Look/prefpanes/Audio Units… inventory)
       kestrel reclaim [path] [--apply]          (git-aware: build junk grouped by dormant repo)
       kestrel tweaks                            (reversible system tweaks + current state)
@@ -858,6 +863,38 @@ do {
         if ports.isEmpty { print("Nothing is listening on a TCP port."); break }
         print("\(ports.count) listening port(s):")
         for p in ports { print("  :\(String(p.port).padding(toLength: 6, withPad: " ", startingAt: 0)) \(p.process) (pid \(p.pid))") }
+
+    case "duplicate-apps", "dupeapps":
+        let groups = DuplicateAppFinder().find(home: paths.home)
+        if groups.isEmpty { print("No duplicate app copies found."); break }
+        print("\(groups.count) app(s) with multiple copies (Kestrel keeps the first, ✓):")
+        for g in groups {
+            print("  \(g.name)  (reclaimable \(fmtBytes(g.reclaimableBytes)))")
+            for (i, c) in g.copies.enumerated() {
+                print("    \(i == 0 ? "✓" : "·") \(c.location)\(c.version.map { " v\($0)" } ?? "")  \(fmtBytes(c.size))  \(c.url.path)")
+            }
+        }
+
+    case "regrowth":
+        let est = RegrowthAnalyzer(store: SnapshotStore(directory: paths.snapshots)).estimates()
+        if est.isEmpty { print("Not enough snapshot history yet — regrowth fills in over a few days."); break }
+        print("Regrowth per category (daily growth · suggested cadence):")
+        for e in est {
+            let cadence = e.suggestedDays.map { "clean ~ every \($0)d" } ?? ""
+            print("  +\(fmtBytes(e.dailyGrowthBytes))/day".padding(toLength: 20, withPad: " ", startingAt: 0) + "\(e.category)  \(cadence)")
+        }
+
+    case "drivewear", "ssd":
+        let w = DriveWear.read()
+        if w.available, let used = w.percentageUsed {
+            print("SSD wear: \(used)% of rated life used." + (w.bytesWritten.map { " Written: \(fmtBytes($0))." } ?? "") + (w.powerOnHours.map { " Power-on: \($0)h." } ?? ""))
+        } else {
+            print(w.note ?? "SSD wear not available.")
+        }
+
+    case "messages":
+        let root = paths.home.appendingPathComponent("Library/Messages/Attachments")
+        try runPlan(ClutterFinder().messagesAttachments(under: root), apply: flag("--apply", in: rest))
 
     case "connections", "conns":
         let conns = ConnectionAuditor().established()

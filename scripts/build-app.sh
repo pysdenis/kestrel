@@ -5,7 +5,7 @@
 # Developer ID signing + notarization for distribution is documented in docs/RELEASE.md.
 set -euo pipefail
 
-VERSION="0.2.0"           # keep in sync with Sources/KestrelCore/Version.swift
+VERSION="0.2.1"           # keep in sync with Sources/KestrelCore/Version.swift
 BUNDLE_ID="com.pysdenis.kestrel"
 CONFIG="${1:-release}"
 

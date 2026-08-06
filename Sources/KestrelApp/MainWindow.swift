@@ -813,6 +813,8 @@ struct ActivitySection: View {
     @State private var digest: Digest?
     @State private var sessions: [VaultSession] = []
     @State private var entries: [AuditEntry] = []
+    @State private var narration: String?
+    @State private var narrating = false
 
     private let columns = [GridItem(.adaptive(minimum: 320), spacing: 14)]
     private var totalVaultBytes: Int64 { sessions.reduce(0) { $0 + $1.totalBytes } }
@@ -826,6 +828,7 @@ struct ActivitySection: View {
                 recommendationsCard
                 vaultCard
             }
+            if model.aiConfigured { narrationCard }
             if !entries.isEmpty { ledgerCard }
         }
         .onAppear {
@@ -893,6 +896,44 @@ struct ActivitySection: View {
                 }
                 Spacer()
             }
+        }
+    }
+
+    /// A plain-language "week in review" from the local-first assistant — narrates what grew and
+    /// what was cleaned, built from the same digest metadata (never file contents).
+    private var narrationCard: some View {
+        Card(tint: Palette.violet) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    SectionTitle("Week in review", icon: "text.quote")
+                    if model.aiIsLocal {
+                        Text(L("on-device")).font(.caption2.weight(.medium))
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Palette.good.opacity(0.15), in: Capsule()).foregroundStyle(Palette.good)
+                    }
+                    Spacer()
+                    Button { generateNarration() } label: {
+                        if narrating { KestrelSpinner(tint: Palette.violet, size: 14) }
+                        else { Label(narration == nil ? L("Narrate") : L("Refresh"), systemImage: "sparkles") }
+                    }
+                    .buttonStyle(.kestrel(.subtle, tint: Palette.violet, size: .small)).disabled(narrating)
+                }
+                if let narration {
+                    MarkdownText(text: narration).font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text(L("A short, honest recap of what changed on your Mac — generated locally, nothing leaves the device.")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private func generateNarration() {
+        guard !narrating, let assistant = model.aiAssistant else { return }
+        narrating = true
+        let facts = digestText()
+        Task {
+            let text = (try? await assistant.narrate(facts)) ?? L("The request failed — try again.")
+            await MainActor.run { narration = text; narrating = false }
         }
     }
 

@@ -148,6 +148,20 @@ public struct AIAssistant {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// A short, plain-language narration of what changed on the Mac over a period — from metadata
+    /// only (sizes, folder names, counts; never file contents). Runs on whatever backend is active,
+    /// so with Ollama/on-device it's a fully offline "week in review". Calm and honest, no alarm.
+    public func narrate(_ facts: String) async throws -> String {
+        let prompt = """
+        Here is recent activity on a Mac (metadata only — sizes, folder names, counts; no file contents):
+        \(facts)
+
+        Narrate it in 2–4 short, plain sentences: what grew, what was cleaned up, and anything genuinely
+        worth noting. Be calm and honest — never invent problems or urgency. If little happened, say so briefly.
+        """
+        return try await client.generate(prompt, system: systemPrompt)
+    }
+
     /// Free-form question answered against a caller-provided metadata context. The context is
     /// framed as optional background so a general question (e.g. "why don't you write in Czech?")
     /// isn't dragged into talking about disk/memory just because those stats were attached.

@@ -866,6 +866,20 @@ struct ChatMessage: Identifiable, Equatable {
     @Published var listeningPorts: [ListeningPort] = []
     @Published var portsLoading = false
 
+    @Published var externalPreviews: [ExternalCleanupPreview] = []
+    @Published var externalLoading = false
+
+    /// Advisory reclaimable-space previews from tools that manage their own store (Docker, Homebrew).
+    /// Read-only preview + a copyable command — Kestrel never runs these prunes itself (outside the vault).
+    func loadExternal() {
+        guard !externalLoading else { return }
+        externalLoading = true
+        Task.detached { [weak self] in
+            let previews = [DockerAdapter().preview(), HomebrewAdapter().preview()].filter { $0.available && $0.reclaimableBytes > 0 }
+            await MainActor.run { [weak self] in self?.externalPreviews = previews; self?.externalLoading = false }
+        }
+    }
+
     /// List processes listening on local TCP ports (read-only).
     func loadPorts() {
         portsLoading = true

@@ -1512,6 +1512,7 @@ struct ToolsSection: View {
             devCachesCard
             dormantProjectsCard
             portsCard
+            externalToolsCard
             privacyCard
             secretsCard
             cloudCard
@@ -1792,6 +1793,42 @@ struct ToolsSection: View {
                                 .buttonStyle(.kestrel(.subtle, size: .small)).help(L("Reveal in Finder"))
                             Button { controller.moveLargeFileToVault(item) } label: { Image(systemName: "tray.and.arrow.down") }
                                 .buttonStyle(.kestrel(.secondary, size: .small)).help(L("Move to Vault"))
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Advisory reclaimable space from tools that own their store (Docker, Homebrew) — Kestrel shows
+    /// the amount + the exact command, but never runs the prune itself (it can't go through the vault).
+    private var externalToolsCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionTitle("Docker & Homebrew", icon: "shippingbox.and.arrow.backward")
+                    Spacer()
+                    Button { controller.loadExternal() } label: {
+                        Label(controller.externalLoading ? L("Checking…") : L("Check now"), systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(.kestrel(.subtle, size: .small)).disabled(controller.externalLoading)
+                }
+                Text(L("Reclaimable space in tools that manage their own storage. Advisory — copy the command to run it yourself; Kestrel won't prune these (they can't go through the vault).")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if controller.externalPreviews.isEmpty && !controller.externalLoading {
+                    Text(L("Check for reclaimable Docker/Homebrew space.")).font(.caption).foregroundStyle(.tertiary)
+                } else {
+                    ForEach(Array(controller.externalPreviews.enumerated()), id: \.offset) { i, p in
+                        if i > 0 { Hairline() }
+                        HStack(spacing: 10) {
+                            Image(systemName: "shippingbox.fill").font(.callout).foregroundStyle(Palette.accent2)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(p.tool).font(.callout.weight(.medium))
+                                if let cmd = p.command { Text(cmd).font(.caption2.monospaced()).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle) }
+                            }
+                            Spacer()
+                            Text(bytesString(p.reclaimableBytes)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            if let cmd = p.command { CopyButton(text: cmd) }
                         }
                         .padding(.vertical, 2)
                     }

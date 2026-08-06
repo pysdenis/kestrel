@@ -1117,6 +1117,17 @@ withTempDir { tmp in
     let mAtt = ClutterFinder().messagesAttachments(under: msgs).items
     check(mAtt.map { $0.entry.url.lastPathComponent } == ["video.mov"], "finds the Messages attachment")
     check(mAtt.allSatisfy { $0.category == .largeOld }, "Messages attachments are review-only")
+
+    let reports = makeDir(tmp.appendingPathComponent("DiagnosticReports"))
+    makeFile(reports.appendingPathComponent("App-2026.ips"), "crash")
+    let diag = ClutterFinder().diagnosticReports(under: reports).items
+    check(diag.count == 1 && diag.first?.category == .logs, "diagnostic report found as a log (safe)")
+
+    let archives = makeDir(tmp.appendingPathComponent("Archives/2026-01-01"))
+    try? fm.createDirectory(at: archives.appendingPathComponent("MyApp.xcarchive"), withIntermediateDirectories: true)
+    makeFile(archives.appendingPathComponent("MyApp.xcarchive/Info.plist"), "x")
+    let arch = ClutterFinder().xcodeArchives(under: tmp.appendingPathComponent("Archives")).items
+    check(arch.count == 1 && arch.first?.category == .largeOld, "xcode archive found, review-only (not regeneratable)")
 }
 
 // MARK: - Similar images (perceptual hash)

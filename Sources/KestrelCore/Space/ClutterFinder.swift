@@ -56,6 +56,37 @@ public struct ClutterFinder {
         return CleanupPlan(items: items)
     }
 
+    /// Crash/diagnostic reports under `~/Library/Logs/DiagnosticReports` — regeneratable logs macOS
+    /// re-creates as needed, so clearing them frees space safely. Vault-backed.
+    public func diagnosticReports(under root: URL) -> CleanupPlan {
+        let files = (try? Scanner().scanFiles(under: root, pruning: [], includingHidden: false)) ?? []
+        let items = files.compactMap { entry -> CleanupItem? in
+            guard !entry.isDirectory, !SafetyGuard.isProtected(entry.url) else { return nil }
+            return CleanupItem(entry: entry, category: .logs, reason: "Crash/diagnostic report")
+        }
+        return CleanupPlan(items: items)
+    }
+
+    /// Old Xcode archives (`.xcarchive`) under `~/Library/Developer/Xcode/Archives`. These are your
+    /// built app archives — NOT regeneratable — so this is review-only (`.largeOld`), nothing auto.
+    public func xcodeArchives(under root: URL) -> CleanupPlan {
+        guard let groups = try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else {
+            return CleanupPlan(items: [])
+        }
+        var items: [CleanupItem] = []
+        for dayFolder in groups {
+            guard let archives = try? FileManager.default.contentsOfDirectory(at: dayFolder, includingPropertiesForKeys: nil) else { continue }
+            for archive in archives where archive.pathExtension == "xcarchive" && !SafetyGuard.isProtected(archive) {
+                let size = FileSizer.size(of: archive)
+                let mod = (try? archive.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? now
+                let days = Int(now.timeIntervalSince(mod) / 86400)
+                items.append(CleanupItem(entry: FileEntry(url: archive, size: size, modified: mod, isDirectory: true),
+                                         category: .largeOld, reason: "Xcode archive, \(days) days old"))
+            }
+        }
+        return CleanupPlan(items: items.sorted { $0.entry.size > $1.entry.size })
+    }
+
     /// The `limit` largest individual files under `root` that are at least `minBytes` — a fast way
     /// to find single space hogs without drilling the treemap. Review-only (category `.largeOld`),
     /// vault-backed, and every candidate is checked against `SafetyGuard`, so a big file is only

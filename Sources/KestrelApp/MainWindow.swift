@@ -749,9 +749,21 @@ struct SpaceSection: View {
                     legendDot(.primary.opacity(0.2), L("Free"), bytesString(d.available))
                     if d.purgeable > 0 { legendDot(Palette.warn, L("Purgeable"), bytesString(d.purgeable)) }
                     Spacer()
+                    driveWearPill()
                     driveHealthPill()
                 }
             }
+        }
+    }
+
+    /// SSD wear from smartctl — shown only when it actually reports NVMe data (no noise, no invented
+    /// numbers when smartmontools isn't installed).
+    @ViewBuilder private func driveWearPill() -> some View {
+        if let w = controller.driveWear, w.available, let used = w.percentageUsed {
+            Label("\(L("SSD wear")): \(used)%", systemImage: "gauge.with.dots.needle.33percent")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(used >= 80 ? Palette.warn : .secondary)
+                .help(w.bytesWritten.map { "\(bytesString($0)) \(L("written"))" } ?? "")
         }
     }
 

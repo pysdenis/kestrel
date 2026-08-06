@@ -88,6 +88,8 @@ enum Localization {
         ("Get insight", "Získat postřeh"),
         ("Storage forecast", "Předpověď místa"),
         ("What grew", "Co narostlo"),
+        ("SSD wear", "Opotřebení SSD"),
+        ("written", "zapsáno"),
         ("Regrowth & cadence", "Návrat & frekvence"),
         ("How fast each cleaned-up category grows back, from your daily snapshots — so you know how often it's worth clearing.", "Jak rychle se každá vyčištěná kategorie vrací, z tvých denních snímků — abys věděl, jak často má smysl uklízet."),
         ("clean every ~", "uklízet ~ každých"),

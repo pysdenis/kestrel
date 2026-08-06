@@ -544,6 +544,7 @@ import KestrelCore
     @Published var scanStatus = ""
     @Published var message: String?
     @Published var driveHealth: DriveHealth?
+    @Published var driveWear: DriveWear?
     /// Latest measured sizes of the hog folders, and how much each grew since the last snapshot.
     @Published var hotspots: [String: Int64] = [:]
     @Published var growth: [String: Int64] = [:]
@@ -583,7 +584,8 @@ import KestrelCore
         guard driveHealth == nil else { return }
         Task.detached { [weak self] in
             let health = DriveHealth.read()
-            await MainActor.run { [weak self] in self?.driveHealth = health }
+            let wear = DriveWear.read()
+            await MainActor.run { [weak self] in self?.driveHealth = health; self?.driveWear = wear }
         }
     }
 

@@ -1495,6 +1495,15 @@ check(OllamaClient.stripReasoning("<think>\nlet me reason\n</think>\n\nThe answe
 check(OllamaClient.stripReasoning("No reasoning here.") == "No reasoning here.", "leaves normal content untouched")
 check(OllamaClient.stripReasoning("<think>unterminated reasoning") == "", "drops an unterminated <think> block")
 
+section("DriveWear.parse: reads NVMe wear from smartctl JSON, honest when absent")
+do {
+    let json = Data(#"{"nvme_smart_health_information_log":{"percentage_used":7,"data_units_written":123456,"power_on_hours":1500}}"#.utf8)
+    let w = DriveWear.parse(json)
+    check(w.available && w.percentageUsed == 7 && w.powerOnHours == 1500, "parses percentage_used + power_on_hours")
+    check(w.bytesWritten == 123456 * 512_000, "data_units_written converted (×512000 bytes)")
+    check(!DriveWear.parse(Data("{}".utf8)).available, "no NVMe log → not available (no invented number)")
+}
+
 section("DuplicateAppFinder: version compare + keep-ranking")
 do {
     check(DuplicateAppFinder.compareVersions("2.1.0", "2.0.9") == 1, "2.1.0 > 2.0.9")

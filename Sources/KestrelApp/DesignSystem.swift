@@ -332,7 +332,7 @@ struct LabeledBar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
-                Text(label).font(.subheadline).lineLimit(1).truncationMode(.middle)
+                Text(L(label)).font(.subheadline).lineLimit(1).truncationMode(.middle)
                 Spacer()
                 Text(value).font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
             }

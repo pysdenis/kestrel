@@ -266,7 +266,7 @@ struct MemoryDetailView: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(Int(m.usedFraction * 100))%").font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
-                        Text("\(bytesString(m.used)) used of \(bytesString(m.total))").font(.caption).foregroundStyle(.secondary)
+                        Text("\(bytesString(m.used)) \(L("used of")) \(bytesString(m.total))").font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
@@ -300,13 +300,13 @@ struct BatteryDetailView: View {
                         }
                     }
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(b.isCharging ? "Charging" : "Discharging").font(.headline)
+                        Text(b.isCharging ? L("Charging") : L("Discharging")).font(.headline)
                         if let m = model.batteryTimeMinutes {
-                            Text(b.isCharging ? "About \(minutesString(m)) until full" : "About \(minutesString(m)) until empty")
+                            Text(b.isCharging ? "\(L("About")) \(minutesString(m)) \(L("until full"))" : "\(L("About")) \(minutesString(m)) \(L("until empty"))")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         Text("\(b.cycleCount ?? 0) / 1000").font(.title3.weight(.semibold)).monospacedDigit().padding(.top, 4)
-                        Text("charge cycles").font(.caption).foregroundStyle(.secondary)
+                        Text(L("charge cycles")).font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
@@ -323,8 +323,8 @@ struct BatteryDetailView: View {
     private func infoCard(icon: String, tint: Color, title: String, value: String, note: String) -> some View {
         Card(padding: 12) {
             VStack(alignment: .leading, spacing: 6) {
-                HStack { Image(systemName: icon).foregroundStyle(tint); Text(title).font(.subheadline.weight(.medium)); Spacer(); Text(value).font(.subheadline.weight(.semibold)) }
-                Text(note).font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                HStack { Image(systemName: icon).foregroundStyle(tint); Text(L(title)).font(.subheadline.weight(.medium)); Spacer(); Text(value).font(.subheadline.weight(.semibold)) }
+                Text(L(note)).font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -340,7 +340,7 @@ struct CPUDetailView: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(Int(c.usagePercent.rounded()))%").font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
-                        Text("used · load \(String(format: "%.2f", c.loadAverages.first ?? 0)) · \(c.coreCount) cores").font(.caption).foregroundStyle(.secondary)
+                        Text("\(L("used · load")) \(String(format: "%.2f", c.loadAverages.first ?? 0)) · \(c.coreCount) \(L("cores"))").font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
@@ -414,7 +414,7 @@ struct NetworkDetailView: View {
     private func trafficCard(title: String, total: Int64, rate: Double) -> some View {
         Card(padding: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.subheadline.weight(.medium))
+                Text(L(title)).font(.subheadline.weight(.medium))
                 Text(bytesString(total)).font(.title3.weight(.semibold)).monospacedDigit()
                 Text(ByteCountFormatter.string(fromByteCount: Int64(rate), countStyle: .file) + "/s").font(.caption2).foregroundStyle(.secondary)
             }
@@ -438,7 +438,7 @@ struct StorageDetailView: View {
                             .rotationEffect(.degrees(-90))
                         VStack(spacing: 0) {
                             Text(bytesString(d.available)).font(.system(size: 20, weight: .bold, design: .rounded))
-                            Text("available").font(.caption2).foregroundStyle(.secondary)
+                            Text(L("available")).font(.caption2).foregroundStyle(.secondary)
                         }
                     }
                     .frame(width: 130, height: 130)
@@ -468,7 +468,7 @@ struct StorageDetailView: View {
     private func legend(color: Color, label: String, value: String) -> some View {
         HStack(spacing: 8) {
             Circle().fill(color).frame(width: 9, height: 9)
-            Text(label).font(.caption).foregroundStyle(.secondary)
+            Text(L(label)).font(.caption).foregroundStyle(.secondary)
             Spacer()
             Text(value).font(.caption.monospacedDigit().weight(.medium))
         }

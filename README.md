@@ -158,8 +158,23 @@ Kestrel se šíří přes **GitHub Releases** s **in-app auto-updatem** — Appl
 ```bash
 bash scripts/release-oss.sh --publish   # nepodepsaný .dmg+.zip + GitHub Release
 ```
-Nepodepsané balíčky Gatekeeper po stažení karanténuje → otevři pravým klikem → *Otevřít*
-(nebo `xattr -dr com.apple.quarantine Kestrel.app`). Build ze zdroje Gatekeeper obchází úplně.
+### Otevření nepodepsaného buildu
+
+Balíčky jsou **ad-hoc podepsané** (na Apple Siliconu je jakýkoli podpis povinný), ale bez
+Developer ID a notarizace. Po stažení jim macOS nasadí `com.apple.quarantine` a Gatekeeper
+spuštění zablokuje. Nejrychlejší cesta:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Kestrel.app
+```
+
+> ⚠️ **Pravý klik → *Otevřít* už nefunguje.** Apple tuhle zkratku odstranil v macOS 15
+> (Sequoia); na macOS 15 a novějším ji nahradilo **System Settings → Privacy & Security →
+> *Open Anyway***, které se objeví až *po* prvním zablokovaném pokusu o spuštění.
+
+`spctl -a` bude i po odstranění karantény hlásit `rejected` — to je čekané, hodnotí notarizaci.
+Bez quarantine atributu se ale Gatekeeper při spuštění neptá. Build ze zdroje
+(`./scripts/build-app.sh`) karanténu nedostane vůbec, takže ho tohle netrápí.
 
 In-app updater čte `releases/latest` (read-only GET, žádná data ven) a nabídne stažení.
 Developer ID podpis + notarizace (`scripts/release.sh`) zůstává připravený pro budoucí App-Store-mimo distribuci.

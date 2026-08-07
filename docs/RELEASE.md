@@ -48,8 +48,11 @@ Developer ID (`codesign --options runtime --timestamp`) a notarizuj jako samosta
 
 ## 6. Zdarma: GitHub Release + in-app auto-update — ✅ hotovo
 Pro osobní/OSS testovací distribuci **bez Apple účtu**. Artefakty jsou nepodepsané, takže
-po *stažení* je macOS uvrhne do karantény — kamarád otevře pravým klikem → Otevřít
-(nebo `xattr -dr com.apple.quarantine Kestrel.app`). Build ze zdroje Gatekeeper obchází úplně.
+po *stažení* je macOS uvrhne do karantény. Odstranění: `xattr -dr com.apple.quarantine
+/Applications/Kestrel.app`, nebo v GUI System Settings → Privacy & Security → *Open Anyway*
+(objeví se až po prvním zablokovaném spuštění). **Pravý klik → Otevřít od macOS 15 nefunguje** —
+Apple tuhle zkratku zrušil, takže ji v návodech pro uživatele neuváděj.
+Build ze zdroje Gatekeeper obchází úplně.
 
 **Vydání jednoho buildu:**
 ```bash

@@ -2,8 +2,10 @@
 # Free OSS release: build the app, package an (unsigned) .dmg + .zip, and — only with
 # --publish — cut a versioned GitHub Release the in-app updater can find.
 #
-# No Apple Developer account needed. The artifacts are unsigned, so on *download* macOS
-# quarantines them; friends open via right-click → Open (or `xattr -dr com.apple.quarantine`).
+# No Apple Developer account needed. The artifacts are ad-hoc signed but not notarized, so on
+# *download* macOS quarantines them. Removing that is `xattr -dr com.apple.quarantine <app>`, or
+# System Settings > Privacy & Security > Open Anyway. Right-click > Open no longer works: Apple
+# dropped that bypass in macOS 15, so don't put it in user-facing instructions.
 # Building from source instead (./scripts/build-app.sh) avoids Gatekeeper entirely.
 #
 #   bash scripts/release-oss.sh              # build artifacts, print the publish command
